@@ -1,14 +1,6 @@
 ## 项目简介
 
-这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。  
-
-<p align="center">
-  <img src="./badges/downloads.svg" height="32">
-  <img src="./badges/stars.svg" height="32">
-  <img src="./badges/status.svg" height="32">
-  <img src="./badges/version.svg" height="32">
-  <img src="./badges/license.svg" height="32">
-</p>
+这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
 
 项目包含了**完整的教程**，包括：
 
