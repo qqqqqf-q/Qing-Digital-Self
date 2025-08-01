@@ -1,7 +1,13 @@
 ## 项目简介
 
 这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
-
+<p align="center">
+  <img src="https://cdn.nodeimage.com/i/BTlRBmAcnwN2ZLyItDCfIRJKYmxYDEpc.png" height="36" alt="Downloads">
+  <img src="https://cdn.nodeimage.com/i/nHNuyUdkph6NfGBmnUQeEk8gPVHKLXg0.png" height="36" alt="Stars">
+  <img src="https://cdn.nodeimage.com/i/Sd89d1w0xIhSPyPyiVYEfNRTiom8TH1S.png" height="36" alt="Status: MVP">
+  <img src="https://cdn.nodeimage.com/i/u0r9K3XXnxU6hDIOMY4fkZ7cnVL28EGF.png" height="36" alt="Version: v0.1">
+  <img src="https://cdn.nodeimage.com/i/CfA8AQa2bVTF2mhOY3m2Kz8nhlwXUN6S.png" height="36" alt="License: Apache-2.0">
+</p>
 项目包含了**完整的教程**，包括：
 
 * QQ 数据库的解密与处理
