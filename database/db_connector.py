@@ -1,13 +1,17 @@
 import sqlite3
 import os
 from typing import Optional
-
+from config.config import get_config
+from logger.logger import get_logger
+# 获取配置实例
+config = get_config()
+logger = get_logger('Database')
 class DatabaseConnector:
     # 连接sqlite数据库
     def __init__(self, db_path: str):
         self.db_path = db_path
         self.conn: Optional[sqlite3.Connection] = None
-        # print(f"初始化连接器: {db_path}")  # 调试用，先注释掉
+
     
     def connect(self) -> sqlite3.Connection:
         # 检查文件是否存在
@@ -21,7 +25,7 @@ class DatabaseConnector:
             cursor = self.conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
             
-            print(f"connected to db: {self.db_path}")
+            logger.info(f"成功连接到数据库: {self.db_path}")
             return self.conn
             
         except sqlite3.Error as e:
@@ -71,7 +75,7 @@ class DatabaseConnector:
         if self.conn:
             self.conn.close()
             self.conn = None
-            print("db connection closed")
+            logger.info("数据库连接关闭")
     
     def __enter__(self):
         self.connect()

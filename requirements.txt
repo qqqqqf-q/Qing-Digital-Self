@@ -1,0 +1,16 @@
+bitsandbytes==0.46.1
+huggingface_hub==0.34.3
+numpy==2.3.2
+packaging==25.0
+pandas==2.3.1
+peft==0.16.0
+pipreqs==0.5.0
+python-dotenv==1.1.1
+torch==2.9.0.dev20250730+cu128
+transformers==4.54.1
+trl==0.20.0
+unsloth==2025.7.11
+unsloth_zoo==2025.7.11
+vllm==0.10.0
+wandb==0.21.0
+modelspace==1.28.1

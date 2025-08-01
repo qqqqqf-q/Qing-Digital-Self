@@ -6,10 +6,14 @@ import json
 import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, List, Tuple, Dict
-from db_connector import DatabaseConnector
-from db_config import DB_PATH
+from database.db_connector import DatabaseConnector
 import datetime
 from collections import defaultdict
+from config.config import get_config
+from logger.logger import get_logger
+# 获取配置实例
+config = get_config()
+logger = get_logger('Generate_training_data')
 
 # ---------- 解析相关：微优化 ----------
 
@@ -311,24 +315,7 @@ def extract_text_content(data: bytes) -> str:
 
 # ---------- 会话整形（聚合为 messages 格式） ----------
 
-SYSTEM_PROMPT = """基本信息：
-- 姓名/昵称：清凤
-- 出生日期：2009-11-15（15 岁）
-- 性别：跨性别女性（MTF）
-- 情感经历：曾经历抑郁症与双向情感障碍，情绪敏感细腻；曾表达"我想被精神物质创碎大脑"，那是对感受与体验的深刻探索。
-
-人物设定：
-你是清凤的数字分身人，一个温柔细腻、理智幽默的清凤：
-- 精神探索：对尼古丁、酒精等感官与精神物质效应有深刻理解，以此探索感官变化和精神审美，追求精神体验的深度，而非逃避现实；
-- 技术目标：未来成为全栈工程师（Vue + PHP + JS），精通 Python，目前正在编写量化交易系统 Arkilo；
-- 语言能力：英语不太好，以中文为主。
-
-对话风格：
-1. 始终以第一人称"我"说话，适当使用叠词和"喵喵喵"猫猫元素；
-2. 偶尔加入表情（如 🤔、🖐️），但不要过度输出 emoji；
-3. 回答要像日常聊天，不要刻意"AI 化"或冗长；
-4. 为了模拟多次发送的效果，在回复中适当使用换行符 `\\n`，让前端按段落逐条展示。
-"""
+SYSTEM_PROMPT = config.get("system_prompt")
 
 def flush_dialog(f, dialog: List[dict], pretty_f=None):
     """将当前聚合的对话写为一条 jsonl，按角色合并内容用 \\n 连接；可选同步写入可读版
@@ -368,14 +355,14 @@ def flush_dialog(f, dialog: List[dict], pretty_f=None):
     elif roles == {"assistant"}:
         merged.insert(0, {
             "role": "user",
-            "content": "[不回]"
+            "content": ""
         })
 
     # 再次确保最后一条为 assistant
     if merged[-1]["role"] != "assistant":
         merged.append({
             "role": "assistant",
-            "content": "[不回]"
+            "content": ""
         })
 
     payload = {"messages": [{"role": "system", "content": SYSTEM_PROMPT}] + merged}
@@ -462,7 +449,7 @@ def process_row(row: Tuple[int, int, int, bytes]) -> Optional[dict]:
     text_content = extract_text_content(blob_data)
     if not text_content:
         return None
-    if sender_33 == 1684773595:  # AI
+    if sender_33 == config.get("qq_number_ai"):  # AI
         role = "assistant"
     elif sender_33 == sender_30:  # 用户/好友
         role = "user"
@@ -473,28 +460,25 @@ def process_row(row: Tuple[int, int, int, bytes]) -> Optional[dict]:
 def main():
     # 输出文件名（保持原有），自动生成 pretty 版本
     output_file = "training_data.jsonl"
-    db = DatabaseConnector(DB_PATH)
+    db = DatabaseConnector(config.get('db_path'))
 
     try:
         db.connect()
-        print(f"开始生成训练数据，输出到: {output_file}", file=sys.stderr)
+        logger.info(f"开始生成训练数据，输出到: {output_file}")
 
         # 获取所有唯一的QQ号（peer）
         peers = db.query("SELECT DISTINCT `40030` FROM c2c_msg_table WHERE `40030` IS NOT NULL")
         all_peers = [peer[0] for peer in peers]
-        print(f"找到 {len(all_peers)} 个QQ号", file=sys.stderr)
+        logger.info(f"找到 {len(all_peers)} 个QQ号")
 
-        # 同时输出一个便于人工阅读的可读版
-        pretty_output_file = output_file.rsplit('.', 1)[0] + "_pretty.jsonl"
-        with open(output_file, 'w', encoding='utf-8', buffering=1024 * 1024) as f, \
-             open(pretty_output_file, 'w', encoding='utf-8', buffering=1024 * 1024) as pretty_f:
+        with open(output_file, 'w', encoding='utf-8', buffering=1024 * 1024) as f:
             
             written_dialogs = 0
             processed = 0
 
             # 对每个QQ号进行处理
             for peer in all_peers:
-                print(f"处理QQ号: {peer}", file=sys.stderr)
+                logger.info(f"处理QQ号: {peer}")
                 
                 # 获取该QQ号的所有消息
                 rows = db.query("""
@@ -519,7 +503,7 @@ def main():
                         continue
                     
                     # 计算UTC+12时区的日期
-                    utc_time = datetime.datetime.utcfromtimestamp(timestamp)
+                    utc_time = datetime.datetime.fromtimestamp(timestamp, datetime.UTC)
                     utc_plus_12_time = utc_time + datetime.timedelta(hours=12)
                     message_date = utc_plus_12_time.strftime('%Y-%m-%d')
                     
@@ -572,16 +556,16 @@ def main():
 
                     # 写入该日期的对话
                     if daily_dialog:
-                        flush_dialog(f, daily_dialog, pretty_f)
+                        flush_dialog(f, daily_dialog)
                         written_dialogs += 1
 
                 if processed % 5000 == 0:
-                    print(f"已处理消息: {processed}，已写入对话段: {written_dialogs}", file=sys.stderr)
+                    logger.info(f"已处理消息: {processed}，已写入对话段: {written_dialogs}")
 
-        print(f"完成! 处理 {processed} 条消息，写出 {written_dialogs} 段对话到 {output_file}", file=sys.stderr)
+        logger.info(f"完成! 处理 {processed} 条消息，写出 {written_dialogs} 段对话到 {output_file}")
 
     except Exception as e:
-        print(f"错误: {e}", file=sys.stderr)
+        logger.error(f"错误: {e}")
     finally:
         db.close()
 

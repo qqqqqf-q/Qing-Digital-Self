@@ -186,3 +186,5 @@ unsloth_compiled_cache
 *.jsonl
 *.tar
 *.zip
+*.db
+get_reqs.py

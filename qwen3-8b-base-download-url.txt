@@ -1,0 +1,14 @@
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/.gitattributes
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/config.json
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/generation_config.json
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/merges.txt
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model.safetensors.index.json
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model-00001-of-00005.safetensors
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model-00002-of-00005.safetensors
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model-00003-of-00005.safetensors
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model-00004-of-00005.safetensors
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/model-00005-of-00005.safetensors
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/README.md
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/tokenizer.json
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/tokenizer_config.json
+https://modelscope.cn/models/Qwen/Qwen3-8B-Base/resolve/master/vocab.json
