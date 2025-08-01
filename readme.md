@@ -40,9 +40,9 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 
 ## 1. 获取 QQ 聊天数据
 
-教程请参考：[NTQQ Windows 数据解密](https://qq.sbcnm.top/decrypt/NTQQ%20%28Windows%29.html)
-补充资料：[数据库解码参考](https://qq.sbcnm.top/decrypt/decode_db.html)
-上面这两个是同一个教程,耐心看完就好,不复杂(如果不会可以翻到最底下找我哦)
+* 教程请参考：[NTQQ Windows 数据解密](https://qq.sbcnm.top/decrypt/NTQQ%20%28Windows%29.html)
+* 补充资料：[数据库解码参考](https://qq.sbcnm.top/decrypt/decode_db.html)
+* 上面这两个是同一个教程,耐心看完就好,不复杂(如果不会可以翻到最底下找我哦)
 * 使用 DB Browser for SQLite，密码填写你获取到的 16 位密钥
 * HMAC 算法一般为SHA1，也有人是SHA512和256,自行测试,算法错误了会打不开数据库（所以需要测试到打开为之,也可以用 AI 帮你适配）
 * 在 DB Browser 里**导出 `c2c_msg_table` 的 SQL**
@@ -77,7 +77,7 @@ pip install -r requirements.txt
 
 ---
 ## 2.5 .准备模型(可跳过)
->我似乎是写了自动从modelspace下载模型的
+>我似乎是写了自动从modelspace下载模型的<br>
 >但如果你想下得更快的话可以跟着这个教程走(支持断点续传+10线程)
 * 安装aria2c(一个下载器)
  ```bash
@@ -93,7 +93,7 @@ sudo apt install aria2
 ---
 ## 3. 微调模型
 
-> Windows 上 Unsloth 兼容性不好，Linux 上代码有 bug，所以用 `no_unsloth` 版本。
+> Windows 上 Unsloth 兼容性不好，Linux 上代码有 bug，所以用 `no_unsloth` 版本。<br>
 > ~~其实是unsloth版本没写完~~
 
 >参数在测试时其实可以不填,都是有默认值的
@@ -239,8 +239,9 @@ python3 ./examples/convert-hf-to-gguf.py \
 
 ---
 
-> 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
->
-> *QQ:1684773595
-> *Email:qingf622@outlook.com
-> *X:@qqqqqf5
+### 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
+
+ * QQ:1684773595
+ * Email:qingf622@outlook.com
+ * X:@qqqqqf5
+---

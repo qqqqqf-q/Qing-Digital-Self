@@ -188,3 +188,5 @@ unsloth_compiled_cache
 *.zip
 *.db
 get_reqs.py
+.roo
+.vscode
