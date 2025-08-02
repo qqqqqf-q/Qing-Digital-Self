@@ -9,7 +9,7 @@ import math
 import os
 import platform
 import sys
-from modelspace import snapshot_download
+from modelscope import snapshot_download
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
