@@ -4,5 +4,5 @@ numpy==2.1.2
 packaging==25.0
 peft==0.17.0
 python-dotenv==1.1.1
-torch==2.9.0.dev20250730+cu128
+torch==2.7.1
 transformers==4.54.1

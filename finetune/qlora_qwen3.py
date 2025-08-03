@@ -27,7 +27,7 @@ from typing import Any, Dict, List, Optional, Union
 # 移除可能存在的 TORCH_LOGS 环境变量
 os.environ.pop("TORCH_LOGS", None)
 
-# 设置默认环境变量 - 可能在导入 torch 之前被覆盖
+# 设置默认环境变量 - 必须在导入 torch 之前设置
 # 禁用各种可能导致兼容性问题的优化
 os.environ.update({
     "TORCHDYNAMO_DISABLE": "1",
@@ -35,12 +35,19 @@ os.environ.update({
     "TRITON_DISABLE": "1",
     "TORCH_USE_TRITON": "0",
     "PYTORCH_DISABLE_TRITON": "1",
+    "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
+    "CUDA_LAUNCH_BLOCKING": "0",
     "TF_ENABLE_ONEDNN_OPTS": "0",  # 禁用TensorFlow oneDNN自定义操作以减少警告
     "TF_CPP_MIN_LOG_LEVEL": "2",   # 减少TensorFlow警告信息
     "OMP_NUM_THREADS": str(os.cpu_count()),  # 设置OpenMP线程数
     "MKL_NUM_THREADS": str(os.cpu_count()),  # 设置MKL线程数
     "NUMEXPR_NUM_THREADS": str(os.cpu_count()),  # 设置NumExpr线程数
 })
+
+# 清理可能存在的triton相关环境变量
+for key in list(os.environ.keys()):
+    if 'triton' in key.lower():
+        os.environ.pop(key, None)
 
 import torch
 from torch.utils.data import Dataset
