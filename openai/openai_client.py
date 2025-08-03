@@ -181,8 +181,8 @@ class LLMDataCleaner:
             response = self.client.chat_completion(
                 messages=messages,
                 model=self.model,
-                temperature=0.1,
-                max_tokens=19200
+                temperature=self.config.get('OpenAI_temperature', 0.1),
+                max_tokens=self.config.get('OpenAI_max_tokens', 19200)
             )
             
             # 验证响应结构
@@ -297,40 +297,48 @@ class LLMDataCleaner:
         if not conversation_text.strip():
             return []
         
-        system_prompt = f"""你是一个专业的数据清洗专家，需要对一整天的对话记录进行过滤和整理。请严格按照以下步骤执行：
+        system_prompt_wash = f"""你是一个专业的数据清洗专家，需要对一整天的对话记录进行过滤和整理。请严格按照以下步骤执行：
 
-请按照以下要求：
+请严格遵循以下要求：
 1. 删除规则  
    a. **系统提示**：所有以系统或平台自动生成的提示性文字（如"开始通话""加载中""自动补齐"等）  
    b. **垃圾消息**：无意义字符、乱码、广告或重复发送的同一内容  
    c. **格式错误**：残缺不全的 JSON、乱码截断的文字  
    d. **语音/通话记录**：如"语音通话 00:30"之类的通话时长记录  
    e. **社交水印**：包含"情侣空间"、"神仙眷侣"、"知己浪花"、"累计互发消息超过"、"小水花开心极了"、"摸摸头"、"获得"、"互动标识"等表达社交关系或互动量的句子  
-   f. **图片/媒体消息**：包含URL链接、文件路径、图片标签等明显非对话内容
+   f. **图片/媒体消息**：包含URL链接、文件路径、图片标签等明显非对话内容  
+   g. **高熵无序字符串**：如随机字符序列、编码数据等无意义内容  
+   h.**乱码内容**: 存在大量乱码内容,需要删除
+   i. 无意义胡言乱语（如“我哭了哈哈哈哈啊啊啊”）,还有多轮中重复自己输出的内容
 2. 保留规则  
-   - 完全保留所有有意义的用户和 AI 间的对话，无论长短；  
-   - 原文不改动，保留所有 Emoji 及`[图片]`等占位；  
+   - 完全保留所有有意义的、合理的User和 Assistant 间的对话，无论长短，包括语气助词；  
+   - 完全正常的、日常生活中的、普通的user和assistant的对话
+   - 原文不改动，保留所有 Emoji 及`[图片]`和`[表情包]`等占位；  
    - 严格保持原始对话顺序。
-3. 返回需要保留的消息索引列表
-4.保留所有的emoji,或者以中括号[]包裹的表情包和内容,保留"[图片]"
+3. 返回需要删除的消息索引列表
+4.保留所有的emoji,或者以中括号[]包裹的表情包和内容,保留"[图片]"等占位
+5.保留'[图片]'和'[表情包]'等占位(重要!)
+6.保留图片和表情包
+返回需要删除的消息索引列表,JSON格式
+返回需要删除的消息索引列表,JSON格式
 请回复一个JSON格式:
 {{
-    "retained_indices": [0, 1, 3, 5, ...],
+    "removed_indices": [2, 4, 6, 8,10],
     "removed_count": 5,
-    "reason": "删除了系统提示和垃圾消息"
+    "reason": "删除了系统提示和垃圾消息还有乱码内容"
 }}"""
 
         messages_llm = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{date}的对话记录如下：{conversation_text}请严格遵循system_prompt,分析输入数据,并返回需要保留的消息索引/no_think"}
+            {"role": "system", "content": system_prompt_wash},
+            {"role": "user", "content": f"{date}的对话记录如下：{conversation_text}请仔细查看并严格遵循system_prompt,细入分析输入数据,并返回需要删除的消息索引JSON /ultra_think"}
         ]
         
         try:
             response = self.client.chat_completion(
                 messages=messages_llm,
                 model=self.model,
-                temperature=0.15,
-                max_tokens=19200
+                temperature=self.config.get('OpenAI_temperature', 0.15),
+                max_tokens=self.config.get('OpenAI_max_tokens', 19200)
             )
             
             # 验证响应结构
@@ -360,30 +368,42 @@ class LLMDataCleaner:
                 content = content[:start] + content[end:]
                 content = content.strip()
             
+            # 移除markdown代码块标记（如果存在）
+            if content.startswith("```json"):
+                content = content[7:]  # 移除 "```json"
+                if content.endswith("```"):
+                    content = content[:-3]  # 移除 "```"
+                content = content.strip()
+            elif content.startswith("```"):
+                content = content[3:]  # 移除 "```"
+                if content.endswith("```"):
+                    content = content[:-3]  # 移除 "```"
+                content = content.strip()
+            
             # 尝试解析JSON格式的响应
             try:
                 result = json.loads(content)
                 
                 # 验证必要字段
-                if "retained_indices" not in result:
-                    logger.error("LLM响应缺少retained_indices字段")
+                if "removed_indices" not in result:
+                    logger.error("LLM响应缺少removed_indices字段")
                     return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                            for msg in messages]
                 
-                retained_indices = result.get("retained_indices", [])
+                removed_indices = set(result.get("removed_indices", []))
                 
-                # 根据索引返回保留的消息
+                # 根据删除索引返回保留的消息（不在删除索引中的消息）
                 cleaned_messages = []
-                for idx in retained_indices:
-                    if 0 <= idx < len(messages):
-                        original_msg = messages[idx]
+                for idx, original_msg in enumerate(messages):
+                    if idx not in removed_indices:
                         cleaned_messages.append({
                             "role": original_msg.get("role"),
                             "content": original_msg.get("content"),
                             "timestamp": original_msg.get("timestamp")
                         })
                 
-                logger.info(f"LLM清洗完成: 原始{len(messages)}条 -> 保留{len(cleaned_messages)}条")
+                removed_count = len(removed_indices)
+                logger.info(f"LLM清洗完成: 原始{len(messages)}条 -> 删除{removed_count}条 -> 保留{len(cleaned_messages)}条")
                 return cleaned_messages
                 
             except json.JSONDecodeError as e:

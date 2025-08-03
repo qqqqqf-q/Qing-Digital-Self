@@ -54,7 +54,8 @@ def test_daily_cleaning():
         {"role": "user", "content": "你们互发消息，小水花开心极了", "timestamp": 1704067520},
         {"role": "user", "content": "晚上吃什么？", "timestamp": 1704070800},
         {"role": "assistant", "content": "想吃火锅", "timestamp": 1704070810},
-        {"role": "user", "content": "自动补齐", "timestamp": 1704070810},
+        {"role": "user", "content": "自动补齐", "timestamp": 1704070860},
+        {"role": "assistant", "content": "阿巴阿巴啊啊啊不不不", "timestamp": 1704070890},
     ]
     
     cleaner = LLMDataCleaner()
