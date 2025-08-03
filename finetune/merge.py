@@ -16,9 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def print_rank0(*args, **kwargs):
-    """仅在主进程打印信息"""
-    print(*args, **kwargs)
+
 
 
 def merge_and_save_from_checkpoint(
@@ -39,7 +37,7 @@ def merge_and_save_from_checkpoint(
     Returns:
         合并后模型的保存路径
     """
-    print_rank0("=== 开始从checkpoint合并LoRA权重 ===")
+    logger.info("=== 开始从checkpoint合并LoRA权重 ===")
     
     # 检查路径是否存在
     if not os.path.exists(base_model_path):
@@ -51,18 +49,18 @@ def merge_and_save_from_checkpoint(
     # 创建输出目录
     os.makedirs(output_path, exist_ok=True)
     
-    print_rank0(f"基础模型: {base_model_path}")
-    print_rank0(f"检查点路径: {checkpoint_path}")
-    print_rank0(f"输出目录: {output_path}")
+    logger.info(f"基础模型: {base_model_path}")
+    logger.info(f"检查点路径: {checkpoint_path}")
+    logger.info(f"输出目录: {output_path}")
     
     # 检查GPU可用性
     if torch.cuda.is_available():
-        print_rank0(f"使用GPU: {torch.cuda.get_device_name()}")
+        logger.info(f"使用GPU: {torch.cuda.get_device_name()}")
     else:
-        print_rank0("使用CPU进行合并")
+        logger.info("使用CPU进行合并")
     
     # 加载基础模型
-    print_rank0("加载基础模型...")
+    logger.info("加载基础模型...")
     model = AutoModelForCausalLM.from_pretrained(
         base_model_path,
         device_map="auto",
@@ -71,7 +69,7 @@ def merge_and_save_from_checkpoint(
     )
     
     # 加载分词器
-    print_rank0("加载分词器...")
+    logger.info("加载分词器...")
     tokenizer = AutoTokenizer.from_pretrained(
         base_model_path,
         use_fast=True,
@@ -88,12 +86,12 @@ def merge_and_save_from_checkpoint(
         
         if possible_lora_dirs:
             checkpoint_path = os.path.join(checkpoint_path, possible_lora_dirs[0])
-            print_rank0(f"找到LoRA配置目录: {checkpoint_path}")
+            logger.info(f"找到LoRA配置目录: {checkpoint_path}")
         else:
             raise FileNotFoundError(f"在{checkpoint_path}中未找到LoRA配置(adapter_config.json)")
     
     # 加载PEFT模型
-    print_rank0("加载LoRA权重...")
+    logger.info("加载LoRA权重...")
     peft_model = PeftModel.from_pretrained(
         model,
         checkpoint_path,
@@ -101,15 +99,15 @@ def merge_and_save_from_checkpoint(
     )
     
     # 合并权重
-    print_rank0("合并LoRA权重...")
+    logger.info("合并LoRA权重...")
     merged_model = peft_model.merge_and_unload()
     
     # 保存合并后的模型
-    print_rank0("保存合并后的模型...")
+    logger.info("保存合并后的模型...")
     merged_model.save_pretrained(output_path)
     
     # 保存分词器
-    print_rank0("保存分词器...")
+    logger.info("保存分词器...")
     tokenizer.save_pretrained(output_path)
     
     # 清理内存
@@ -119,7 +117,7 @@ def merge_and_save_from_checkpoint(
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     
-    print_rank0(f"合并完成！完整模型已保存到: {output_path}")
+    logger.info(f"合并完成！完整模型已保存到: {output_path}")
     return output_path
 
 
@@ -150,7 +148,7 @@ def auto_detect_checkpoint(base_output_dir: str) -> str:
     latest_checkpoint = checkpoints[-1]
     checkpoint_path = os.path.join(base_output_dir, latest_checkpoint)
     
-    print_rank0(f"自动检测到最新checkpoint: {latest_checkpoint}")
+    logger.info(f"自动检测到最新checkpoint: {latest_checkpoint}")
     return checkpoint_path
 
 
@@ -206,7 +204,7 @@ def main():
             trust_remote_code=args.trust_remote_code
         )
         
-        print_rank0("=== 合并完成 ===")
+        logger.info("=== 合并完成 ===")
         
     except Exception as e:
         logger.error(f"合并过程中出现错误: {str(e)}")
