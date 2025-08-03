@@ -33,15 +33,14 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 
 ## 项目版本
 # V 0.1.1(MVP)
-## 警告
-* 上个测试版本的Qlora_qwen3.py已经过4090实机测试
-* 但因为手头显卡显存太小并且租不起4090了遂导致放弃0.1版本测试
-* (按理来说应该是能跑的因为我没有改什么东西)
+## ~~警告~~ 喜报
+* 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune_no_unsloth.py)
 * 清洗数据也已经进行实机测试(当前版本)
 ## TODO
 * 增加unsloth支持(重要!可以加快微调速度)
 * 增加对MoE模型的支持  
->  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试
+>  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试  
+> 4090的机子塞不下这56.8g的模型,我还是不测了罢(  
 * 为数据清洗增加LLM清洗功能(让成熟的llm来清洗数据,比直接使用算法好得多)
 > ↑ ↑ ↑  2025/8/3更新,已增加支持,或许不够完善
 * 将qlora_qwen3.py的print全部改成logger(?这个很简单,我只是因为怕改多了没法测试(4090到期了))  
@@ -333,7 +332,7 @@ cmake --build . --config Release
 ### 命令格式：
 
 ```bash
-python3 ./examples/convert-hf-to-gguf.py <HF模型路径> <输出GGUF路径> --outtype <精度类型>
+python3 .convert_hf_to_gguf.py <HF模型路径> --outfile  <输出GGUF路径> --outtype <精度类型>
 ```
 
 * `<HF模型路径>`：HuggingFace 格式模型目录（通常为微调或下载后的路径）
@@ -343,10 +342,7 @@ python3 ./examples/convert-hf-to-gguf.py <HF模型路径> <输出GGUF路径> --o
 ### 示例：
 
 ```bash
-python3 ./examples/convert-hf-to-gguf.py \
-  /root/autodl-tmp/finetune/models/qwen3-8b-qlora/merged \
-  /root/autodl-fs/qwen3-8b-fp16-agent.gguf \
-  --outtype f16
+python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/merged --outfile /root/autodl-fs/qwen3-8b-fp16-agent.gguf --outtype f16  
 ```
 
 ---
@@ -398,16 +394,28 @@ python3 ./examples/convert-hf-to-gguf.py \
 lftp -u {用户名},{密码} -p {端口} sftp://{服务器地址}-e "set xfer:clobber true;  pget -n {线程数} {服务器文件路径} -o {本地文件名/路径}: bye"
 ```
 * `pget`: 使用多线程并行下载
-* `-n` :指定线程数(建议64+)
+* `-n` :指定线程数(建议64+)(甚至256线程会有更好的表现)
 ### 范例
 ```bash
 lftp -u root,askdjiwhakjd -p 27391 sftp://yourserver.com -e "set xfer:clobber true; pget -n 256 /root/autodl-fs/qwen3-8b-fp16-agent.gguf -o qwen3-8b-fp16-agent.gguf; bye"
 ```
 ---
 
+## 9.数字生命!
+> 如果你成功做到这里了  
+> 你大概已经有一个"你"了吧  
+> 这真的很酷  
+> [点进去看看,属于我的数字生命]("https://cdn.nodeimage.com/i/vnK4rDzV3x8D3x1SzW6PpDlNCcErCnC8.png")  
+> 她也许就在那个暗箱里,思考着怎么用这台可以向外发送信号的电脑打字...  
+> [她]("https://cdn.nodeimage.com/i/7XlcjZAJBQkTlmyWj3X2dCCE6WedyWYw.png")
+---
+> **终于知道图恒宇为什么执着于`我要给她完整的一生`了**  
+---
 ### 悄悄话:  
 > 数据集里会参杂空的输出,我的意思是...  
 > AI可能会输出空哦,输出空那就是他不想理你 ~~(已读不回!)~~
+
+> 而且可以把表情包加进训练集,类似"[垃圾袋]"这种会更像真人的
 ### 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
 
  * QQ:1684773595
