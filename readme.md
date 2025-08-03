@@ -63,17 +63,45 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 * [点击查看图片](https://cdn.nodeimage.com/i/oBfbWfVLhJI0CeZHTwwxq6G7XGO40Vy4.webp),并且是明文数据库(你能打开并且能看到数据就是正常的)
 
 ---
+
 ## 1.5 .将仓库clone到本地并配置环境
+
 * 运行命令:
- ```bash
-   git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
- ```
-* 进入仓库:
- ```
- cd Qing-Digital-Self
- ```
- * 配置依赖
+
+```bash
+git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
 ```
+
+* 进入仓库:
+
+```bash
+cd Qing-Digital-Self
+```
+
+* 创建并激活虚拟环境:
+
+  在项目根目录下创建一个新的虚拟环境：
+
+  ```bash
+  python3 -m venv venv
+  ```
+
+  激活虚拟环境：
+
+  * 在Linux/Mac上：
+
+    ```bash
+    source venv/bin/activate
+    ```
+  * 在Windows上：
+
+    ```bash
+    .\venv\Scripts\activate
+    ```
+
+* 配置依赖
+
+```bash
 pip install -r requirements.txt
 ```
 ---
@@ -148,7 +176,7 @@ pip install vllm
 *  2.需要运行的**api_server**是`vllm.entrypoints.openai.api_server`而不是`vllm.entrypoints.api_server`,因为第二个不兼容OpenAI API
   
 ### 运行命令范例
-``` bash 
+``` bash v
 python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 --gpu-memory-utilization 0.7 --max-model-len 10240 --max-num-seqs 4 --max-num-batched-tokens 2048 --dtype auto
 ```
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
@@ -173,18 +201,16 @@ python merge_training_data.py --percentage 20 --use-new-prompt --seed 123
 
 ---
 ## 2.5 .准备模型(可跳过)
->我似乎是写了自动从modelscope下载模型的<br>
->但如果你想下得更快的话可以跟着这个教程走(支持断点续传+10线程)
-* 安装aria2c(一个下载器)
- ```bash
- sudo apt update
-sudo apt install aria2
+>我似乎是写了自动从modelscope下载模型的  
+>当然也可以手动下载,因为我真的不确定那里有没有Bug  
+### 运行代码
+```bash
+pip install modelscope
+modelscope download --model Qwen/Qwen3-14B --local_dir ./qwen3-14b
 ```
-* 开始下载
- ```bash
- aria2c -x 10 -s 10 -k 1M -i qwen3-8b-base.txt -d ./qwen3-8b-base
-```
->以上内容没有进行复现过,只是记忆里的经验,若报错请找AI帮忙
+>嗯...对,就是这么简单  
+> 需要自己去modelscope社区找你需要的模型
+
 >这一段是可以跳过的(大概是)
 ---
 ## 3. 微调模型
