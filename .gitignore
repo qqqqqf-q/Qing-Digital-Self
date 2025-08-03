@@ -128,7 +128,7 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
+#.env
 .venv
 env/
 venv/
@@ -190,3 +190,4 @@ unsloth_compiled_cache
 get_reqs.py
 .roo
 .vscode
+qwen3-30b-a3b-instruct-2507

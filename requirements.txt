@@ -1,8 +1,8 @@
 bitsandbytes==0.46.1
 huggingface_hub==0.34.3
-numpy==2.3.2
+numpy==2.2.6
 packaging==25.0
-pandas==2.3.1
+pandas==2.2.0
 peft==0.16.0
 pipreqs==0.5.0
 python-dotenv==1.1.1
@@ -14,3 +14,5 @@ unsloth_zoo==2025.7.11
 vllm==0.10.0
 wandb==0.21.0
 modelspace==1.28.1
+# LM Studio集成依赖
+requests>=2.31.0

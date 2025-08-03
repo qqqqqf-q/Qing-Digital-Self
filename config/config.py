@@ -10,8 +10,18 @@ class Config:
             # 其他配置
             'log_level': os.getenv('LOG_LEVEL', 'INFO'),
             'use_unsloth': os.getenv('USE_UNSLOTH', 'false').lower() == 'true',
-
             'system_prompt':os.getenv('system_prompt',''),
+            
+            # LM Studio配置
+            'OpenAI_URL': os.getenv('OpenAI_URL', 'http://localhost:1234'),
+            'OpenAI_Model': os.getenv('OpenAI_MODEL', 'default'),
+            'OpenAI_timeout': int(os.getenv('OpenAI_TIMEOUT', '30')),
+            'OpenAI_max_retries': int(os.getenv('OpenAI_MAX_RETRIES', '3')),
+            'OpenAI_retry_delay': float(os.getenv('OpenAI_RETRY_DELAY', '1.0')),
+            'use_llm_clean': os.getenv('USE_LLM_CLEAN', 'false').lower() == 'true',
+            
+            # 并发配置
+            'max_workers': int(os.getenv('MAX_WORKERS', '4')),  # 并发处理线程数
         }
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:

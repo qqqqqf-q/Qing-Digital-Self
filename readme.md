@@ -21,7 +21,7 @@
 
 * 只支持最基础的 QLora 微调
 * 暂时不支持 unsloth 或更高级的加速/量化技巧
-* 但已经可以在 4090 24G 显卡上用 int8 精度微调 Qwen3-8B（亲测可用）
+* 但已经可以在 4090 24G 显卡上用 fp8 精度微调 Qwen3-8B（亲测可用）
 
 **如果你也想打造属于自己的数字分身，那也来试试吧!**
 
@@ -39,7 +39,10 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 * 清洗数据也已经进行实机测试(当前版本)
 ## TODO
 * 增加unsloth支持(重要!可以加快微调速度)
+* 增加对MoE模型的支持  
+>  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试
 * 为数据清洗增加LLM清洗功能(让成熟的llm来清洗数据,比直接使用算法好得多)
+> ↑ ↑ ↑  2025/8/3更新,已增加支持,或许不够完善
 * 将qlora_qwen3.py的print全部改成logger(?这个很简单,我只是因为怕改多了没法测试(4090到期了))
 ---
 # 使用QQ聊天记录微调LLM全流程指南
@@ -72,8 +75,11 @@ pip install -r requirements.txt
 ```
 ---
 
-## 2. 清洗数据
-
+## 2.1 .清洗数据(普通版本,llm清洗版本在下一章节)
+> 此方法比llm清洗快得多,30w条消息半分钟就好了
+> 但是对应的质量也更低
+> 这个部分建议在windows上优化完再上传至GPU服务器  
+> 不确定在Linux上有没有兼容性问题  
 * 在 `.env` 文件中修改数据库路径及相关参数(请注意其中的必填段)
 * 运行清洗脚本：
 
@@ -81,9 +87,36 @@ pip install -r requirements.txt
   python generate_training_data.py
   ```
 
+## 2.2 .清洗数据(llm清洗)
+> 需要配置一个OpenAI兼容的API  
+> 比如:LM Studio 或者 vLLM(速度更快,但搭建更麻烦,需要Linux环境)  
+
+> 这个部分同样建议在windows上优化完再上传至GPU服务器  
+> 不确定在Linux上有没有兼容性问题
+## LM Studio搭建教程
+* 1.前往[LM Studio](https://lmstudio.ai/)下载LM Studio
+* 2.安装LM Studio
+* 3.打开LM Studio,点击左侧`搜索`->`Model Search`
+* 4.搜索 `qwen3 8b`->`Complete Download`  
+* 5.选择合适你的量化版本**建议至少Q4,最好Q6-Q8,随你的设备情况而定,不知道的可以问AI**
+* 记住你的**模型名称**,填写到`.env`文件的`Openai_model`中
+* 如果不知道你的模型名称可以运行test_openai.py,会输出所有的模型名称
+* 6.安装好后,在左侧`开发者/Developer`点击`Status:Stopped`右边的按钮
+* 如果下面log显示端口被占用请点击`seetings`换个`server port`
+* 记住这个`server port`,将你的配置填写至`.env`文件中
+
+### run!
+```bash
+python generate_training_data_llm.py
+```
+## vLLM搭建
+> 不算复杂,但我不想写  
+> 如果你的显卡还算可以(>6800xt,>3080)  
+> 可以选择使用lmstudio,多等一会就好了,还可以玩玩模型
+> 缺点是lmstudio不能运行hf模型
 ---
 ## 2.5 .准备模型(可跳过)
->我似乎是写了自动从modelspace下载模型的<br>
+>我似乎是写了自动从modelscope下载模型的<br>
 >但如果你想下得更快的话可以跟着这个教程走(支持断点续传+10线程)
 * 安装aria2c(一个下载器)
  ```bash
@@ -102,7 +135,9 @@ sudo apt install aria2
 > Windows 上 Unsloth 兼容性不好，Linux 上代码有 bug，所以用 `no_unsloth` 版本。<br>
 > ~~其实是unsloth版本没写完~~
 
->参数在测试时其实可以不填,都是有默认值的
+>参数在测试时其实可以不填,都是有默认值的  
+
+> 似乎是默认8bit量化,有待修改  
 * 运行微调脚本：
 
   ```bash
@@ -245,6 +280,9 @@ python3 ./examples/convert-hf-to-gguf.py \
 
 ---
 
+> 悄悄话:  
+> 数据集里会参杂空的输出,我的意思是...  
+> AI可能会输出空哦,输出空那就是他不想理你(已读不回!)
 ### 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
 
  * QQ:1684773595
