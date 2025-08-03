@@ -391,8 +391,21 @@ python3 ./examples/convert-hf-to-gguf.py \
 ```
 
 ---
+## 8.从服务器上高速下载文件
 
-> 悄悄话:  
+### 命令格式
+```bash
+lftp -u {用户名},{密码} -p {端口} sftp://{服务器地址}-e "set xfer:clobber true;  pget -n {线程数} {服务器文件路径} -o {本地文件名/路径}: bye"
+```
+* `pget`: 使用多线程并行下载
+* `-n` :指定线程数(建议64+)
+### 范例
+```bash
+lftp -u root,askdjiwhakjd -p 27391 sftp://yourserver.com -e "set xfer:clobber true; pget -n 256 /root/autodl-fs/qwen3-8b-fp16-agent.gguf -o qwen3-8b-fp16-agent.gguf; bye"
+```
+---
+
+### 悄悄话:  
 > 数据集里会参杂空的输出,我的意思是...  
 > AI可能会输出空哦,输出空那就是他不想理你 ~~(已读不回!)~~
 ### 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
