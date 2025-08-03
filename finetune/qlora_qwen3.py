@@ -19,7 +19,7 @@ except Exception as exc:
     MODELSPACE_AVAILABLE = False
     def snapshot_download(model_id: str, local_dir: str) -> str:
         # 安全回退：不执行任何下载，直接返回本地目录；调用方需确保目录已准备好
-        print_rank0(f"警告: 未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}")
+        logger.warning(f"未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}")
         return local_dir
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
@@ -62,6 +62,11 @@ from peft import (
     PeftModel,
 )
 
+# 导入logger
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger.logger import logger
+
 def print_rank0(*args, **kwargs):
     """仅在主进程打印信息"""
     print(*args, **kwargs)
@@ -75,11 +80,11 @@ def log_gpu_memory_usage(step_name: str) -> None:
     if torch.cuda.is_available():
         allocated = torch.cuda.memory_allocated() / 1024**3
         reserved = torch.cuda.memory_reserved() / 1024**3
-        print_rank0(
+        logger.info(
             f"{step_name} - GPU显存使用: 已分配 {allocated:.2f} GB, 已保留 {reserved:.2f} GB"
         )
     else:
-        print_rank0(f"{step_name} - CUDA不可用")
+        logger.warning(f"{step_name} - CUDA不可用")
 
 def safe_dtype_preference() -> Dict[str, Union[torch.dtype, bool]]:
     """选择合适的数据类型
@@ -219,7 +224,7 @@ def load_model_and_tokenizer(
     """加载模型和分词器，支持 Unsloth 和普通 8bit 量化。
     注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
     """
-    print_rank0("加载分词器...")
+    logger.info("加载分词器...")
     tokenizer = AutoTokenizer.from_pretrained(
         base_dir,
         use_fast=True,
@@ -232,7 +237,7 @@ def load_model_and_tokenizer(
     # 尝试使用 Unsloth 加载模型
     if use_unsloth:
         try:
-            print_rank0("尝试使用 Unsloth 加载模型...")
+            logger.info("尝试使用 Unsloth 加载模型...")
             from unsloth import FastLanguageModel
 
             # 启用 Triton 和相关优化
@@ -251,14 +256,14 @@ def load_model_and_tokenizer(
                 trust_remote_code=True,
             )
 
-            print_rank0("成功使用 Unsloth 加载模型")
+            logger.info("成功使用 Unsloth 加载模型")
             return model, tokenizer
         except Exception as e:
-            print_rank0(f"Unsloth 加载失败: {e}")
-            print_rank0("回退到普通 8bit 量化加载...")
+            logger.error(f"Unsloth 加载失败: {e}")
+            logger.info("回退到普通 8bit 量化加载...")
 
     # 普通 8bit 量化加载
-    print_rank0("加载模型 (8bit量化)...")
+    logger.info("加载模型 (8bit量化)...")
     dtype_kwargs = safe_dtype_preference()
 
     # 加载模型配置并设置return_dict=True
@@ -275,7 +280,7 @@ def load_model_and_tokenizer(
         llm_int8_enable_fp32_cpu_offload=True,
     )
 
-    print_rank0(f"使用量化配置: 8bit量化")
+    logger.info(f"使用量化配置: 8bit量化")
 
     model = AutoModelForCausalLM.from_pretrained(
         base_dir,
@@ -294,7 +299,7 @@ def load_model_and_tokenizer(
             model.config.use_cache = False
             model.gradient_checkpointing_enable()
 
-    print_rank0("模型已准备好进行训练（未注入LoRA，稍后统一注入）")
+    logger.info("模型已准备好进行训练（未注入LoRA，稍后统一注入）")
     return model, tokenizer
 
 def apply_lora(
@@ -319,9 +324,9 @@ def apply_lora(
         task_type="CAUSAL_LM",
         target_modules=target_modules,
     )
-    print_rank0(f"LoRA 目标模块数量: {len(target_modules)}")
+    logger.info(f"LoRA 目标模块数量: {len(target_modules)}")
     if len(target_modules) <= 50:
-        print_rank0(f"LoRA 目标模块示例: {target_modules[:50]}")
+        logger.info(f"LoRA 目标模块示例: {target_modules[:50]}")
 
     model = get_peft_model(model, lora_config)
     if hasattr(model, "print_trainable_parameters"):
@@ -338,7 +343,7 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
     Returns:
         合并后模型的保存路径
     """
-    print_rank0("合并 LoRA 权重...")
+    logger.info("合并 LoRA 权重...")
 
     # 加载基础模型
     model = AutoModelForCausalLM.from_pretrained(
@@ -375,7 +380,7 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
     )
     tokenizer.save_pretrained(merged_dir)
 
-    print_rank0(f"合并后的模型已保存到: {merged_dir}")
+    logger.info(f"合并后的模型已保存到: {merged_dir}")
     return merged_dir
 
 def parse_args() -> argparse.Namespace:
@@ -543,14 +548,14 @@ def build_moe_target_modules(
     return uniq
 
 def pretty_print_targets(title: str, targets: List[str], max_show: int = 80) -> None:
-    print_rank0(f"{title}: 共 {len(targets)} 个")
+    logger.info(f"{title}: 共 {len(targets)} 个")
     if len(targets) <= max_show:
         for t in targets:
-            print_rank0(f"  - {t}")
+            logger.info(f"  - {t}")
     else:
         for t in targets[:max_show]:
-            print_rank0(f"  - {t}")
-        print_rank0(f"  ... 其余 {len(targets) - max_show} 项已省略")
+            logger.info(f"  - {t}")
+        logger.info(f"  ... 其余 {len(targets) - max_show} 项已省略")
 
 def main() -> None:
     """主函数，执行QLoRA微调流程"""
@@ -558,23 +563,23 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
     set_seed(args.seed)
 
-    print_rank0("=== QLoRA 微调开始 ===")
-    print_rank0(f"平台: {platform.system()}")
-    print_rank0(f"配置: 使用Unsloth={args.use_unsloth}, 使用8bit量化={args.use_qlora}")
+    logger.info("=== QLoRA 微调开始 ===")
+    logger.info(f"平台: {platform.system()}")
+    logger.info(f"配置: 使用Unsloth={args.use_unsloth}, 使用8bit量化={args.use_qlora}")
 
     # 禁用动态编译和相关优化
     try:
         torch._dynamo.config.disable = True
         torch._dynamo.config.suppress_errors = True
     except Exception as e:
-        print_rank0(f"禁用动态编译失败: {e}")
+        logger.error(f"禁用动态编译失败: {e}")
 
     # 设置精度 - 使用新的TF32控制API
     try:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
     except Exception as e:
-        print_rank0(f"设置TF32行为失败: {e}")
+        logger.error(f"设置TF32行为失败: {e}")
 
     # 设置PyTorch多线程支持
     try:
@@ -582,28 +587,28 @@ def main() -> None:
         cpu_count = multiprocessing.cpu_count()
         torch.set_num_threads(cpu_count)
         torch.set_num_interop_threads(cpu_count)
-        print_rank0(f"设置PyTorch线程数: 计算线程={torch.get_num_threads()}, 交互线程={torch.get_num_interop_threads()}")
+        logger.info(f"设置PyTorch线程数: 计算线程={torch.get_num_threads()}, 交互线程={torch.get_num_interop_threads()}")
     except Exception as e:
-        print_rank0(f"设置PyTorch线程数失败: {e}")
+        logger.error(f"设置PyTorch线程数失败: {e}")
 
     # 步骤 1: 下载模型
-    print_rank0("步骤 1/5: 下载或复用基础模型...")
+    logger.info("步骤 1/5: 下载或复用基础模型...")
     log_gpu_memory_usage("开始下载模型")
 
     if os.path.exists(args.local_dir) and os.listdir(args.local_dir):
-        print_rank0(f"复用本地模型: {args.local_dir}")
+        logger.info(f"复用本地模型: {args.local_dir}")
         base_dir = args.local_dir
     else:
-        print_rank0(f"从远程下载模型到: {args.local_dir}")
+        logger.info(f"从远程下载模型到: {args.local_dir}")
         base_dir = snapshot_download(
             model_id=args.repo_id,
             local_dir=args.local_dir,
         )
-    print_rank0(f"基础模型目录: {base_dir}")
+    logger.info(f"基础模型目录: {base_dir}")
     log_gpu_memory_usage("模型下载完成")
 
     # 步骤 2: 加载模型和分词器
-    print_rank0("步骤 2/5: 加载模型和分词器...")
+    logger.info("步骤 2/5: 加载模型和分词器...")
     log_gpu_memory_usage("开始加载模型")
     model, tokenizer = load_model_and_tokenizer(
         base_dir,
@@ -615,7 +620,7 @@ def main() -> None:
     log_gpu_memory_usage("模型加载完成")
 
     # 步骤 3: 准备数据
-    print_rank0("步骤 3/5: 准备训练数据...")
+    logger.info("步骤 3/5: 准备训练数据...")
     log_gpu_memory_usage("开始准备数据")
     
     # 智能设置DataLoader worker数量
@@ -628,7 +633,7 @@ def main() -> None:
         else:
             recommended_workers = max(1, cpu_count)
         args.dataloader_num_workers = recommended_workers
-        print_rank0(f"自动设置DataLoader工作线程数为: {recommended_workers} (CPU核心数: {cpu_count})")
+        logger.info(f"自动设置DataLoader工作线程数为: {recommended_workers} (CPU核心数: {cpu_count})")
     
     train_dataset = JsonlSFTDataset(
         args.data_path,
@@ -638,27 +643,27 @@ def main() -> None:
     
     eval_dataset = None
     if args.eval_data_path and os.path.exists(args.eval_data_path):
-        print_rank0("准备验证数据...")
+        logger.info("准备验证数据...")
         eval_dataset = JsonlSFTDataset(
             args.eval_data_path,
             eos_token=tokenizer.eos_token or "",
             max_samples=args.max_eval_samples
         )
-        print_rank0(f"验证样本数量: {len(eval_dataset)}")
+        logger.info(f"验证样本数量: {len(eval_dataset)}")
     else:
-        print_rank0("未提供验证数据路径，跳过验证集")
+        logger.warning("未提供验证数据路径，跳过验证集")
     
     data_collator = CollatorForCausalLM(tokenizer=tokenizer)
-    print_rank0(f"训练样本数量: {len(train_dataset)}")
+    logger.info(f"训练样本数量: {len(train_dataset)}")
     log_gpu_memory_usage("数据准备完成")
 
     # 步骤 4: 应用 LoRA（统一入口，支持 MoE）
-    print_rank0("步骤 4/5: 应用 LoRA...")
+    logger.info("步骤 4/5: 应用 LoRA...")
     log_gpu_memory_usage("开始应用LoRA")
 
     if args.moe_enable:
         info = detect_moe(model)
-        print_rank0(f"MoE 检测结果: is_moe={info['is_moe']}")
+        logger.info(f"MoE 检测结果: is_moe={info['is_moe']}")
         if info["hints"]:
             pretty_print_targets("MoE 模块路径提示", info["hints"])
 
@@ -674,7 +679,7 @@ def main() -> None:
         pretty_print_targets("匹配到的 LoRA 注入目标（MoE）", moe_targets, max_show=120)
 
         if args.moe_dry_run:
-            print_rank0("MoE dry-run 模式启用，仅打印匹配模块并退出。")
+            logger.warning("MoE dry-run 模式启用，仅打印匹配模块并退出。")
             return
 
         model = apply_lora(model, moe_targets, args.lora_r, args.lora_alpha, args.lora_dropout)
@@ -687,12 +692,12 @@ def main() -> None:
     log_gpu_memory_usage("LoRA应用完成")
 
     # 步骤 5: 训练
-    print_rank0("步骤 5/5: 开始训练...")
+    logger.info("步骤 5/5: 开始训练...")
     if args.resume_from_checkpoint:
-        print_rank0(f"将从检查点恢复训练: {args.resume_from_checkpoint}")
+        logger.info(f"将从检查点恢复训练: {args.resume_from_checkpoint}")
     if eval_dataset is not None:
-        print_rank0(f"将在每 {args.eval_steps} 步后进行验证")
-    print_rank0(f"将每 {args.logging_steps} 步输出训练loss")
+        logger.info(f"将在每 {args.eval_steps} 步后进行验证")
+    logger.info(f"将每 {args.logging_steps} 步输出训练loss")
     log_gpu_memory_usage("开始训练前")
 
     dtype_kwargs = safe_dtype_preference()
@@ -737,13 +742,13 @@ def main() -> None:
     tokenizer.save_pretrained(args.output_dir)
     log_gpu_memory_usage("训练完成")
 
-    print_rank0("训练完成!")
+    logger.info("训练完成!")
 
     if args.merge_and_save:
         merged_dir = merge_and_save(base_dir, args.output_dir)
-        print_rank0(f"完整模型已保存到: {merged_dir}")
+        logger.info(f"完整模型已保存到: {merged_dir}")
 
-    print_rank0("所有步骤完成!")
+    logger.info("所有步骤完成!")
 
     del model
     del trainer
@@ -751,7 +756,7 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     if args.use_unsloth:
-        print_rank0("提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能")
+        logger.info("提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能")
 
 if __name__ == "__main__":
     main()
