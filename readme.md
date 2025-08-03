@@ -152,6 +152,25 @@ pip install vllm
 python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 --gpu-memory-utilization 0.7 --max-model-len 10240 --max-num-seqs 4 --max-num-batched-tokens 2048 --dtype auto
 ```
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
+
+
+## 2.3 将标准数据集和你的数据集混合在一起!
+> 如果没有标准数据参杂在其中,很容易造成`灾难性遗忘`  
+
+所以就有了 `merge_training_data.py`脚本
+
+> 建议往数据集插入**20%-50%**的标准数据集  
+### 使用方法
+```bash
+python merge_training_data.py --qa_file qa_final.json --training_file training_data.jsonl --output_file merged_training_data.jsonl --use-new-prompt
+```
+> 建议使用--use-new-prompt,防止全部都是角色system prompt
+>
+### 插入20%数据：
+```bash
+python merge_training_data.py --percentage 20 --use-new-prompt --seed 123
+```
+
 ---
 ## 2.5 .准备模型(可跳过)
 >我似乎是写了自动从modelscope下载模型的<br>

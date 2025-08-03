@@ -330,7 +330,7 @@ class LLMDataCleaner:
 
         messages_llm = [
             {"role": "system", "content": system_prompt_wash},
-            {"role": "user", "content": f"{date}的对话记录如下：{conversation_text}请仔细查看并严格遵循system_prompt,细入分析输入数据,并返回需要删除的消息索引JSON /ultra_think"}
+            {"role": "user", "content": f"{date}的对话记录如下：{conversation_text}请仔细查看并严格遵循system_prompt,细入分析思考输入数据和规则,并返回需要删除的消息索引JSON  /no_think"}
         ]
         
         try:
