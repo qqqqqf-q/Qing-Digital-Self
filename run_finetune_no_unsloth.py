@@ -35,12 +35,20 @@ def main():
     # 数据与输出
     parser.add_argument('--data_path', type=str, default='training_data.jsonl',
                         help='训练数据路径 (default: training_data.jsonl)')
+    parser.add_argument('--eval_data_path', type=str, default=None,
+                        help='验证数据文件路径，None表示不使用验证集')
+    parser.add_argument('--max_samples', type=str, default=None,
+                        help='最大训练样本数，None表示用全部')
+    parser.add_argument('--max_eval_samples', type=str, default=None,
+                        help='最大验证样本数，None表示用全部')
     parser.add_argument('--output_dir', type=str, default='finetune/models/qwen3-30b-a3b-qlora',
                         help='输出目录 (default: finetune/models/qwen3-30b-a3b-qlora)')
 
     # 训练超参
     parser.add_argument('--per_device_train_batch_size', type=str, default='1',
                         help='每个设备的训练批次大小 (default: 1)')
+    parser.add_argument('--per_device_eval_batch_size', type=str, default='1',
+                        help='每个设备的验证批次大小 (default: 1)')
     parser.add_argument('--gradient_accumulation_steps', type=str, default='16',
                         help='梯度累积步数 (default: 16)')
     parser.add_argument('--learning_rate', type=str, default='2e-4',
@@ -76,10 +84,13 @@ def main():
                         help='仅打印匹配到的模块并退出（Dry-Run）')
 
     # 其余训练设置
-    parser.add_argument('--logging_steps', type=str, default='20', help='日志记录步数')
+    parser.add_argument('--logging_steps', type=str, default='1', help='日志记录步数，设置为1以每step输出loss')
+    parser.add_argument('--eval_steps', type=str, default='50', help='验证间隔步数')
     parser.add_argument('--save_steps', type=str, default='200', help='保存模型步数')
     parser.add_argument('--warmup_ratio', type=str, default='0.05', help='预热比例')
     parser.add_argument('--lr_scheduler_type', type=str, default='cosine', help='学习率调度器类型')
+    parser.add_argument('--resume_from_checkpoint', type=str, default=None,
+                        help='从指定的检查点恢复训练，可以是本地路径或"latest"')
     parser.add_argument('--no-gradient_checkpointing', action='store_true',
                         help='不使用梯度检查点 (default: 使用)')
     parser.add_argument('--no-merge_and_save', action='store_true',
@@ -106,7 +117,7 @@ def main():
         "TF_CPP_MIN_LOG_LEVEL": "2",
     })
 
-    # 构建命令行参数（将 MoE 相关参数透传给 finetune/qlora_qwen3.py）
+    # 构建命令行参数（将新增参数透传给 finetune/qlora_qwen3.py）
     cmd = [
         sys.executable,
         "finetune/qlora_qwen3.py",
@@ -117,6 +128,7 @@ def main():
         "--data_path", args.data_path,
         "--output_dir", args.output_dir,
         "--per_device_train_batch_size", args.per_device_train_batch_size,
+        "--per_device_eval_batch_size", args.per_device_eval_batch_size,
         "--gradient_accumulation_steps", args.gradient_accumulation_steps,
         "--learning_rate", args.learning_rate,
         "--num_train_epochs", args.num_train_epochs,
@@ -125,6 +137,7 @@ def main():
         "--lora_dropout", args.lora_dropout,
         "--target_modules", args.target_modules,
         "--logging_steps", args.logging_steps,
+        "--eval_steps", args.eval_steps,
         "--save_steps", args.save_steps,
         "--warmup_ratio", args.warmup_ratio,
         "--lr_scheduler_type", args.lr_scheduler_type,
@@ -136,6 +149,16 @@ def main():
         "--moe_max_experts_lora", args.moe_max_experts_lora,
         "--moe_dry_run", args.moe_dry_run,
     ]
+    
+    # 添加可选参数（仅当值不为None时）
+    if args.eval_data_path is not None:
+        cmd.extend(["--eval_data_path", args.eval_data_path])
+    if args.max_samples is not None:
+        cmd.extend(["--max_samples", args.max_samples])
+    if args.max_eval_samples is not None:
+        cmd.extend(["--max_eval_samples", args.max_eval_samples])
+    if args.resume_from_checkpoint is not None:
+        cmd.extend(["--resume_from_checkpoint", args.resume_from_checkpoint])
 
     if not args.no_gradient_checkpointing:
         cmd.append("--gradient_checkpointing")

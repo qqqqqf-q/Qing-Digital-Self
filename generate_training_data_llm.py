@@ -13,6 +13,7 @@ from collections import defaultdict
 from config.config import get_config
 from logger.logger import get_logger
 import threading
+import math
 
 # 导入LM Studio支持
 from openai.openai_client import LLMDataCleaner
@@ -98,7 +99,6 @@ def parse_protobuf_fields(data: bytes) -> list[tuple[int, int, bytes]]:
     return fields
 
 
-
 def find_strings_recursively(fields: list[tuple[int, int, bytes]]) -> list[str]:
     """递归查找UTF-8字符串，直接返回字符串列表，减少元组与拷贝"""
     out: List[str] = []
@@ -116,6 +116,24 @@ def find_strings_recursively(fields: list[tuple[int, int, bytes]]) -> list[str]:
     return out
 
 
+def calculate_entropy(text: str) -> float:
+    """计算字符串的熵值，用于检测无序字符串"""
+    if not text:
+        return 0.0
+    
+    # 统计每个字符的出现频率
+    char_counts = {}
+    for char in text:
+        char_counts[char] = char_counts.get(char, 0) + 1
+    
+    # 计算熵值
+    entropy = 0.0
+    text_len = len(text)
+    for count in char_counts.values():
+        probability = count / text_len
+        entropy -= probability * math.log2(probability)
+    
+    return entropy
 
 # 预处理图片/非文本指示器，降小写并用集合加速查询
 _IMAGE_INDICATORS = {
@@ -219,6 +237,12 @@ def is_image_content(text: str) -> bool:
                 if (has_upper + has_lower + has_digit) >= 2:
                     return True
         
+    # 高熵检测：过滤掉无序字符串
+    entropy = calculate_entropy(text)
+    # 如果熵值超过阈值（例如5.0），则认为是无序字符串
+    if entropy > 5.0:
+        return True
+        
     return False
 
 def extract_text_content(data: bytes) -> str:
@@ -245,7 +269,7 @@ def extract_text_content(data: bytes) -> str:
 
 # ---------- 会话整形（聚合为 messages 格式） ----------
 
-SYSTEM_PROMPT = config.get("system_prompt")
+SYSTEM_PROMPT = config.get("system_prompt") or "你是一个专业的数据清洗专家，需要对一整天的对话记录进行过滤和整理。请严格按照以下步骤执行：\n\n请按照以下要求：\n1. 删除规则  \n   a. **系统提示**：所有以系统或平台自动生成的提示性文字（如\"开始通话\"\"加载中\"\"自动补齐\"等）  \n   b. **垃圾消息**：无意义字符、乱码、广告或重复发送的同一内容  \n   c. **格式错误**：残缺不全的 JSON、乱码截断的文字  \n   d. **语音/通话记录**：如\"语音通话 00:30\"之类的通话时长记录  \n   e. **社交水印**：包含\"情侣空间\"、\"神仙眷侣\"、\"知己浪花\"、\"累计互发消息超过\"、\"小水花开心极了\"、\"摸摸头\"、\"获得\"、\"互动标识\"等表达社交关系或互动量的句子  \n   f. **图片/媒体消息**：包含URL链接、文件路径、图片标签等明显非对话内容\n   g. **高熵无序字符串**：如随机字符序列、编码数据等无意义内容\n2. 保留规则  \n   - 完全保留所有有意义的用户和 AI 间的对话，无论长短；  \n   - 原文不改动，保留所有 Emoji 及`[图片]`等占位；  \n   - 严格保持原始对话顺序。\n3. 返回需要保留的消息索引列表\n4.保留所有的emoji,或者以中括号[]包裹的表情包和内容,保留\"[图片]\"\n请回复一个JSON格式:\n{\n    \"retained_indices\": [0, 1, 3, 5, ...],\n    \"removed_count\": 5,\n    \"reason\": \"删除了系统提示和垃圾消息\"\n}"
 
 def flush_dialog(f, dialog: List[dict], pretty_f=None):
     """将当前聚合的对话写为一条 jsonl，保持user和assistant交替出现

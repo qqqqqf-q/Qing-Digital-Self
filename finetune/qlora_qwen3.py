@@ -37,6 +37,9 @@ os.environ.update({
     "PYTORCH_DISABLE_TRITON": "1",
     "TF_ENABLE_ONEDNN_OPTS": "0",  # 禁用TensorFlow oneDNN自定义操作以减少警告
     "TF_CPP_MIN_LOG_LEVEL": "2",   # 减少TensorFlow警告信息
+    "OMP_NUM_THREADS": str(os.cpu_count()),  # 设置OpenMP线程数
+    "MKL_NUM_THREADS": str(os.cpu_count()),  # 设置MKL线程数
+    "NUMEXPR_NUM_THREADS": str(os.cpu_count()),  # 设置NumExpr线程数
 })
 
 import torch
@@ -394,8 +397,12 @@ def parse_args() -> argparse.Namespace:
     # 数据相关
     parser.add_argument("--data_path", type=str, default="training_data.jsonl",
                         help="训练数据文件路径")
+    parser.add_argument("--eval_data_path", type=str, default=None,
+                        help="验证数据文件路径，None表示不使用验证集")
     parser.add_argument("--max_samples", type=int, default=None,
                         help="最大训练样本数，None 表示用全部")
+    parser.add_argument("--max_eval_samples", type=int, default=None,
+                        help="最大验证样本数，None 表示用全部")
     parser.add_argument("--model_max_length", type=int, default=2048,
                         help="最大序列长度")
 
@@ -432,6 +439,8 @@ def parse_args() -> argparse.Namespace:
     # 训练超参数
     parser.add_argument("--per_device_train_batch_size", type=int, default=1,
                         help="每卡 batch size")
+    parser.add_argument("--per_device_eval_batch_size", type=int, default=1,
+                        help="每卡验证 batch size")
     parser.add_argument("--gradient_accumulation_steps", type=int, default=16,
                         help="梯度累积步数")
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="学习率")
@@ -443,7 +452,8 @@ def parse_args() -> argparse.Namespace:
                         help="学习率调度器类型")
 
     # 其他设置
-    parser.add_argument("--logging_steps", type=int, default=20, help="日志间隔")
+    parser.add_argument("--logging_steps", type=int, default=1, help="日志间隔，设置为1以每step输出loss")
+    parser.add_argument("--eval_steps", type=int, default=50, help="验证间隔步数")
     parser.add_argument("--save_steps", type=int, default=200, help="保存间隔")
     parser.add_argument("--save_total_limit", type=int, default=2, help="最多保存数")
     parser.add_argument("--gradient_checkpointing", action="store_true", default=True,
@@ -454,10 +464,12 @@ def parse_args() -> argparse.Namespace:
                         help="是否使用 FP16")
     parser.add_argument("--optim", type=str, default="adamw_torch_fused",
                         help="优化器")
+    parser.add_argument("--resume_from_checkpoint", type=str, default=None,
+                        help="从指定的检查点恢复训练，可以是本地路径或'latest'")
     parser.add_argument("--dataloader_pin_memory", type=lambda x: str(x).lower() == "true",
                         default=False, help="DataLoader pin_memory")
     parser.add_argument("--dataloader_num_workers", type=int, default=0,
-                        help="DataLoader 工作线程数")
+                        help="DataLoader 工作线程数 (0表示使用主进程，推荐设置为CPU核心数-2)")
 
     return parser.parse_args()
 
@@ -564,6 +576,16 @@ def main() -> None:
     except Exception as e:
         print_rank0(f"设置TF32行为失败: {e}")
 
+    # 设置PyTorch多线程支持
+    try:
+        import multiprocessing
+        cpu_count = multiprocessing.cpu_count()
+        torch.set_num_threads(cpu_count)
+        torch.set_num_interop_threads(cpu_count)
+        print_rank0(f"设置PyTorch线程数: 计算线程={torch.get_num_threads()}, 交互线程={torch.get_num_interop_threads()}")
+    except Exception as e:
+        print_rank0(f"设置PyTorch线程数失败: {e}")
+
     # 步骤 1: 下载模型
     print_rank0("步骤 1/5: 下载或复用基础模型...")
     log_gpu_memory_usage("开始下载模型")
@@ -595,11 +617,37 @@ def main() -> None:
     # 步骤 3: 准备数据
     print_rank0("步骤 3/5: 准备训练数据...")
     log_gpu_memory_usage("开始准备数据")
+    
+    # 智能设置DataLoader worker数量
+    if args.dataloader_num_workers == 0:
+        import multiprocessing
+        cpu_count = multiprocessing.cpu_count()
+        # Windows系统下推荐设置为CPU核心数-2，避免系统卡顿
+        if platform.system() == "Windows":
+            recommended_workers = max(1, cpu_count - 2)
+        else:
+            recommended_workers = max(1, cpu_count)
+        args.dataloader_num_workers = recommended_workers
+        print_rank0(f"自动设置DataLoader工作线程数为: {recommended_workers} (CPU核心数: {cpu_count})")
+    
     train_dataset = JsonlSFTDataset(
         args.data_path,
         eos_token=tokenizer.eos_token or "",
         max_samples=args.max_samples
     )
+    
+    eval_dataset = None
+    if args.eval_data_path and os.path.exists(args.eval_data_path):
+        print_rank0("准备验证数据...")
+        eval_dataset = JsonlSFTDataset(
+            args.eval_data_path,
+            eos_token=tokenizer.eos_token or "",
+            max_samples=args.max_eval_samples
+        )
+        print_rank0(f"验证样本数量: {len(eval_dataset)}")
+    else:
+        print_rank0("未提供验证数据路径，跳过验证集")
+    
     data_collator = CollatorForCausalLM(tokenizer=tokenizer)
     print_rank0(f"训练样本数量: {len(train_dataset)}")
     log_gpu_memory_usage("数据准备完成")
@@ -640,12 +688,18 @@ def main() -> None:
 
     # 步骤 5: 训练
     print_rank0("步骤 5/5: 开始训练...")
+    if args.resume_from_checkpoint:
+        print_rank0(f"将从检查点恢复训练: {args.resume_from_checkpoint}")
+    if eval_dataset is not None:
+        print_rank0(f"将在每 {args.eval_steps} 步后进行验证")
+    print_rank0(f"将每 {args.logging_steps} 步输出训练loss")
     log_gpu_memory_usage("开始训练前")
 
     dtype_kwargs = safe_dtype_preference()
     training_args = TrainingArguments(
         output_dir=args.output_dir,
         per_device_train_batch_size=args.per_device_train_batch_size,
+        per_device_eval_batch_size=args.per_device_eval_batch_size,
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
@@ -654,6 +708,7 @@ def main() -> None:
         lr_scheduler_type=args.lr_scheduler_type,
         warmup_ratio=args.warmup_ratio,
         logging_steps=args.logging_steps,
+        eval_steps=args.eval_steps,
         save_steps=args.save_steps,
         save_total_limit=args.save_total_limit,
         bf16=dtype_kwargs["bf16"],
@@ -664,17 +719,20 @@ def main() -> None:
         report_to=[],
         dataloader_pin_memory=args.dataloader_pin_memory,
         dataloader_num_workers=args.dataloader_num_workers,
+        eval_strategy="steps" if eval_dataset is not None else "no",
+        eval_accumulation_steps=1,
     )
 
     trainer = Trainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
         data_collator=data_collator,
         processing_class=tokenizer,
     )
 
-    train_result = trainer.train()
+    train_result = trainer.train(resume_from_checkpoint=args.resume_from_checkpoint)
     trainer.save_model(args.output_dir)
     tokenizer.save_pretrained(args.output_dir)
     log_gpu_memory_usage("训练完成")

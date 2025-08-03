@@ -7,8 +7,28 @@ import time
 from typing import Dict, List, Optional, Any
 from config.config import get_config
 from logger.logger import get_logger
+import math
 
 logger = get_logger('OpenAI_Client')
+
+def calculate_entropy(text: str) -> float:
+    """计算字符串的熵值，用于检测无序字符串"""
+    if not text:
+        return 0.0
+    
+    # 统计每个字符的出现频率
+    char_counts = {}
+    for char in text:
+        char_counts[char] = char_counts.get(char, 0) + 1
+    
+    # 计算熵值
+    entropy = 0.0
+    text_len = len(text)
+    for count in char_counts.values():
+        probability = count / text_len
+        entropy -= probability * math.log2(probability)
+    
+    return entropy
 
 class OpenAIClient:
     """OpenAI API客户端，用于与本地LM Studio服务器交互"""
@@ -124,6 +144,17 @@ class LLMDataCleaner:
         Returns:
             包含清洗结果的字典
         """
+        # 高熵检测：过滤掉无序字符串
+        entropy = calculate_entropy(text)
+        # 如果熵值超过阈值（例如5.0），则认为是无序字符串
+        if entropy > 5.0:
+            return {
+                "is_valid": False,
+                "cleaned_text": text,
+                "reason": f"高熵字符串(熵值: {entropy:.2f})，可能为无序内容",
+                "confidence": 0.9
+            }
+        
         system_prompt = """你是一个数据清洗专家。请分析给定的文本，判断其是否为有效的对话内容，并提供清洗建议。
 /no_think
 请按照以下格式回复：
@@ -138,7 +169,8 @@ class LLMDataCleaner:
 - 是否为有意义的对话内容
 - 是否包含垃圾信息或系统消息
 - 文本是否过于简短或无意义
-- 是否有明显的格式问题"""
+- 是否有明显的格式问题
+- 是否为高熵无序字符串（如随机字符、编码等）"""
 
         messages = [
             {"role": "system", "content": system_prompt},
@@ -150,7 +182,7 @@ class LLMDataCleaner:
                 messages=messages,
                 model=self.model,
                 temperature=0.1,
-                max_tokens=500
+                max_tokens=19200
             )
             
             # 验证响应结构
@@ -267,7 +299,7 @@ class LLMDataCleaner:
         
         system_prompt = f"""你是一个专业的数据清洗专家，需要对一整天的对话记录进行过滤和整理。请严格按照以下步骤执行：
 
-请严格按照以下要求：
+请按照以下要求：
 1. 删除规则  
    a. **系统提示**：所有以系统或平台自动生成的提示性文字（如"开始通话""加载中""自动补齐"等）  
    b. **垃圾消息**：无意义字符、乱码、广告或重复发送的同一内容  
@@ -297,8 +329,8 @@ class LLMDataCleaner:
             response = self.client.chat_completion(
                 messages=messages_llm,
                 model=self.model,
-                temperature=0.1,
-                max_tokens=1000
+                temperature=0.15,
+                max_tokens=19200
             )
             
             # 验证响应结构
