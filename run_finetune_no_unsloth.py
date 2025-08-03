@@ -2,7 +2,7 @@
 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-''' no unsloth量化版本的一键QLora微调'''
+''' no unsloth量化版本的一键QLora微调（已支持 MoE 参数透传）'''
 
 import subprocess
 import sys
@@ -11,25 +11,34 @@ import argparse
 
 
 def main():
-    """运行QLoRA微调的主函数
+    """运行QLoRA微调的主函数（不使用 Unsloth）
 
     功能：
         - 解析命令行参数
         - 构建命令行参数
         - 执行训练命令并处理结果
     """
-    # 创建参数解析器
-    parser = argparse.ArgumentParser(description='QLoRA微调脚本')
-    
-    # 添加命令行参数
+    parser = argparse.ArgumentParser(description='QLoRA微调脚本（no-unsloth）')
+
+    # 基础与资源相关
+    parser.add_argument('--repo_id', type=str, default='Qwen/Qwen3-30B-A3B-Instruct-2507',
+                        help='HF 仓库ID，默认 Qwen/Qwen3-30B-A3B-Instruct-2507')
+    parser.add_argument('--local_dir', type=str, default='qwen3-30b-a3b-instruct',
+                        help='本地模型目录（默认：qwen3-30b-a3b-instruct）')
+
+    # 训练与QLoRA开关
     parser.add_argument('--use_unsloth', type=str, default='false', choices=['true', 'false'],
                         help='是否使用unsloth (default: false)')
     parser.add_argument('--use_qlora', type=str, default='true', choices=['true', 'false'],
                         help='是否使用qlora (default: true)')
+
+    # 数据与输出
     parser.add_argument('--data_path', type=str, default='training_data.jsonl',
                         help='训练数据路径 (default: training_data.jsonl)')
-    parser.add_argument('--output_dir', type=str, default='finetune/models/qwen3-8b-qlora',
-                        help='输出目录 (default: finetune/models/qwen3-8b-qlora)')
+    parser.add_argument('--output_dir', type=str, default='finetune/models/qwen3-30b-a3b-qlora',
+                        help='输出目录 (default: finetune/models/qwen3-30b-a3b-qlora)')
+
+    # 训练超参
     parser.add_argument('--per_device_train_batch_size', type=str, default='1',
                         help='每个设备的训练批次大小 (default: 1)')
     parser.add_argument('--gradient_accumulation_steps', type=str, default='16',
@@ -38,36 +47,50 @@ def main():
                         help='学习率 (default: 2e-4)')
     parser.add_argument('--num_train_epochs', type=str, default='3',
                         help='训练轮数 (default: 3)')
+
+    # LoRA 参数
     parser.add_argument('--lora_r', type=str, default='16',
                         help='LoRA的秩 (default: 16)')
     parser.add_argument('--lora_alpha', type=str, default='32',
                         help='LoRA的alpha值 (default: 32)')
     parser.add_argument('--lora_dropout', type=str, default='0.05',
                         help='LoRA的dropout率 (default: 0.05)')
-    parser.add_argument('--logging_steps', type=str, default='20',
-                        help='日志记录步数 (default: 20)')
-    parser.add_argument('--local_dir', type=str, default='qwen3-8b-base',
-                        help='本地模型目录 (default: qwen3-8b-base)')
-    parser.add_argument('--save_steps', type=str, default='200',
-                        help='保存模型步数 (default: 200)')
-    parser.add_argument('--warmup_ratio', type=str, default='0.05',
-                        help='预热比例 (default: 0.05)')
-    parser.add_argument('--lr_scheduler_type', type=str, default='cosine',
-                        help='学习率调度器类型 (default: cosine)')
+    parser.add_argument('--target_modules', type=str,
+                        default='q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj',
+                        help='稠密模型 LoRA 目标模块（逗号分隔）')
+
+    # MoE 相关参数（与 finetune/qlora_qwen3.py 对齐）
+    parser.add_argument('--moe_enable', type=str, default='false', choices=['true', 'false'],
+                        help='是否启用 MoE 注入逻辑')
+    parser.add_argument('--moe_lora_scope', type=str, default='expert_only',
+                        choices=['expert_only', 'router_only', 'all'],
+                        help='LoRA 注入范围（默认 expert_only）')
+    parser.add_argument('--moe_expert_patterns', type=str,
+                        default='experts.ffn.(gate_proj|up_proj|down_proj),layers.[0-9]+.mlp.experts.[0-9]+.(w1|w2|w3)',
+                        help='专家线性层模式，多个正则用逗号分隔（兼容 Qwen-MoE / Mixtral）')
+    parser.add_argument('--moe_router_patterns', type=str, default='router.(gate|dense)',
+                        help='路由/门控线性层模式，多个正则逗号分隔')
+    parser.add_argument('--moe_max_experts_lora', type=str, default='-1',
+                        help='每层最多注入 LoRA 的专家个数，-1 表示全部')
+    parser.add_argument('--moe_dry_run', type=str, default='false', choices=['true', 'false'],
+                        help='仅打印匹配到的模块并退出（Dry-Run）')
+
+    # 其余训练设置
+    parser.add_argument('--logging_steps', type=str, default='20', help='日志记录步数')
+    parser.add_argument('--save_steps', type=str, default='200', help='保存模型步数')
+    parser.add_argument('--warmup_ratio', type=str, default='0.05', help='预热比例')
+    parser.add_argument('--lr_scheduler_type', type=str, default='cosine', help='学习率调度器类型')
     parser.add_argument('--no-gradient_checkpointing', action='store_true',
                         help='不使用梯度检查点 (default: 使用)')
     parser.add_argument('--no-merge_and_save', action='store_true',
                         help='不合并并保存模型 (default: 合并并保存)')
     parser.add_argument('--fp16', type=str, default='true', choices=['true', 'false'],
                         help='是否使用fp16 (default: true)')
-    parser.add_argument('--optim', type=str, default='adamw_torch_fused',
-                        help='优化器 (default: adamw_torch_fused)')
+    parser.add_argument('--optim', type=str, default='adamw_torch_fused', help='优化器')
     parser.add_argument('--dataloader_pin_memory', type=str, default='false', choices=['true', 'false'],
                         help='是否固定数据加载器内存 (default: false)')
-    parser.add_argument('--dataloader_num_workers', type=str, default='0',
-                        help='数据加载器工作线程数 (default: 0)')
-    
-    # 解析命令行参数
+    parser.add_argument('--dataloader_num_workers', type=str, default='0', help='DataLoader 工作线程数')
+
     args = parser.parse_args()
 
     env = os.environ.copy()
@@ -75,18 +98,20 @@ def main():
         "TORCH_LOGS": "",
         "TORCHDYNAMO_DISABLE": "1",
         "TORCH_COMPILE_DISABLE": "1",
-        "CUDA_LAUNCH_BLOCKING": "0",  # 关闭调试模式以提高性能
-        "TRITON_DISABLE": "1",  # 禁用Triton
-        "TORCH_USE_TRITON": "0",  # 不使用Triton
-        "PYTORCH_DISABLE_TRITON": "1",  # 禁用PyTorch中的Triton
-        "TF_ENABLE_ONEDNN_OPTS": "0",  # 禁用TensorFlow oneDNN自定义操作以减少警告
-        "TF_CPP_MIN_LOG_LEVEL": "2",  # 减少TensorFlow警告信息
+        "CUDA_LAUNCH_BLOCKING": "0",
+        "TRITON_DISABLE": "1",
+        "TORCH_USE_TRITON": "0",
+        "PYTORCH_DISABLE_TRITON": "1",
+        "TF_ENABLE_ONEDNN_OPTS": "0",
+        "TF_CPP_MIN_LOG_LEVEL": "2",
     })
 
-    # 构建命令行参数
+    # 构建命令行参数（将 MoE 相关参数透传给 finetune/qlora_qwen3.py）
     cmd = [
         sys.executable,
         "finetune/qlora_qwen3.py",
+        "--repo_id", args.repo_id,
+        "--local_dir", args.local_dir,
         "--use_unsloth", args.use_unsloth,
         "--use_qlora", args.use_qlora,
         "--data_path", args.data_path,
@@ -98,20 +123,25 @@ def main():
         "--lora_r", args.lora_r,
         "--lora_alpha", args.lora_alpha,
         "--lora_dropout", args.lora_dropout,
+        "--target_modules", args.target_modules,
         "--logging_steps", args.logging_steps,
-        "--local_dir", args.local_dir,
         "--save_steps", args.save_steps,
         "--warmup_ratio", args.warmup_ratio,
         "--lr_scheduler_type", args.lr_scheduler_type,
+        # MoE 相关
+        "--moe_enable", args.moe_enable,
+        "--moe_lora_scope", args.moe_lora_scope,
+        "--moe_expert_patterns", args.moe_expert_patterns,
+        "--moe_router_patterns", args.moe_router_patterns,
+        "--moe_max_experts_lora", args.moe_max_experts_lora,
+        "--moe_dry_run", args.moe_dry_run,
     ]
-    
-    # 添加标志参数
+
     if not args.no_gradient_checkpointing:
         cmd.append("--gradient_checkpointing")
     if not args.no_merge_and_save:
         cmd.append("--merge_and_save")
-    
-    # 添加剩余参数
+
     cmd.extend([
         "--fp16", args.fp16,
         "--optim", args.optim,
@@ -119,16 +149,14 @@ def main():
         "--dataloader_num_workers", args.dataloader_num_workers
     ])
 
-
-    print("启动QLoRA微调(Windows兼容模式)...")
+    print("启动QLoRA微调(no-unsloth)...")
     print("命令:", " ".join(cmd))
-    print("环境变量:")
+    print("环境变量(关键项):")
     for k, v in env.items():
         if k.startswith(("TORCH", "CUDA", "TORCHDYNAMO")):
             print(f"  {k}={v}")
     print()
 
-    # 执行训练
     try:
         result = subprocess.run(cmd, env=env, check=True)
         print("训练完成!")

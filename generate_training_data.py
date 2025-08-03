@@ -11,6 +11,14 @@ import datetime
 from collections import defaultdict
 from config.config import get_config
 from logger.logger import get_logger
+
+# 导入LM Studio支持（可选）
+try:
+    from openai.openai_client import llm_cleaner
+    LLM_AVAILABLE = True
+except ImportError:
+    LLM_AVAILABLE = False
+    llm_cleaner = None
 # 获取配置实例
 config = get_config()
 logger = get_logger('Generate_training_data')
@@ -102,6 +110,8 @@ _IMAGE_INDICATORS = {
     '语音通话',  # 与时长模式配合过滤
     # 也过滤你提到的可疑短串前缀片段（非唯一，仅用于命中）
     'd42ae9486fdbc4b7',
+    # 添加对类似 u_2_Tv579rOiOIDBW9sUrPBA 这种格式的过滤
+    'u_',
     # IM链接参数常见噪声
     '&rkey=',
     '情侣空间','情侣','神仙眷侣','知己浪花','累计互发消息超过'
@@ -213,6 +223,19 @@ def is_image_content(text: str) -> bool:
     digit_count = sum(1 for c in t if c.isdigit())
     if len(t) > 10 and digit_count / len(t) > 0.7:
         return True
+    
+    # 过滤类似 u_2_Tv579rOiOIDBW9sUrPBA 这种格式的随机字符串
+    if t.startswith('u_') and '_' in t and len(t) > 20:
+        parts = t.split('_')
+        if len(parts) >= 3 and all(part.isalnum() for part in parts[1:]):
+            # 检查是否有足够的字符混合（大小写+数字）
+            alnum = sum(1 for c in t if c.isalnum())
+            if alnum / len(t) > 0.8:
+                has_upper = any(c.isupper() for c in t)
+                has_lower = any(c.islower() for c in t)
+                has_digit = any(c.isdigit() for c in t)
+                if (has_upper + has_lower + has_digit) >= 2:
+                    return True
     
     # 过滤常见"完成XX，查看详情"等系统引导文案（包含"查看详情。"时强过滤）
     if ('查看详情' in t) and ('完成' in t or '已完成' in t):
@@ -514,45 +537,66 @@ def main():
                     if not messages or len(messages) <= 1:
                         continue
                     
-                    # 去重处理
-                    from collections import deque
-                    last_by_role = {"user": "", "assistant": ""}
-                    recent_window = deque(maxlen=6)
+                    # 检查是否启用LLM清洗
+                    use_llm_clean = config.get('use_llm_clean', False) and LLM_AVAILABLE
                     
-                    def is_recent_duplicate(s: str) -> bool:
-                        from collections import Counter
-                        ns = _norm_for_sim(s)
-                        if not ns:
+                    if use_llm_clean:
+                        # 使用LLM进行按天清洗
+                        try:
+                            logger.info(f"使用LLM清洗 {date} 的对话 ({len(messages)}条消息)")
+                            llm_messages = [{"role": msg["role"], "content": msg["content"], "timestamp": msg["timestamp"]}
+                                          for msg in messages]
+                            cleaned_messages = llm_cleaner.clean_daily_conversation(llm_messages, date)
+                            
+                            # 只保留必要字段
+                            daily_dialog = [{"role": msg["role"], "content": msg["content"]}
+                                          for msg in cleaned_messages]
+                            logger.info(f"LLM清洗完成: {date} 保留 {len(daily_dialog)}/{len(messages)} 条消息")
+                            
+                        except Exception as e:
+                            logger.error(f"LLM清洗失败 {date}: {e}，使用传统清洗方法")
+                            use_llm_clean = False
+                    
+                    if not use_llm_clean:
+                        # 传统清洗方法（保留原有逻辑）
+                        from collections import deque
+                        last_by_role = {"user": "", "assistant": ""}
+                        recent_window = deque(maxlen=6)
+                        
+                        def is_recent_duplicate(s: str) -> bool:
+                            from collections import Counter
+                            ns = _norm_for_sim(s)
+                            if not ns:
+                                return False
+                            for prev in recent_window:
+                                p = _norm_for_sim(prev)
+                                if not p:
+                                    continue
+                                if ns.startswith(p) and len(ns) - len(p) <= 10:
+                                    return True
+                                if p.startswith(ns) and len(p) - len(ns) <= 10:
+                                    return True
+                                pc = Counter(p); cc = Counter(ns)
+                                short, longc = (pc, cc) if sum(pc.values()) <= sum(cc.values()) else (cc, pc)
+                                inter = sum(min(short[k], longc.get(k, 0)) for k in short)
+                                cov = inter / max(1, sum(short.values()))
+                                if cov >= 0.92:
+                                    return True
                             return False
-                        for prev in recent_window:
-                            p = _norm_for_sim(prev)
-                            if not p:
-                                continue
-                            if ns.startswith(p) and len(ns) - len(p) <= 10:
-                                return True
-                            if p.startswith(ns) and len(p) - len(ns) <= 10:
-                                return True
-                            pc = Counter(p); cc = Counter(ns)
-                            short, longc = (pc, cc) if sum(pc.values()) <= sum(cc.values()) else (cc, pc)
-                            inter = sum(min(short[k], longc.get(k, 0)) for k in short)
-                            cov = inter / max(1, sum(short.values()))
-                            if cov >= 0.92:
-                                return True
-                        return False
 
-                    # 构建该日期的对话
-                    daily_dialog = []
-                    for msg in messages:
-                        role = msg["role"]
-                        content = msg["content"]
-                        
-                        # 去重：同角色近重复 或 跨角色窗口近重复
-                        if (last_by_role[role] and is_near_duplicate(last_by_role[role], content)) or is_recent_duplicate(content):
-                            continue
-                        
-                        daily_dialog.append({"role": role, "content": content})
-                        last_by_role[role] = content
-                        recent_window.append(content)
+                        # 构建该日期的对话
+                        daily_dialog = []
+                        for msg in messages:
+                            role = msg["role"]
+                            content = msg["content"]
+                            
+                            # 去重：同角色近重复 或 跨角色窗口近重复
+                            if (last_by_role[role] and is_near_duplicate(last_by_role[role], content)) or is_recent_duplicate(content):
+                                continue
+                            
+                            daily_dialog.append({"role": role, "content": content})
+                            last_by_role[role] = content
+                            recent_window.append(content)
 
                     # 写入该日期的对话
                     if daily_dialog:
