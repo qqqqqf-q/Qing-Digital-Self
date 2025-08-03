@@ -6,7 +6,7 @@ class Config:
         # 初始化默认配置
         self._config: Dict[str, Any] = {
             'db_path':os.getenv('db_path','./c2c.db'),
-            'qq_number_ai':os.getenv('qq_number_ai'),
+            'qq_number_ai':os.getenv('qq_number_ai',),
             # 其他配置
             'log_level': os.getenv('LOG_LEVEL', 'INFO'),
             'use_unsloth': os.getenv('USE_UNSLOTH', 'false').lower() == 'true',
@@ -14,14 +14,14 @@ class Config:
             
             # LM Studio配置
             'OpenAI_URL': os.getenv('OpenAI_URL', 'http://localhost:1234'),
-            'OpenAI_Model': os.getenv('OpenAI_MODEL', 'default'),
-            'OpenAI_timeout': int(os.getenv('OpenAI_TIMEOUT', '30')),
+            'OpenAI_Model': os.getenv('OpenAI_MODEL', '/qwen3-8b-fp8'),
+            'OpenAI_timeout': int(os.getenv('OpenAI_TIMEOUT', '20')),
             'OpenAI_max_retries': int(os.getenv('OpenAI_MAX_RETRIES', '3')),
             'OpenAI_retry_delay': float(os.getenv('OpenAI_RETRY_DELAY', '1.0')),
-            'use_llm_clean': os.getenv('USE_LLM_CLEAN', 'false').lower() == 'true',
+            'use_llm_clean': os.getenv('USE_LLM_CLEAN', 'true').lower() == 'true',
             
             # 并发配置
-            'max_workers': int(os.getenv('MAX_WORKERS', '4')),  # 并发处理线程数
+            'max_workers': int(os.getenv('MAX_WORKERS', '6')),  # 并发处理线程数
         }
 
     def get(self, key: str, default: Optional[Any] = None) -> Any:
