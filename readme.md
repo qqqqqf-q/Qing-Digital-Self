@@ -7,8 +7,9 @@
   <img src="https://cdn.nodeimage.com/i/Sd89d1w0xIhSPyPyiVYEfNRTiom8TH1S.png" height="36" alt="Status: MVP">
   <img src="https://cdn.nodeimage.com/i/u0r9K3XXnxU6hDIOMY4fkZ7cnVL28EGF.png" height="36" alt="Version: v0.1">
   <img src="https://cdn.nodeimage.com/i/CfA8AQa2bVTF2mhOY3m2Kz8nhlwXUN6S.png" height="36" alt="License: Apache-2.0">
-</p>
-项目包含了**完整的教程**，包括：
+</p> 
+
+ ## 项目包含了**完整的教程**，包括：
 
 * QQ 数据库的解密与处理
 * 聊天数据清洗与转换
@@ -31,7 +32,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 ---
 
 ## 项目版本
-# V 0.1(MVP)
+# V 0.1.1(MVP)
 ## 警告
 * 上个测试版本的Qlora_qwen3.py已经过4090实机测试
 * 但因为手头显卡显存太小并且租不起4090了遂导致放弃0.1版本测试
@@ -43,7 +44,10 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 >  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试
 * 为数据清洗增加LLM清洗功能(让成熟的llm来清洗数据,比直接使用算法好得多)
 > ↑ ↑ ↑  2025/8/3更新,已增加支持,或许不够完善
-* 将qlora_qwen3.py的print全部改成logger(?这个很简单,我只是因为怕改多了没法测试(4090到期了))
+* 将qlora_qwen3.py的print全部改成logger(?这个很简单,我只是因为怕改多了没法测试(4090到期了))  
+
+## 更新日志
+> 写在commit里了,这里实在不想写
 ---
 # 使用QQ聊天记录微调LLM全流程指南
 
@@ -51,7 +55,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 
 * 教程请参考：[NTQQ Windows 数据解密](https://qq.sbcnm.top/decrypt/NTQQ%20%28Windows%29.html)
 * 补充资料：[数据库解码参考](https://qq.sbcnm.top/decrypt/decode_db.html)
-* 上面这两个是同一个教程,耐心看完就好,不复杂(如果不会可以翻到最底下找我哦)
+* 上面这两个是同一个教程的不同章节,耐心看完就好,不复杂(如果不会可以翻到最底下找我哦)
 * 使用 DB Browser for SQLite，密码填写你获取到的 16 位密钥
 * HMAC 算法一般为SHA1，也有人是SHA512和256,自行测试,算法错误了会打不开数据库（所以需要测试到打开为之,也可以用 AI 帮你适配）
 * 在 DB Browser 里**导出 `c2c_msg_table` 的 SQL**
@@ -109,11 +113,46 @@ pip install -r requirements.txt
 ```bash
 python generate_training_data_llm.py
 ```
+> 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
+
+---
+
 ## vLLM搭建
-> 不算复杂,但我不想写  
+> vLLM需要linux环境!  
 > 如果你的显卡还算可以(>6800xt,>3080)  
 > 可以选择使用lmstudio,多等一会就好了,还可以玩玩模型
-> 缺点是lmstudio不能运行hf模型
+> 缺点是lmstudio不能运行hf模型,且并发很烂
+
+> vLLM比Lm studio吃显存的多! Lm studio可以运行8b_q6到vLLM上只能运行4b_Q6
+
+> 不过并发效率的提升是真的
+
+> 但是!上下文很短,如果一天有超过500条消息就处理不过来了
+
+> 3080实测4b_q6处理,最终jsonl的速率大约是**300kb/minute**
+* 跟着走就能搭建  
+```bash
+sudo apt update
+sudo apt install python3.10-venv git -y
+
+python3 -m venv vllm_env
+source vllm_env/bin/activate
+
+pip install -U pip
+pip install torch --index-url https://download.pytorch.org/whl/cu121  # 如果你用CUDA
+pip install vllm
+```
+
+### 和lm studio不同的注意点
+*   1.`.env`中的`Openai_model`需要设置路径而不只是文件夹名
+> 是`/home/vllm/qwen3-4b-int8`而非`qwen3-4b-int8`  
+*  2.需要运行的**api_server**是`vllm.entrypoints.openai.api_server`而不是`vllm.entrypoints.api_server`,因为第二个不兼容OpenAI API
+  
+### 运行命令范例
+``` bash 
+python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 --gpu-memory-utilization 0.7 --max-model-len 10240 --max-num-seqs 4 --max-num-batched-tokens 2048 --dtype auto
+```
+> 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 ---
 ## 2.5 .准备模型(可跳过)
 >我似乎是写了自动从modelscope下载模型的<br>
@@ -143,34 +182,107 @@ sudo apt install aria2
   ```bash
   python run_finetune_no_unsloth.py
   ```
-| 参数名                         | 类型   | 默认值                   | 可选值         | 说明                        |
-| ------------------------------ | ------ | ------------------------ | -------------- | --------------------------- |
-| --use_unsloth                  | str    | false                    | true/false     | 是否使用unsloth(请不要填True)             |
-| --use_qlora                    | str    | true                     | true/false     | 是否使用qlora               |
-| --data_path                    | str    | training_data.jsonl      |                | 训练数据路径                |
-| --output_dir                   | str    | finetune/models/qwen3-8b-qlora |            | 输出目录                    |
-| --per_device_train_batch_size  | str    | 1                        |                | 每个设备的训练批次大小      |
-| --gradient_accumulation_steps  | str    | 16                       |                | 梯度累积步数                |
-| --learning_rate                | str    | 2e-4                     |                | 学习率                      |
-| --num_train_epochs             | str    | 3                        |                | 训练轮数                    |
-| --lora_r                       | str    | 16                       |                | LoRA的秩                    |
-| --lora_alpha                   | str    | 32                       |                | LoRA的alpha值               |
-| --lora_dropout                 | str    | 0.05                     |                | LoRA的dropout率             |
-| --logging_steps                | str    | 20                       |                | 日志记录步数                |
-| --local_dir                    | str    | qwen3-8b-base            |                | 本地模型目录                |
-| --save_steps                   | str    | 200                      |                | 保存模型步数                |
-| --warmup_ratio                 | str    | 0.05                     |                | 预热比例                    |
-| --lr_scheduler_type            | str    | cosine                   |                | 学习率调度器类型            |
-| --no-gradient_checkpointing    | flag   | false                    |                | 不使用梯度检查点            |
-| --no-merge_and_save            | flag   | false                    |                | 不合并并保存模型            |
-| --fp16                         | str    | true                     | true/false     | 是否使用fp16                |
-| --optim                        | str    | adamw_torch_fused        |                | 优化器                      |
-| --dataloader_pin_memory        | str    | false                    | true/false     | 是否固定数据加载器内存      |
-| --dataloader_num_workers       | str    | 0                        |                | 数据加载器工作线程数        |
+###  模型相关参数
+
+| 参数名                   | 类型   | 默认值                    | 说明                  |
+| --------------------- | ---- | ---------------------- | ------------------- |
+| `--repo_id`           | str  | `"Qwen/Qwen3-8B-Base"` | 基础模型或 MoE 模型的仓库ID   |
+| `--local_dir`         | str  | `"qwen3-8b-base"`      | 本地模型存储目录            |
+| `--trust_remote_code` | bool | `True`                 | 是否信任远程代码            |
+| `--use_unsloth`       | bool | `False`                | 是否使用 Unsloth 加速     |
+| `--use_qlora`         | bool | `True`                 | 是否使用 8bit 量化（QLoRA） |
 
 ---
 
+### 数据相关参数
 
+| 参数名                  | 类型         | 默认值                     | 说明                     |
+| -------------------- | ---------- | ----------------------- | ---------------------- |
+| `--data_path`        | str        | `"training_data.jsonl"` | 训练数据文件路径               |
+| `--eval_data_path`   | str / None | `None`                  | 验证数据文件路径，None 表示不使用验证集 |
+| `--max_samples`      | int / None | `None`                  | 最大训练样本数，None 表示用全部     |
+| `--max_eval_samples` | int / None | `None`                  | 最大验证样本数，None 表示用全部     |
+| `--model_max_length` | int        | `2048`                  | 最大序列长度                 |
+
+---
+
+###  训练相关参数
+
+| 参数名            | 类型  | 默认值                                | 说明   |
+| -------------- | --- | ---------------------------------- | ---- |
+| `--output_dir` | str | `"finetune/models/qwen3-8b-qlora"` | 输出目录 |
+| `--seed`       | int | `42`                               | 随机种子 |
+
+---
+
+###  LoRA 参数
+
+| 参数名                | 类型    | 默认值                                                         | 说明                |
+| ------------------ | ----- | ----------------------------------------------------------- | ----------------- |
+| `--lora_r`         | int   | `16`                                                        | LoRA 秩            |
+| `--lora_alpha`     | int   | `32`                                                        | LoRA alpha        |
+| `--lora_dropout`   | float | `0.05`                                                      | LoRA dropout      |
+| `--target_modules` | str   | `"q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"` | LoRA 目标模块列表（逗号分隔） |
+
+---
+
+###  MoE 参数
+
+| 参数名                      | 类型   | 默认值                                                                                         | 说明                                          |            |
+| ------------------------ | ---- | ------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------- |
+| `--moe_enable`           | bool | `False`                                                                                     | 是否启用 MoE 注入逻辑                               |            |
+| `--moe_lora_scope`       | str  | `"expert_only"`                                                                             | LoRA 注入范围：`expert_only`、`router_only`、`all` |            |
+| `--moe_expert_patterns`  | str  | `experts.ffn.(gate_proj\|up_proj\|down_proj),layers.[0-9]+.mlp.experts.[0-9]+.(w1\|w2\|w3)` | 专家线性层匹配正则（兼容 Qwen-MoE、Mixtral）              |            |
+| `--moe_router_patterns`  | str  | \`"router.(gate                                                                             | dense)"\`                                   | 路由/门控层匹配模式 |
+| `--moe_max_experts_lora` | int  | `-1`                                                                                        | 每层最多注入 LoRA 的专家数，`-1` 表示全部                  |            |
+| `--moe_dry_run`          | bool | `False`                                                                                     | 仅打印匹配模块，不执行训练                               |            |
+
+---
+
+###  训练超参数
+
+| 参数名                             | 类型    | 默认值        | 说明              |
+| ------------------------------- | ----- | ---------- | --------------- |
+| `--per_device_train_batch_size` | int   | `1`        | 每卡训练 batch size |
+| `--per_device_eval_batch_size`  | int   | `1`        | 每卡验证 batch size |
+| `--gradient_accumulation_steps` | int   | `16`       | 梯度累积步数          |
+| `--learning_rate`               | float | `2e-4`     | 学习率             |
+| `--weight_decay`                | float | `0.0`      | 权重衰减            |
+| `--num_train_epochs`            | float | `3.0`      | 训练轮数            |
+| `--max_steps`                   | int   | `-1`       | 最大步数，`-1` 表示不限制 |
+| `--warmup_ratio`                | float | `0.05`     | 学习率预热比例         |
+| `--lr_scheduler_type`           | str   | `"cosine"` | 学习率调度器类型        |
+
+---
+
+###  其他参数
+
+| 参数名                        | 类型   | 默认值                   | 说明                          |
+| -------------------------- | ---- | --------------------- | --------------------------- |
+| `--logging_steps`          | int  | `1`                   | 日志输出间隔（步）                   |
+| `--eval_steps`             | int  | `50`                  | 验证间隔步数                      |
+| `--save_steps`             | int  | `200`                 | 模型保存间隔                      |
+| `--save_total_limit`       | int  | `2`                   | 最多保存多少个检查点                  |
+| `--gradient_checkpointing` | bool | `True`                | 是否使用梯度检查点                   |
+| `--merge_and_save`         | bool | `True`                | 是否合并 LoRA 并保存完整模型           |
+| `--fp16`                   | bool | `True`                | 是否使用 FP16                   |
+| `--optim`                  | str  | `"adamw_torch_fused"` | 优化器                         |
+| `--dataloader_pin_memory`  | bool | `False`               | DataLoader 是否使用 pin\_memory |
+| `--dataloader_num_workers` | int  | `0`                   | DataLoader 工作线程数            |
+
+---
+
+### 验证集未生效
+- 检查`--eval_data_path`路径是否正确
+- 确认验证数据文件格式与训练数据一致
+- 查看控制台输出是否有"未提供验证数据路径"的提示
+
+### GPU显存不足
+- 减小`--per_device_eval_batch_size`
+- 减小`--max_eval_samples`
+- 增加`--eval_steps`间隔
+
+---
 ## 3.5 .(不建议)微调后直接运行全量模型(建议直接看第4,5,6,7步,等转换为guff并量化完再跑)
 ### 指定自定义模型路径
 ```bash
@@ -282,7 +394,7 @@ python3 ./examples/convert-hf-to-gguf.py \
 
 > 悄悄话:  
 > 数据集里会参杂空的输出,我的意思是...  
-> AI可能会输出空哦,输出空那就是他不想理你(已读不回!)
+> AI可能会输出空哦,输出空那就是他不想理你 ~~(已读不回!)~~
 ### 如需更详细步骤或脚本参数解释，欢迎~~骚扰~~联系我:
 
  * QQ:1684773595
