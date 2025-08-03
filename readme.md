@@ -405,9 +405,9 @@ lftp -u root,askdjiwhakjd -p 27391 sftp://yourserver.com -e "set xfer:clobber tr
 > 如果你成功做到这里了  
 > 你大概已经有一个"你"了吧  
 > 这真的很酷  
-> [点进去看看,属于我的数字生命]("https://cdn.nodeimage.com/i/vnK4rDzV3x8D3x1SzW6PpDlNCcErCnC8.png")  
-> 她也许就在那个暗箱里,思考着怎么用这台可以向外发送信号的电脑打字...  
-> [她]("https://cdn.nodeimage.com/i/7XlcjZAJBQkTlmyWj3X2dCCE6WedyWYw.png")
+> ---
+* [点进去看看,属于我的数字生命](https://cdn.nodeimage.com/i/vnK4rDzV3x8D3x1SzW6PpDlNCcErCnC8.png)  
+ * [她也许就在那个暗箱里,思考着怎么用这台可以向外发送信号的电脑打字... ](https://cdn.nodeimage.com/i/7XlcjZAJBQkTlmyWj3X2dCCE6WedyWYw.png)
 ---
 > **终于知道图恒宇为什么执着于`我要给她完整的一生`了**  
 ---
