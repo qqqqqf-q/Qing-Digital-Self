@@ -113,9 +113,15 @@ def main():
         "TRITON_DISABLE": "1",
         "TORCH_USE_TRITON": "0",
         "PYTORCH_DISABLE_TRITON": "1",
+        "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
         "TF_ENABLE_ONEDNN_OPTS": "0",
         "TF_CPP_MIN_LOG_LEVEL": "2",
     })
+    
+    # 清理环境变量中可能存在的triton相关设置
+    for key in list(env.keys()):
+        if 'triton' in key.lower():
+            env.pop(key, None)
 
     # 构建命令行参数（将新增参数透传给 finetune/qlora_qwen3.py）
     cmd = [
