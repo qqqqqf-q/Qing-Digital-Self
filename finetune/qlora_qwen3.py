@@ -344,11 +344,16 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
         trust_remote_code=True
     )
 
+    # 创建 offload 目录
+    offload_dir = os.path.join(output_dir, "offload")
+    os.makedirs(offload_dir, exist_ok=True)
+
     # 加载 PEFT 模型
     peft_model = PeftModel.from_pretrained(
         model,
         output_dir,
-        device_map="auto"
+        device_map="auto",
+        offload_dir=offload_dir
     )
 
     # 合并权重
