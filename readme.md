@@ -34,7 +34,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 ## 项目版本
 # V 0.1.1(MVP)
 ## ~~警告~~ 喜报
-* 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune_no_unsloth.py)
+* 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune.py)
 * 清洗数据也已经进行实机测试(当前版本)
 ## TODO
 * 增加unsloth支持(重要!可以加快微调速度)
@@ -225,7 +225,7 @@ modelscope download --model Qwen/Qwen3-14B --local_dir ./qwen3-14b
 * 运行微调脚本：
 
   ```bash
-  python run_finetune_no_unsloth.py
+  python run_finetune.py
   ```
 ###  模型相关参数
 

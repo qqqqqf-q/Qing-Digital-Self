@@ -41,8 +41,11 @@ def main():
                         help='最大训练样本数，None表示用全部')
     parser.add_argument('--max_eval_samples', type=str, default=None,
                         help='最大验证样本数，None表示用全部')
+    parser.add_argument('--model_max_length', type=str, default='2048',
+                        help='最大序列长度 (default: 2048)')
     parser.add_argument('--output_dir', type=str, default='finetune/models/qwen3-30b-a3b-qlora',
                         help='输出目录 (default: finetune/models/qwen3-30b-a3b-qlora)')
+    parser.add_argument('--seed', type=str, default='42', help='随机种子 (default: 42)')
 
     # 训练超参
     parser.add_argument('--per_device_train_batch_size', type=str, default='1',
@@ -55,6 +58,8 @@ def main():
                         help='学习率 (default: 2e-4)')
     parser.add_argument('--num_train_epochs', type=str, default='3',
                         help='训练轮数 (default: 3)')
+    parser.add_argument('--max_steps', type=str, default='-1',
+                        help='最大步数，-1不限制 (default: -1)')
 
     # LoRA 参数
     parser.add_argument('--lora_r', type=str, default='16',
@@ -66,6 +71,8 @@ def main():
     parser.add_argument('--target_modules', type=str,
                         default='q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj',
                         help='稠密模型 LoRA 目标模块（逗号分隔）')
+    parser.add_argument('--weight_decay', type=str, default='0.0',
+                        help='权重衰减 (default: 0.0)')
 
     # MoE 相关参数（与 finetune/qlora_qwen3.py 对齐）
     parser.add_argument('--moe_enable', type=str, default='false', choices=['true', 'false'],
@@ -83,10 +90,15 @@ def main():
     parser.add_argument('--moe_dry_run', type=str, default='false', choices=['true', 'false'],
                         help='仅打印匹配到的模块并退出（Dry-Run）')
 
+    # 模型加载精度
+    parser.add_argument('--load_precision', type=str, default='fp16', choices=['int8', 'int4', 'fp16'],
+                        help='模型加载精度：int8、int4 或 fp16 (default: fp16)')
+
     # 其余训练设置
     parser.add_argument('--logging_steps', type=str, default='1', help='日志记录步数，设置为1以每step输出loss')
     parser.add_argument('--eval_steps', type=str, default='50', help='验证间隔步数')
     parser.add_argument('--save_steps', type=str, default='200', help='保存模型步数')
+    parser.add_argument('--save_total_limit', type=str, default='2', help='最多保存数')
     parser.add_argument('--warmup_ratio', type=str, default='0.05', help='预热比例')
     parser.add_argument('--lr_scheduler_type', type=str, default='cosine', help='学习率调度器类型')
     parser.add_argument('--resume_from_checkpoint', type=str, default=None,
@@ -101,6 +113,7 @@ def main():
     parser.add_argument('--dataloader_pin_memory', type=str, default='false', choices=['true', 'false'],
                         help='是否固定数据加载器内存 (default: false)')
     parser.add_argument('--dataloader_num_workers', type=str, default='0', help='DataLoader 工作线程数')
+    parser.add_argument('--dataloader_prefetch_factor', type=str, default='2', help='DataLoader 预取因子 (default: 2)')
 
     args = parser.parse_args()
 
@@ -138,15 +151,21 @@ def main():
         "--gradient_accumulation_steps", args.gradient_accumulation_steps,
         "--learning_rate", args.learning_rate,
         "--num_train_epochs", args.num_train_epochs,
+        "--max_steps", args.max_steps,
         "--lora_r", args.lora_r,
         "--lora_alpha", args.lora_alpha,
         "--lora_dropout", args.lora_dropout,
         "--target_modules", args.target_modules,
+        "--weight_decay", args.weight_decay,
+        "--load_precision", args.load_precision,
         "--logging_steps", args.logging_steps,
         "--eval_steps", args.eval_steps,
         "--save_steps", args.save_steps,
+        "--save_total_limit", args.save_total_limit,
         "--warmup_ratio", args.warmup_ratio,
         "--lr_scheduler_type", args.lr_scheduler_type,
+        "--seed", args.seed,
+        "--model_max_length", args.model_max_length,
         # MoE 相关
         "--moe_enable", args.moe_enable,
         "--moe_lora_scope", args.moe_lora_scope,
@@ -175,7 +194,8 @@ def main():
         "--fp16", args.fp16,
         "--optim", args.optim,
         "--dataloader_pin_memory", args.dataloader_pin_memory,
-        "--dataloader_num_workers", args.dataloader_num_workers
+        "--dataloader_num_workers", args.dataloader_num_workers,
+        "--dataloader_prefetch_factor", args.dataloader_prefetch_factor
     ])
 
     print("启动QLoRA微调(no-unsloth)...")

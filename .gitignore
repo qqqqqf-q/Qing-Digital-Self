@@ -193,3 +193,5 @@ get_reqs.py
 qwen3-30b-a3b-instruct-2507
 log.txt
 ./training_data
+docs/node_modules
+docs/.vitepress/cache
