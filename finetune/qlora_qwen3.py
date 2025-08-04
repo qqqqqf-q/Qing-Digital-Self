@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 """
- QLoRA 微调脚本
+QLoRA 微调脚本
 """
+import os
+import sys
 
+# os.environ["TORCH_LOGS"] = ""
+# os.environ["PYTORCH_DISABLE_LOGGING"] = "1"
 # 尝试导入 unsloth，必须在所有其他库之前导入
 try:
     from unsloth import FastLanguageModel
+
     UNSLOTH_AVAILABLE = True
 except ImportError as e:
     UNSLOTH_AVAILABLE = False
@@ -15,21 +20,28 @@ except ImportError as e:
 import argparse
 import json
 import math
-import os
 import platform
-import sys
+
+
 # 尝试导入 modelscope.snapshot_download，失败则禁用自动下载但不影响后续流程
 try:
     from modelscope import snapshot_download as _ms_snapshot_download
+
     def snapshot_download(model_id: str, local_dir: str) -> str:
         return _ms_snapshot_download(model_id=model_id, local_dir=local_dir)
+
     MODELSPACE_AVAILABLE = True
 except Exception as exc:
     MODELSPACE_AVAILABLE = False
+
     def snapshot_download(model_id: str, local_dir: str) -> str:
         # 安全回退：不执行任何下载，直接返回本地目录；调用方需确保目录已准备好
-        logger.warning(f"未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}")
+        logger.warning(
+            f"未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}"
+        )
         return local_dir
+
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 
@@ -40,27 +52,29 @@ os.environ.pop("TORCH_LOGS", None)
 # 禁用各种可能导致兼容性问题的优化
 # 设置CPU并行化
 cpu_count = os.cpu_count()
-os.environ.update({
-    "TORCHDYNAMO_DISABLE": "1",
-    "TORCH_COMPILE_DISABLE": "1",
-    "TRITON_DISABLE": "1",
-    "TORCH_USE_TRITON": "0",
-    "PYTORCH_DISABLE_TRITON": "1",
-    "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
-    "CUDA_LAUNCH_BLOCKING": "0",
-    "TF_ENABLE_ONEDNN_OPTS": "0",
-    "TF_CPP_MIN_LOG_LEVEL": "2",
-    # 禁用tokenizers并行化警告
-    "TOKENIZERS_PARALLELISM": "false",
-    # CPU并行化
-    "OMP_NUM_THREADS": str(cpu_count),
-    "MKL_NUM_THREADS": str(cpu_count),
-    "OPENBLAS_NUM_THREADS": str(cpu_count),
-})
+os.environ.update(
+    {
+        "TORCHDYNAMO_DISABLE": "1",
+        "TORCH_COMPILE_DISABLE": "1",
+        "TRITON_DISABLE": "1",
+        "TORCH_USE_TRITON": "0",
+        "PYTORCH_DISABLE_TRITON": "1",
+        "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
+        "CUDA_LAUNCH_BLOCKING": "0",
+        "TF_ENABLE_ONEDNN_OPTS": "0",
+        "TF_CPP_MIN_LOG_LEVEL": "2",
+        # 禁用tokenizers并行化警告
+        "TOKENIZERS_PARALLELISM": "false",
+        # CPU并行化
+        "OMP_NUM_THREADS": str(cpu_count),
+        "MKL_NUM_THREADS": str(cpu_count),
+        "OPENBLAS_NUM_THREADS": str(cpu_count),
+    }
+)
 
 # 清理可能存在的triton相关环境变量
 for key in list(os.environ.keys()):
-    if 'triton' in key.lower():
+    if "triton" in key.lower():
         os.environ.pop(key, None)
 
 import torch
@@ -83,14 +97,15 @@ from peft import (
     PeftModel,
 )
 
-# 导入logger
-import sys
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logger.logger import logger
+
 
 def print_rank0(*args, **kwargs):
     """仅在主进程打印信息"""
     print(*args, **kwargs)
+
 
 def log_gpu_memory_usage(step_name: str) -> None:
     """记录GPU显存使用情况
@@ -107,6 +122,7 @@ def log_gpu_memory_usage(step_name: str) -> None:
     else:
         logger.warning(f"{step_name} - CUDA不可用")
 
+
 def safe_dtype_preference() -> Dict[str, Union[torch.dtype, bool]]:
     """选择合适的数据类型
 
@@ -120,6 +136,7 @@ def safe_dtype_preference() -> Dict[str, Union[torch.dtype, bool]]:
     else:
         return {"torch_dtype": torch.float16, "bf16": False, "fp16": True}
 
+
 class JsonlSFTDataset(Dataset):
     """JSONL 格式的监督微调数据集
 
@@ -129,6 +146,7 @@ class JsonlSFTDataset(Dataset):
     3. 简单输入输出格式: 包含 input 和 output
     4. 纯文本格式: 包含 text 字段
     """
+
     def __init__(self, path: str, eos_token: str, max_samples: Optional[int] = None):
         self.samples = []
         with open(path, "r", encoding="utf-8") as f:
@@ -214,6 +232,7 @@ class CollatorForCausalLM:
 
     用于将文本数据转换为模型训练所需的张量批次
     """
+
     tokenizer: AutoTokenizer
 
     def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, torch.Tensor]:
@@ -236,21 +255,20 @@ class CollatorForCausalLM:
         batch["labels"] = batch["input_ids"].clone()
         return batch
 
+
 def load_model_and_tokenizer(
     base_dir: str,
     use_qlora: bool = True,
     use_unsloth: bool = False,
     use_gradient_checkpointing: bool = True,
-    load_precision: str = "fp16"
+    load_precision: str = "fp16",
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """加载模型和分词器，支持 Unsloth 和普通量化，支持多种加载精度。
     注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
     """
     logger.info("加载分词器...")
     tokenizer = AutoTokenizer.from_pretrained(
-        base_dir,
-        use_fast=True,
-        trust_remote_code=True
+        base_dir, use_fast=True, trust_remote_code=True
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -260,23 +278,25 @@ def load_model_and_tokenizer(
     if use_unsloth and UNSLOTH_AVAILABLE:
         try:
             logger.info("尝试使用 Unsloth 加载模型...")
-            
+
             # 启用 Triton 和相关优化（仅在使用unsloth时）
-            os.environ.update({
-                "TORCHDYNAMO_DISABLE": "0",
-                "TORCH_COMPILE_DISABLE": "0",
-                "TRITON_DISABLE": "0",
-                "TORCH_USE_TRITON": "1",
-                "PYTORCH_DISABLE_TRITON": "0",
-            })
+            os.environ.update(
+                {
+                    "TORCHDYNAMO_DISABLE": "0",
+                    "TORCH_COMPILE_DISABLE": "0",
+                    "TRITON_DISABLE": "0",
+                    "TORCH_USE_TRITON": "1",
+                    "PYTORCH_DISABLE_TRITON": "0",
+                }
+            )
 
             # Unsloth 根据load_precision选择量化模式
             if load_precision == "int4":
                 model, tokenizer = FastLanguageModel.from_pretrained(
                     base_dir,
                     dtype=None,
-                    load_in_4bit=True,    # 启用4bit
-                    load_in_8bit=False,   # 禁用8bit
+                    load_in_4bit=True,  # 启用4bit
+                    load_in_8bit=False,  # 禁用8bit
                     trust_remote_code=True,
                 )
                 logger.info("成功使用 Unsloth 加载模型 (4bit)")
@@ -284,8 +304,8 @@ def load_model_and_tokenizer(
                 model, tokenizer = FastLanguageModel.from_pretrained(
                     base_dir,
                     dtype=None,
-                    load_in_4bit=False,   # 禁用4bit
-                    load_in_8bit=True,    # 启用8bit
+                    load_in_4bit=False,  # 禁用4bit
+                    load_in_8bit=True,  # 启用8bit
                     trust_remote_code=True,
                 )
                 logger.info("成功使用 Unsloth 加载模型 (8bit)")
@@ -293,8 +313,8 @@ def load_model_and_tokenizer(
                 model, tokenizer = FastLanguageModel.from_pretrained(
                     base_dir,
                     dtype=None,
-                    load_in_4bit=False,   # 禁用4bit
-                    load_in_8bit=False,   # 禁用8bit
+                    load_in_4bit=False,  # 禁用4bit
+                    load_in_8bit=False,  # 禁用8bit
                     trust_remote_code=True,
                 )
                 logger.info("成功使用 Unsloth 加载模型 (fp16)")
@@ -303,13 +323,15 @@ def load_model_and_tokenizer(
             logger.error(f"Unsloth 加载失败: {e}")
             logger.info("回退到普通量化加载...")
             # 恢复原始环境变量设置
-            os.environ.update({
-                "TORCHDYNAMO_DISABLE": "1",
-                "TORCH_COMPILE_DISABLE": "1",
-                "TRITON_DISABLE": "1",
-                "TORCH_USE_TRITON": "0",
-                "PYTORCH_DISABLE_TRITON": "1",
-            })
+            os.environ.update(
+                {
+                    "TORCHDYNAMO_DISABLE": "1",
+                    "TORCH_COMPILE_DISABLE": "1",
+                    "TRITON_DISABLE": "1",
+                    "TORCH_USE_TRITON": "0",
+                    "PYTORCH_DISABLE_TRITON": "1",
+                }
+            )
     elif use_unsloth and not UNSLOTH_AVAILABLE:
         logger.warning("请求使用 Unsloth 但未安装，回退到普通量化加载...")
 
@@ -318,10 +340,8 @@ def load_model_and_tokenizer(
 
     # 加载模型配置并设置return_dict=True
     from transformers import AutoConfig
-    config = AutoConfig.from_pretrained(
-        base_dir,
-        trust_remote_code=True
-    )
+
+    config = AutoConfig.from_pretrained(base_dir, trust_remote_code=True)
     config.return_dict = True
 
     # 根据load_precision选择量化配置
@@ -361,23 +381,28 @@ def load_model_and_tokenizer(
 
     # 训练前准备（不注入 LoRA）
     if use_qlora or load_precision in ["int4", "int8"]:
-        model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=use_gradient_checkpointing)
+        model = prepare_model_for_kbit_training(
+            model, use_gradient_checkpointing=use_gradient_checkpointing
+        )
     else:
         if use_gradient_checkpointing:
             model.config.use_cache = False
             model.gradient_checkpointing_enable()
-    
+
     # 确保模型处于训练模式
     model.train()
 
     logger.info("模型已准备好进行训练（未注入LoRA，稍后统一注入）")
-    
+
     # 调试：检查加载后的模型参数状态
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-    logger.info(f"加载后模型状态 - 总参数: {total_params}, 可训练参数: {trainable_params}")
-    
+    logger.info(
+        f"加载后模型状态 - 总参数: {total_params}, 可训练参数: {trainable_params}"
+    )
+
     return model, tokenizer
+
 
 def apply_lora(
     model: AutoModelForCausalLM,
@@ -393,7 +418,9 @@ def apply_lora(
     注意：target_modules 可以来自稠密模型的固定列表，或基于 MoE 模式构建的模块路径。
     """
     if not target_modules:
-        raise ValueError("LoRA target_modules 为空，无法注入。请检查参数或 MoE 模式匹配。")
+        raise ValueError(
+            "LoRA target_modules 为空，无法注入。请检查参数或 MoE 模式匹配。"
+        )
 
     logger.info(f"LoRA 目标模块数量: {len(target_modules)}")
     if len(target_modules) <= 50:
@@ -423,13 +450,14 @@ def apply_lora(
 
     if hasattr(model, "print_trainable_parameters"):
         model.print_trainable_parameters()
-    
+
     # 确保LoRA参数可训练（解决梯度错误问题）
     for name, param in model.named_parameters():
         if "lora_" in name.lower():
             param.requires_grad = True
-    
+
     return model
+
 
 def merge_and_save(base_dir: str, output_dir: str) -> str:
     """合并 LoRA 权重并保存完整模型
@@ -445,9 +473,7 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
 
     # 加载基础模型
     model = AutoModelForCausalLM.from_pretrained(
-        base_dir,
-        device_map="auto",
-        trust_remote_code=True
+        base_dir, device_map="auto", trust_remote_code=True
     )
 
     # 创建 offload 目录
@@ -456,10 +482,7 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
 
     # 加载 PEFT 模型
     peft_model = PeftModel.from_pretrained(
-        model,
-        output_dir,
-        device_map="auto",
-        offload_dir=offload_dir
+        model, output_dir, device_map="auto", offload_dir=offload_dir
     )
 
     # 合并权重
@@ -472,124 +495,227 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
 
     # 保存分词器
     tokenizer = AutoTokenizer.from_pretrained(
-        base_dir,
-        use_fast=True,
-        trust_remote_code=True
+        base_dir, use_fast=True, trust_remote_code=True
     )
     tokenizer.save_pretrained(merged_dir)
 
     logger.info(f"合并后的模型已保存到: {merged_dir}")
     return merged_dir
 
+
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="QLoRA 微调（支持稠密与 MoE）")
 
     # 模型相关
-    parser.add_argument("--repo_id", type=str, default="Qwen/Qwen3-8B-Base",
-                        help="基础模型或 MoE 模型的仓库ID")
-    parser.add_argument("--local_dir", type=str, default="qwen3-8b-base",
-                        help="本地模型存储目录")
-    parser.add_argument("--trust_remote_code", action="store_true", default=True,
-                        help="是否信任远程代码")
-    parser.add_argument("--use_unsloth", type=lambda x: str(x).lower() == "true",
-                        default=False, help="是否使用 Unsloth 加速")
-    parser.add_argument("--use_qlora", type=lambda x: str(x).lower() == "true",
-                        default=True, help="是否使用 8bit 量化（QLoRA）")
+    parser.add_argument(
+        "--repo_id",
+        type=str,
+        default="Qwen/Qwen3-8B-Base",
+        help="基础模型或 MoE 模型的仓库ID",
+    )
+    parser.add_argument(
+        "--local_dir", type=str, default="qwen3-8b-base", help="本地模型存储目录"
+    )
+    parser.add_argument(
+        "--trust_remote_code",
+        action="store_true",
+        default=True,
+        help="是否信任远程代码",
+    )
+    parser.add_argument(
+        "--use_unsloth",
+        type=lambda x: str(x).lower() == "true",
+        default=False,
+        help="是否使用 Unsloth 加速",
+    )
+    parser.add_argument(
+        "--use_qlora",
+        type=lambda x: str(x).lower() == "true",
+        default=True,
+        help="是否使用 8bit 量化（QLoRA）",
+    )
 
     # 数据相关
-    parser.add_argument("--data_path", type=str, default="training_data.jsonl",
-                        help="训练数据文件路径")
-    parser.add_argument("--eval_data_path", type=str, default=None,
-                        help="验证数据文件路径，None表示不使用验证集")
-    parser.add_argument("--max_samples", type=int, default=None,
-                        help="最大训练样本数，None 表示用全部")
-    parser.add_argument("--max_eval_samples", type=int, default=None,
-                        help="最大验证样本数，None 表示用全部")
-    parser.add_argument("--model_max_length", type=int, default=2048,
-                        help="最大序列长度")
+    parser.add_argument(
+        "--data_path", type=str, default="training_data.jsonl", help="训练数据文件路径"
+    )
+    parser.add_argument(
+        "--eval_data_path",
+        type=str,
+        default=None,
+        help="验证数据文件路径，None表示不使用验证集",
+    )
+    parser.add_argument(
+        "--max_samples", type=int, default=None, help="最大训练样本数，None 表示用全部"
+    )
+    parser.add_argument(
+        "--max_eval_samples",
+        type=int,
+        default=None,
+        help="最大验证样本数，None 表示用全部",
+    )
+    parser.add_argument(
+        "--model_max_length", type=int, default=2048, help="最大序列长度"
+    )
 
     # 训练相关
-    parser.add_argument("--output_dir", type=str, default="finetune/models/qwen3-8b-qlora",
-                        help="输出目录")
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="finetune/models/qwen3-8b-qlora",
+        help="输出目录",
+    )
     parser.add_argument("--seed", type=int, default=42, help="随机种子")
 
     # LoRA 参数
     parser.add_argument("--lora_r", type=int, default=16, help="LoRA 秩")
     parser.add_argument("--lora_alpha", type=int, default=32, help="LoRA alpha")
     parser.add_argument("--lora_dropout", type=float, default=0.05, help="LoRA dropout")
-    parser.add_argument("--target_modules", type=str,
-                        default="q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
-                        help="稠密模型的 LoRA 目标模块列表（逗号分隔）")
+    parser.add_argument(
+        "--target_modules",
+        type=str,
+        default="q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+        help="稠密模型的 LoRA 目标模块列表（逗号分隔）",
+    )
 
     # MoE 支持参数
-    parser.add_argument("--moe_enable", type=lambda x: str(x).lower() == "true",
-                        default=False, help="是否启用 MoE 注入逻辑")
-    parser.add_argument("--moe_lora_scope", type=str, default="expert_only",
-                        choices=["expert_only", "router_only", "all"],
-                        help="LoRA 注入范围：仅专家、仅路由或全部")
-    parser.add_argument("--moe_expert_patterns", type=str,
-                        default="experts.ffn.(gate_proj|up_proj|down_proj),layers.[0-9]+.mlp.experts.[0-9]+.(w1|w2|w3)",
-                        help="专家线性层匹配模式，支持多个正则，用逗号分隔；默认兼容 Qwen-MoE 与 Mixtral")
-    parser.add_argument("--moe_router_patterns", type=str,
-                        default="router.(gate|dense)",
-                        help="路由/门控线性层匹配模式，多个正则逗号分隔")
-    parser.add_argument("--moe_max_experts_lora", type=int, default=-1,
-                        help="每层最多注入 LoRA 的专家数，-1 表示全部")
-    parser.add_argument("--moe_dry_run", type=lambda x: str(x).lower() == "true",
-                        default=False, help="仅打印匹配到的模块，不执行训练")
+    parser.add_argument(
+        "--moe_enable",
+        type=lambda x: str(x).lower() == "true",
+        default=False,
+        help="是否启用 MoE 注入逻辑",
+    )
+    parser.add_argument(
+        "--moe_lora_scope",
+        type=str,
+        default="expert_only",
+        choices=["expert_only", "router_only", "all"],
+        help="LoRA 注入范围：仅专家、仅路由或全部",
+    )
+    parser.add_argument(
+        "--moe_expert_patterns",
+        type=str,
+        default="experts.ffn.(gate_proj|up_proj|down_proj),layers.[0-9]+.mlp.experts.[0-9]+.(w1|w2|w3)",
+        help="专家线性层匹配模式，支持多个正则，用逗号分隔；默认兼容 Qwen-MoE 与 Mixtral",
+    )
+    parser.add_argument(
+        "--moe_router_patterns",
+        type=str,
+        default="router.(gate|dense)",
+        help="路由/门控线性层匹配模式，多个正则逗号分隔",
+    )
+    parser.add_argument(
+        "--moe_max_experts_lora",
+        type=int,
+        default=-1,
+        help="每层最多注入 LoRA 的专家数，-1 表示全部",
+    )
+    parser.add_argument(
+        "--moe_dry_run",
+        type=lambda x: str(x).lower() == "true",
+        default=False,
+        help="仅打印匹配到的模块，不执行训练",
+    )
 
     # 训练超参数
-    parser.add_argument("--per_device_train_batch_size", type=int, default=1,
-                        help="每卡 batch size")
-    parser.add_argument("--per_device_eval_batch_size", type=int, default=1,
-                        help="每卡验证 batch size")
-    parser.add_argument("--gradient_accumulation_steps", type=int, default=16,
-                        help="梯度累积步数")
+    parser.add_argument(
+        "--per_device_train_batch_size", type=int, default=1, help="每卡 batch size"
+    )
+    parser.add_argument(
+        "--per_device_eval_batch_size", type=int, default=1, help="每卡验证 batch size"
+    )
+    parser.add_argument(
+        "--gradient_accumulation_steps", type=int, default=16, help="梯度累积步数"
+    )
     parser.add_argument("--learning_rate", type=float, default=2e-4, help="学习率")
     parser.add_argument("--weight_decay", type=float, default=0.0, help="权重衰减")
     parser.add_argument("--num_train_epochs", type=float, default=3.0, help="训练轮数")
     parser.add_argument("--max_steps", type=int, default=-1, help="最大步数，-1 不限制")
     parser.add_argument("--warmup_ratio", type=float, default=0.05, help="预热比例")
-    parser.add_argument("--lr_scheduler_type", type=str, default="cosine",
-                        help="学习率调度器类型")
+    parser.add_argument(
+        "--lr_scheduler_type", type=str, default="cosine", help="学习率调度器类型"
+    )
 
     # 模型加载精度
-    parser.add_argument("--load_precision", type=str, default="fp16", choices=["int8", "int4", "fp16"],
-                        help="模型加载精度：int8、int4 或 fp16 (default: fp16)")
+    parser.add_argument(
+        "--load_precision",
+        type=str,
+        default="fp16",
+        choices=["int8", "int4", "fp16"],
+        help="模型加载精度：int8、int4 或 fp16 (default: fp16)",
+    )
 
     # 其他设置
-    parser.add_argument("--logging_steps", type=int, default=1, help="日志间隔，设置为1以每step输出loss")
+    parser.add_argument(
+        "--logging_steps", type=int, default=1, help="日志间隔，设置为1以每step输出loss"
+    )
     parser.add_argument("--eval_steps", type=int, default=50, help="验证间隔步数")
     parser.add_argument("--save_steps", type=int, default=200, help="保存间隔")
     parser.add_argument("--save_total_limit", type=int, default=2, help="最多保存数")
-    parser.add_argument("--gradient_checkpointing", action="store_true", default=True,
-                        help="是否使用梯度检查点")
-    parser.add_argument("--merge_and_save", action="store_true", default=True,
-                        help="训练后是否合并 LoRA 并保存完整模型")
-    parser.add_argument("--fp16", type=lambda x: str(x).lower() == "true", default=True,
-                        help="是否使用 FP16")
-    parser.add_argument("--optim", type=str, default="adamw_torch_fused",
-                        help="优化器")
-    parser.add_argument("--resume_from_checkpoint", type=str, default=None,
-                        help="从指定的检查点恢复训练，可以是本地路径或'latest'")
-    parser.add_argument("--dataloader_pin_memory", type=lambda x: str(x).lower() == "true",
-                        default=False, help="DataLoader pin_memory")
-    parser.add_argument("--dataloader_num_workers", type=int, default=0,
-                        help="DataLoader 工作线程数 (0表示使用主进程，推荐设置为CPU核心数-2)")
-    parser.add_argument("--dataloader_prefetch_factor", type=int, default=2,
-                        help="DataLoader 预取因子 (default: 2)")
+    parser.add_argument(
+        "--gradient_checkpointing",
+        action="store_true",
+        default=True,
+        help="是否使用梯度检查点",
+    )
+    parser.add_argument(
+        "--merge_and_save",
+        action="store_true",
+        default=True,
+        help="训练后是否合并 LoRA 并保存完整模型",
+    )
+    parser.add_argument(
+        "--fp16",
+        type=lambda x: str(x).lower() == "true",
+        default=True,
+        help="是否使用 FP16",
+    )
+    parser.add_argument("--optim", type=str, default="adamw_torch_fused", help="优化器")
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        type=str,
+        default=None,
+        help="从指定的检查点恢复训练，可以是本地路径或'latest'",
+    )
+    parser.add_argument(
+        "--dataloader_pin_memory",
+        type=lambda x: str(x).lower() == "true",
+        default=False,
+        help="DataLoader pin_memory",
+    )
+    parser.add_argument(
+        "--dataloader_num_workers",
+        type=int,
+        default=0,
+        help="DataLoader 工作线程数 (0表示使用主进程，推荐设置为CPU核心数-2)",
+    )
+    parser.add_argument(
+        "--dataloader_prefetch_factor",
+        type=int,
+        default=2,
+        help="DataLoader 预取因子 (default: 2)",
+    )
 
     return parser.parse_args()
+
 
 def _split_patterns(p: str) -> List[str]:
     return [s.strip() for s in p.split(",") if s.strip()]
 
+
 def _is_linear_like(m: torch.nn.Module) -> bool:
     import torch.nn as nn
-    linear_like = (isinstance(m, nn.Linear) or m.__class__.__name__.lower() in ["qlinear", "linear8bitlt", "bnblinear", "lora_linear"])
+
+    linear_like = isinstance(m, nn.Linear) or m.__class__.__name__.lower() in [
+        "qlinear",
+        "linear8bitlt",
+        "bnblinear",
+        "lora_linear",
+    ]
     # 一些 MoE 实现自定义 Linear 名称，这里采用类名包含 "linear" 的宽松判断
     return linear_like or ("linear" in m.__class__.__name__.lower())
+
 
 def detect_moe(model: torch.nn.Module) -> Dict[str, Any]:
     hints = []
@@ -599,14 +725,16 @@ def detect_moe(model: torch.nn.Module) -> Dict[str, Any]:
             hints.append(name)
     return {"is_moe": len(hints) > 0, "hints": hints[:50]}
 
+
 def build_moe_target_modules(
     model: torch.nn.Module,
     scope: str,
     expert_patterns: List[str],
     router_patterns: List[str],
-    max_experts_per_layer: int = -1
+    max_experts_per_layer: int = -1,
 ) -> List[str]:
     import re
+
     expert_res = [re.compile(p) for p in expert_patterns] if expert_patterns else []
     router_res = [re.compile(p) for p in router_patterns] if router_patterns else []
     targets: List[str] = []
@@ -617,6 +745,7 @@ def build_moe_target_modules(
     # 粗略按层聚合的键：提取 "layers.N" 或 "h.N" 段
     def layer_key(name: str) -> str:
         import re as _re
+
         m = _re.search(r"(layers\.\d+|h\.\d+)", name)
         return m.group(1) if m else "global"
 
@@ -651,6 +780,7 @@ def build_moe_target_modules(
             seen.add(t)
     return uniq
 
+
 def pretty_print_targets(title: str, targets: List[str], max_show: int = 80) -> None:
     logger.info(f"{title}: 共 {len(targets)} 个")
     if len(targets) <= max_show:
@@ -660,6 +790,7 @@ def pretty_print_targets(title: str, targets: List[str], max_show: int = 80) -> 
         for t in targets[:max_show]:
             logger.info(f"  - {t}")
         logger.info(f"  ... 其余 {len(targets) - max_show} 项已省略")
+
 
 def main() -> None:
     """主函数，执行QLoRA微调流程"""
@@ -688,6 +819,7 @@ def main() -> None:
     # 强制PyTorch使用所有CPU核心
     try:
         import multiprocessing
+
         cpu_count = multiprocessing.cpu_count()
         torch.set_num_threads(cpu_count)
         torch.set_num_interop_threads(min(cpu_count, 8))
@@ -719,7 +851,7 @@ def main() -> None:
         use_qlora=args.use_qlora,
         use_unsloth=args.use_unsloth,
         use_gradient_checkpointing=args.gradient_checkpointing,
-        load_precision=args.load_precision
+        load_precision=args.load_precision,
     )
     tokenizer.model_max_length = args.model_max_length
     log_gpu_memory_usage("模型加载完成")
@@ -727,32 +859,35 @@ def main() -> None:
     # 步骤 3: 准备数据
     logger.info("步骤 3/5: 准备训练数据...")
     log_gpu_memory_usage("开始准备数据")
-    
+
     # 强制使用多核CPU
     import multiprocessing
+
     cpu_count = multiprocessing.cpu_count()
     args.dataloader_num_workers = max(4, cpu_count - 1)  # 强制多核
     args.dataloader_pin_memory = True
-    logger.info(f"强制设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count})")
-    
+    logger.info(
+        f"强制设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count})"
+    )
+
     train_dataset = JsonlSFTDataset(
         args.data_path,
         eos_token=tokenizer.eos_token or "",
-        max_samples=args.max_samples
+        max_samples=args.max_samples,
     )
-    
+
     eval_dataset = None
     if args.eval_data_path and os.path.exists(args.eval_data_path):
         logger.info("准备验证数据...")
         eval_dataset = JsonlSFTDataset(
             args.eval_data_path,
             eos_token=tokenizer.eos_token or "",
-            max_samples=args.max_eval_samples
+            max_samples=args.max_eval_samples,
         )
         logger.info(f"验证样本数量: {len(eval_dataset)}")
     else:
         logger.warning("未提供验证数据路径，跳过验证集")
-    
+
     data_collator = CollatorForCausalLM(tokenizer=tokenizer)
     logger.info(f"训练样本数量: {len(train_dataset)}")
     log_gpu_memory_usage("数据准备完成")
@@ -774,7 +909,7 @@ def main() -> None:
             scope=args.moe_lora_scope,
             expert_patterns=expert_patterns,
             router_patterns=router_patterns,
-            max_experts_per_layer=args.moe_max_experts_lora
+            max_experts_per_layer=args.moe_max_experts_lora,
         )
         pretty_print_targets("匹配到的 LoRA 注入目标（MoE）", moe_targets, max_show=120)
 
@@ -782,14 +917,34 @@ def main() -> None:
             logger.warning("MoE dry-run 模式启用，仅打印匹配模块并退出。")
             return
 
-        model = apply_lora(model, moe_targets, args.lora_r, args.lora_alpha, args.lora_dropout, use_unsloth=args.use_unsloth, use_gradient_checkpointing=args.gradient_checkpointing)
+        model = apply_lora(
+            model,
+            moe_targets,
+            args.lora_r,
+            args.lora_alpha,
+            args.lora_dropout,
+            use_unsloth=args.use_unsloth,
+            use_gradient_checkpointing=args.gradient_checkpointing,
+        )
     else:
-        target_modules = [m.strip() for m in args.target_modules.split(",") if m.strip()]
-        pretty_print_targets("匹配到的 LoRA 注入目标（稠密）", target_modules, max_show=120)
-        model = apply_lora(model, target_modules, args.lora_r, args.lora_alpha, args.lora_dropout, use_unsloth=args.use_unsloth, use_gradient_checkpointing=args.gradient_checkpointing)
+        target_modules = [
+            m.strip() for m in args.target_modules.split(",") if m.strip()
+        ]
+        pretty_print_targets(
+            "匹配到的 LoRA 注入目标（稠密）", target_modules, max_show=120
+        )
+        model = apply_lora(
+            model,
+            target_modules,
+            args.lora_r,
+            args.lora_alpha,
+            args.lora_dropout,
+            use_unsloth=args.use_unsloth,
+            use_gradient_checkpointing=args.gradient_checkpointing,
+        )
 
     model.train()
-    
+
     # 调试信息：检查可训练参数
     trainable_params = 0
     all_param = 0
@@ -797,13 +952,15 @@ def main() -> None:
         all_param += param.numel()
         if param.requires_grad:
             trainable_params += param.numel()
-    
-    logger.info(f"可训练参数: {trainable_params} || 全部参数: {all_param} || 可训练比例: {100 * trainable_params / all_param:.2f}%")
-    
+
+    logger.info(
+        f"可训练参数: {trainable_params} || 全部参数: {all_param} || 可训练比例: {100 * trainable_params / all_param:.2f}%"
+    )
+
     # 验证是否有可训练参数
     if trainable_params == 0:
         raise ValueError("没有检测到可训练参数！请检查LoRA配置是否正确。")
-    
+
     log_gpu_memory_usage("LoRA应用完成")
 
     # 步骤 5: 训练
@@ -872,7 +1029,10 @@ def main() -> None:
         torch.cuda.empty_cache()
 
     if args.use_unsloth:
-        logger.info("提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能")
+        logger.info(
+            "提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能"
+        )
+
 
 if __name__ == "__main__":
     main()

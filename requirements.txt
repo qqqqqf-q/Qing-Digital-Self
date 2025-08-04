@@ -6,3 +6,8 @@ peft==0.17.0
 python-dotenv==1.1.1
 torch==2.7.1
 transformers==4.54.1
+accelerate==1.7.0
+unsloth==2025.8.1
+unsloth_zoo==2025.8.1
+xformers==0.0.31.post1
+triton==3.4.0

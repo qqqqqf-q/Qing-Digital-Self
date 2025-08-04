@@ -24,9 +24,13 @@ git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
 ```bash
 pip install -r requirements.txt
 ```
-### 注意!普通`requirements.txt`不包含Unsloth
-**如果你需要使用Unsloth加速(建议)**
-**请运行以下命令**
+
+> PS:~~我在依赖这一步测试了很久很久,之前不知道为什么就是有一堆奇怪的问题()~~  
+> 但是这个requirements是我自己测试出来的版本,~~应该是稳定的吧~~
+
+---
+
+### 如果你需要Unsloth提供的unsloth+torch的版本,请运行以下命令
 ```bash
 wget -qO- https://raw.githubusercontent.com/unslothai/unsloth/main/unsloth/_auto_install.py | python -
 ```
