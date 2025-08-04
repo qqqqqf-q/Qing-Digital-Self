@@ -195,3 +195,4 @@ log.txt
 ./training_data
 docs/node_modules
 docs/.vitepress/cache
+qa_final.json
