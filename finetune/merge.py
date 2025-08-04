@@ -23,7 +23,8 @@ def merge_and_save_from_checkpoint(
     base_model_path: str,
     checkpoint_path: str,
     output_path: str,
-    trust_remote_code: bool = True
+    trust_remote_code: bool = True,
+    load_precision: str = "fp16"
 ) -> str:
     """
     从checkpoint合并LoRA权重并保存完整模型
@@ -61,12 +62,27 @@ def merge_and_save_from_checkpoint(
     
     # 加载基础模型
     logger.info("加载基础模型...")
-    model = AutoModelForCausalLM.from_pretrained(
-        base_model_path,
-        device_map="auto",
-        trust_remote_code=trust_remote_code,
-        torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
-    )
+    if load_precision == "int8":
+        model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            device_map="auto",
+            load_in_8bit=True,
+            trust_remote_code=trust_remote_code
+        )
+    elif load_precision == "int4":
+        model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            device_map="auto",
+            load_in_4bit=True,
+            trust_remote_code=trust_remote_code
+        )
+    else:  # fp16
+        model = AutoModelForCausalLM.from_pretrained(
+            base_model_path,
+            device_map="auto",
+            trust_remote_code=trust_remote_code,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32
+        )
     
     # 加载分词器
     logger.info("加载分词器...")
@@ -184,6 +200,13 @@ def main():
         default=True,
         help="是否信任远程代码"
     )
+    parser.add_argument(
+        "--load_precision", 
+        type=str, 
+        default="fp16", 
+        choices=["int8", "int4", "fp16"],
+        help="模型加载精度：int8、int4 或 fp16 (default: fp16)"
+    )
     
     args = parser.parse_args()
     
@@ -201,7 +224,8 @@ def main():
             base_model_path=args.base_model_path,
             checkpoint_path=checkpoint_path,
             output_path=args.output_path,
-            trust_remote_code=args.trust_remote_code
+            trust_remote_code=args.trust_remote_code,
+            load_precision=args.load_precision
         )
         
         logger.info("=== 合并完成 ===")

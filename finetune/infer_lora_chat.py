@@ -62,6 +62,13 @@ def parse_args():
         default=True, 
         help="Trust remote code"
     )
+    parser.add_argument(
+        "--load_precision", 
+        type=str, 
+        default="fp16", 
+        choices=["int8", "int4", "fp16"],
+        help="模型加载精度：int8、int4 或 fp16 (default: fp16)"
+    )
     return parser.parse_args()
 
 
@@ -77,11 +84,27 @@ def load_model_and_tokenizer(args):
             use_fast=True, 
             trust_remote_code=args.trust_remote_code
         )
-        model = AutoModelForCausalLM.from_pretrained(
-            model_dir, 
-            device_map="auto", 
-            trust_remote_code=args.trust_remote_code
-        )
+        if args.load_precision == "int8":
+            model = AutoModelForCausalLM.from_pretrained(
+                model_dir, 
+                device_map="auto", 
+                load_in_8bit=True,
+                trust_remote_code=args.trust_remote_code
+            )
+        elif args.load_precision == "int4":
+            model = AutoModelForCausalLM.from_pretrained(
+                model_dir, 
+                device_map="auto", 
+                load_in_4bit=True,
+                trust_remote_code=args.trust_remote_code
+            )
+        else:  # fp16
+            model = AutoModelForCausalLM.from_pretrained(
+                model_dir, 
+                device_map="auto", 
+                torch_dtype=torch.float16,
+                trust_remote_code=args.trust_remote_code
+            )
     else:
         # 加载 base + LoRA 适配器
         from peft import PeftModel
@@ -91,11 +114,27 @@ def load_model_and_tokenizer(args):
             use_fast=True, 
             trust_remote_code=args.trust_remote_code
         )
-        base = AutoModelForCausalLM.from_pretrained(
-            args.base_dir, 
-            device_map="auto", 
-            trust_remote_code=args.trust_remote_code
-        )
+        if args.load_precision == "int8":
+            base = AutoModelForCausalLM.from_pretrained(
+                args.base_dir, 
+                device_map="auto", 
+                load_in_8bit=True,
+                trust_remote_code=args.trust_remote_code
+            )
+        elif args.load_precision == "int4":
+            base = AutoModelForCausalLM.from_pretrained(
+                args.base_dir, 
+                device_map="auto", 
+                load_in_4bit=True,
+                trust_remote_code=args.trust_remote_code
+            )
+        else:  # fp16
+            base = AutoModelForCausalLM.from_pretrained(
+                args.base_dir, 
+                device_map="auto", 
+                torch_dtype=torch.float16,
+                trust_remote_code=args.trust_remote_code
+            )
         print(f"Loading LoRA adapter from: {args.adapter_dir}")
         model = PeftModel.from_pretrained(base, args.adapter_dir, device_map="auto")
         model = model.merge_and_unload()  # 推理期可合并到内存中，提高速度（可选）

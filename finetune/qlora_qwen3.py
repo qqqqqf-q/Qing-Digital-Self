@@ -3,6 +3,15 @@
  QLoRA 微调脚本
 """
 
+# 尝试导入 unsloth，必须在所有其他库之前导入
+try:
+    from unsloth import FastLanguageModel
+    UNSLOTH_AVAILABLE = True
+except ImportError as e:
+    UNSLOTH_AVAILABLE = False
+    FastLanguageModel = None
+    print(f"警告: 无法导入 unsloth ({e})，将使用标准 PEFT 训练")
+
 import argparse
 import json
 import math
@@ -231,9 +240,10 @@ def load_model_and_tokenizer(
     base_dir: str,
     use_qlora: bool = True,
     use_unsloth: bool = False,
-    use_gradient_checkpointing: bool = True
+    use_gradient_checkpointing: bool = True,
+    load_precision: str = "fp16"
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
-    """加载模型和分词器，支持 Unsloth 和普通 8bit 量化。
+    """加载模型和分词器，支持 Unsloth 和普通量化，支持多种加载精度。
     注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
     """
     logger.info("加载分词器...")
@@ -247,12 +257,11 @@ def load_model_and_tokenizer(
     tokenizer.padding_side = "right"
 
     # 尝试使用 Unsloth 加载模型
-    if use_unsloth:
+    if use_unsloth and UNSLOTH_AVAILABLE:
         try:
             logger.info("尝试使用 Unsloth 加载模型...")
-            from unsloth import FastLanguageModel
-
-            # 启用 Triton 和相关优化
+            
+            # 启用 Triton 和相关优化（仅在使用unsloth时）
             os.environ.update({
                 "TORCHDYNAMO_DISABLE": "0",
                 "TORCH_COMPILE_DISABLE": "0",
@@ -261,24 +270,50 @@ def load_model_and_tokenizer(
                 "PYTORCH_DISABLE_TRITON": "0",
             })
 
-            # Unsloth 只能使用4bit或8bit中的一个，不能同时使用
-            # 使用8bit模式
-            model, tokenizer = FastLanguageModel.from_pretrained(
-                base_dir,
-                dtype=None,
-                load_in_4bit=False,   # 禁用4bit
-                load_in_8bit=True,    # 启用8bit
-                trust_remote_code=True,
-            )
-
-            logger.info("成功使用 Unsloth 加载模型 (8bit)")
+            # Unsloth 根据load_precision选择量化模式
+            if load_precision == "int4":
+                model, tokenizer = FastLanguageModel.from_pretrained(
+                    base_dir,
+                    dtype=None,
+                    load_in_4bit=True,    # 启用4bit
+                    load_in_8bit=False,   # 禁用8bit
+                    trust_remote_code=True,
+                )
+                logger.info("成功使用 Unsloth 加载模型 (4bit)")
+            elif load_precision == "int8":
+                model, tokenizer = FastLanguageModel.from_pretrained(
+                    base_dir,
+                    dtype=None,
+                    load_in_4bit=False,   # 禁用4bit
+                    load_in_8bit=True,    # 启用8bit
+                    trust_remote_code=True,
+                )
+                logger.info("成功使用 Unsloth 加载模型 (8bit)")
+            else:  # fp16
+                model, tokenizer = FastLanguageModel.from_pretrained(
+                    base_dir,
+                    dtype=None,
+                    load_in_4bit=False,   # 禁用4bit
+                    load_in_8bit=False,   # 禁用8bit
+                    trust_remote_code=True,
+                )
+                logger.info("成功使用 Unsloth 加载模型 (fp16)")
             return model, tokenizer
         except Exception as e:
             logger.error(f"Unsloth 加载失败: {e}")
-            logger.info("回退到普通 8bit 量化加载...")
+            logger.info("回退到普通量化加载...")
+            # 恢复原始环境变量设置
+            os.environ.update({
+                "TORCHDYNAMO_DISABLE": "1",
+                "TORCH_COMPILE_DISABLE": "1",
+                "TRITON_DISABLE": "1",
+                "TORCH_USE_TRITON": "0",
+                "PYTORCH_DISABLE_TRITON": "1",
+            })
+    elif use_unsloth and not UNSLOTH_AVAILABLE:
+        logger.warning("请求使用 Unsloth 但未安装，回退到普通量化加载...")
 
-    # 普通 8bit 量化加载
-    logger.info("加载模型 (8bit量化)...")
+    # 普通量化加载
     dtype_kwargs = safe_dtype_preference()
 
     # 加载模型配置并设置return_dict=True
@@ -289,32 +324,59 @@ def load_model_and_tokenizer(
     )
     config.return_dict = True
 
-    # 强制使用 8-bit 量化配置
-    bnb_config = BitsAndBytesConfig(
-        load_in_8bit=True,
-        llm_int8_enable_fp32_cpu_offload=True,
-    )
+    # 根据load_precision选择量化配置
+    if load_precision == "int4":
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=dtype_kwargs["torch_dtype"],
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+        )
+        logger.info("使用量化配置: 4bit量化")
+    elif load_precision == "int8":
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=True,
+            llm_int8_enable_fp32_cpu_offload=True,
+        )
+        logger.info("使用量化配置: 8bit量化")
+    else:  # fp16
+        bnb_config = None
+        logger.info("使用量化配置: fp16无量化")
 
-    logger.info(f"使用量化配置: 8bit量化")
-
-    model = AutoModelForCausalLM.from_pretrained(
-        base_dir,
-        trust_remote_code=True,
-        quantization_config=bnb_config,
-        device_map="auto",
-        torch_dtype=dtype_kwargs["torch_dtype"],
-        config=config,  # 添加配置
-    )
+    if bnb_config is not None:
+        model = AutoModelForCausalLM.from_pretrained(
+            base_dir,
+            trust_remote_code=True,
+            quantization_config=bnb_config,
+            torch_dtype=dtype_kwargs["torch_dtype"],
+            config=config,
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(
+            base_dir,
+            trust_remote_code=True,
+            torch_dtype=dtype_kwargs["torch_dtype"],
+            config=config,
+        )
 
     # 训练前准备（不注入 LoRA）
-    if use_qlora:
+    if use_qlora or load_precision in ["int4", "int8"]:
         model = prepare_model_for_kbit_training(model, use_gradient_checkpointing=use_gradient_checkpointing)
     else:
         if use_gradient_checkpointing:
             model.config.use_cache = False
             model.gradient_checkpointing_enable()
+    
+    # 确保模型处于训练模式
+    model.train()
 
     logger.info("模型已准备好进行训练（未注入LoRA，稍后统一注入）")
+    
+    # 调试：检查加载后的模型参数状态
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    logger.info(f"加载后模型状态 - 总参数: {total_params}, 可训练参数: {trainable_params}")
+    
     return model, tokenizer
 
 def apply_lora(
@@ -322,7 +384,9 @@ def apply_lora(
     target_modules: List[str],
     r: int,
     alpha: int,
-    dropout: float
+    dropout: float,
+    use_unsloth: bool = False,
+    use_gradient_checkpointing: bool = True,
 ) -> PeftModel:
     """应用 LoRA 适配器（统一入口）
 
@@ -331,21 +395,40 @@ def apply_lora(
     if not target_modules:
         raise ValueError("LoRA target_modules 为空，无法注入。请检查参数或 MoE 模式匹配。")
 
-    lora_config = LoraConfig(
-        r=r,
-        lora_alpha=alpha,
-        lora_dropout=dropout,
-        bias="none",
-        task_type="CAUSAL_LM",
-        target_modules=target_modules,
-    )
     logger.info(f"LoRA 目标模块数量: {len(target_modules)}")
     if len(target_modules) <= 50:
         logger.info(f"LoRA 目标模块示例: {target_modules[:50]}")
 
-    model = get_peft_model(model, lora_config)
+    if use_unsloth and UNSLOTH_AVAILABLE:
+        model = FastLanguageModel.get_peft_model(
+            model,
+            r=r,
+            target_modules=target_modules,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            bias="none",
+            use_gradient_checkpointing=use_gradient_checkpointing,
+            random_state=3407,
+        )
+    else:
+        lora_config = LoraConfig(
+            r=r,
+            lora_alpha=alpha,
+            lora_dropout=dropout,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=target_modules,
+        )
+        model = get_peft_model(model, lora_config)
+
     if hasattr(model, "print_trainable_parameters"):
         model.print_trainable_parameters()
+    
+    # 确保LoRA参数可训练（解决梯度错误问题）
+    for name, param in model.named_parameters():
+        if "lora_" in name.lower():
+            param.requires_grad = True
+    
     return model
 
 def merge_and_save(base_dir: str, output_dir: str) -> str:
@@ -471,6 +554,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr_scheduler_type", type=str, default="cosine",
                         help="学习率调度器类型")
 
+    # 模型加载精度
+    parser.add_argument("--load_precision", type=str, default="fp16", choices=["int8", "int4", "fp16"],
+                        help="模型加载精度：int8、int4 或 fp16 (default: fp16)")
+
     # 其他设置
     parser.add_argument("--logging_steps", type=int, default=1, help="日志间隔，设置为1以每step输出loss")
     parser.add_argument("--eval_steps", type=int, default=50, help="验证间隔步数")
@@ -490,6 +577,8 @@ def parse_args() -> argparse.Namespace:
                         default=False, help="DataLoader pin_memory")
     parser.add_argument("--dataloader_num_workers", type=int, default=0,
                         help="DataLoader 工作线程数 (0表示使用主进程，推荐设置为CPU核心数-2)")
+    parser.add_argument("--dataloader_prefetch_factor", type=int, default=2,
+                        help="DataLoader 预取因子 (default: 2)")
 
     return parser.parse_args()
 
@@ -629,7 +718,8 @@ def main() -> None:
         base_dir,
         use_qlora=args.use_qlora,
         use_unsloth=args.use_unsloth,
-        use_gradient_checkpointing=args.gradient_checkpointing
+        use_gradient_checkpointing=args.gradient_checkpointing,
+        load_precision=args.load_precision
     )
     tokenizer.model_max_length = args.model_max_length
     log_gpu_memory_usage("模型加载完成")
@@ -692,13 +782,28 @@ def main() -> None:
             logger.warning("MoE dry-run 模式启用，仅打印匹配模块并退出。")
             return
 
-        model = apply_lora(model, moe_targets, args.lora_r, args.lora_alpha, args.lora_dropout)
+        model = apply_lora(model, moe_targets, args.lora_r, args.lora_alpha, args.lora_dropout, use_unsloth=args.use_unsloth, use_gradient_checkpointing=args.gradient_checkpointing)
     else:
         target_modules = [m.strip() for m in args.target_modules.split(",") if m.strip()]
         pretty_print_targets("匹配到的 LoRA 注入目标（稠密）", target_modules, max_show=120)
-        model = apply_lora(model, target_modules, args.lora_r, args.lora_alpha, args.lora_dropout)
+        model = apply_lora(model, target_modules, args.lora_r, args.lora_alpha, args.lora_dropout, use_unsloth=args.use_unsloth, use_gradient_checkpointing=args.gradient_checkpointing)
 
     model.train()
+    
+    # 调试信息：检查可训练参数
+    trainable_params = 0
+    all_param = 0
+    for name, param in model.named_parameters():
+        all_param += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    
+    logger.info(f"可训练参数: {trainable_params} || 全部参数: {all_param} || 可训练比例: {100 * trainable_params / all_param:.2f}%")
+    
+    # 验证是否有可训练参数
+    if trainable_params == 0:
+        raise ValueError("没有检测到可训练参数！请检查LoRA配置是否正确。")
+    
     log_gpu_memory_usage("LoRA应用完成")
 
     # 步骤 5: 训练
@@ -734,6 +839,7 @@ def main() -> None:
         report_to=[],
         dataloader_pin_memory=args.dataloader_pin_memory,
         dataloader_num_workers=args.dataloader_num_workers,
+        dataloader_prefetch_factor=args.dataloader_prefetch_factor,
         eval_strategy="steps" if eval_dataset is not None else "no",
         eval_accumulation_steps=1,
     )
