@@ -7,7 +7,8 @@
     "docs:dev": "vitepress dev --host 0.0.0.0",
     "docs:build": "vitepress build docs",
     "docs:preview": "vitepress preview",
-    "docs:deploy": "gh-pages -d docs/.vitepress/dist"
+    "docs:deploy": "gh-pages -d docs/.vitepress/dist",
+    "build": "vitepress build"
   },
   "keywords": [],
   "author": "",
