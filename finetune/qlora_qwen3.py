@@ -54,18 +54,10 @@ os.environ.pop("TORCH_LOGS", None)
 cpu_count = os.cpu_count()
 os.environ.update(
     {
-        "TORCHDYNAMO_DISABLE": "1",
-        "TORCH_COMPILE_DISABLE": "1",
-        "TRITON_DISABLE": "1",
-        "TORCH_USE_TRITON": "0",
-        "PYTORCH_DISABLE_TRITON": "1",
         "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
         "CUDA_LAUNCH_BLOCKING": "0",
         "TF_ENABLE_ONEDNN_OPTS": "0",
         "TF_CPP_MIN_LOG_LEVEL": "2",
-        # 禁用tokenizers并行化警告
-        "TOKENIZERS_PARALLELISM": "false",
-        # CPU并行化
         "OMP_NUM_THREADS": str(cpu_count),
         "MKL_NUM_THREADS": str(cpu_count),
         "OPENBLAS_NUM_THREADS": str(cpu_count),
@@ -262,9 +254,18 @@ def load_model_and_tokenizer(
     use_unsloth: bool = False,
     use_gradient_checkpointing: bool = True,
     load_precision: str = "fp16",
+    use_flash_attention_2: bool = False,
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """加载模型和分词器，支持 Unsloth 和普通量化，支持多种加载精度。
     注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
+    
+    Args:
+        base_dir: 模型目录路径
+        use_qlora: 是否使用QLoRA量化
+        use_unsloth: 是否使用Unsloth加速
+        use_gradient_checkpointing: 是否使用梯度检查点
+        load_precision: 加载精度 ("fp16", "int8", "int4")
+        use_flash_attention_2: 是否使用FlashAttention2（仅支持fp16/bf16，Unsloth内置优化）
     """
     logger.info("加载分词器...")
     tokenizer = AutoTokenizer.from_pretrained(
@@ -273,6 +274,18 @@ def load_model_and_tokenizer(
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
+    
+    # FlashAttention2 配置检查
+    attn_implementation = None
+    if use_flash_attention_2:
+        if load_precision == "fp32":
+            logger.warning("FlashAttention2 不支持 fp32 精度，将禁用 FlashAttention2")
+            use_flash_attention_2 = False
+        elif use_unsloth:
+            logger.info("Unsloth 内置 Flash Attention 优化，无需额外配置")
+        else:
+            attn_implementation = "flash_attention_2"
+            logger.info("启用 FlashAttention2 加速注意力计算")
 
     # 尝试使用 Unsloth 加载模型
     if use_unsloth and UNSLOTH_AVAILABLE:
@@ -363,21 +376,22 @@ def load_model_and_tokenizer(
         bnb_config = None
         logger.info("使用量化配置: fp16无量化")
 
+    # 构建模型加载参数
+    model_kwargs = {
+        "trust_remote_code": True,
+        "torch_dtype": dtype_kwargs["torch_dtype"],
+        "config": config,
+    }
+    
+    # 添加FlashAttention2支持
+    if attn_implementation is not None:
+        model_kwargs["attn_implementation"] = attn_implementation
+        
     if bnb_config is not None:
-        model = AutoModelForCausalLM.from_pretrained(
-            base_dir,
-            trust_remote_code=True,
-            quantization_config=bnb_config,
-            torch_dtype=dtype_kwargs["torch_dtype"],
-            config=config,
-        )
+        model_kwargs["quantization_config"] = bnb_config
+        model = AutoModelForCausalLM.from_pretrained(base_dir, **model_kwargs)
     else:
-        model = AutoModelForCausalLM.from_pretrained(
-            base_dir,
-            trust_remote_code=True,
-            torch_dtype=dtype_kwargs["torch_dtype"],
-            config=config,
-        )
+        model = AutoModelForCausalLM.from_pretrained(base_dir, **model_kwargs)
 
     # 训练前准备（不注入 LoRA）
     if use_qlora or load_precision in ["int4", "int8"]:
@@ -679,6 +693,12 @@ def parse_args() -> argparse.Namespace:
         help="从指定的检查点恢复训练，可以是本地路径或'latest'",
     )
     parser.add_argument(
+        "--use_flash_attention_2",
+        type=lambda x: str(x).lower() == "true",
+        default=False,
+        help="是否使用 FlashAttention2 加速注意力计算（需要 fp16 或 bf16）",
+    )
+    parser.add_argument(
         "--dataloader_pin_memory",
         type=lambda x: str(x).lower() == "true",
         default=False,
@@ -852,6 +872,7 @@ def main() -> None:
         use_unsloth=args.use_unsloth,
         use_gradient_checkpointing=args.gradient_checkpointing,
         load_precision=args.load_precision,
+        use_flash_attention_2=args.use_flash_attention_2,
     )
     tokenizer.model_max_length = args.model_max_length
     log_gpu_memory_usage("模型加载完成")
@@ -864,7 +885,7 @@ def main() -> None:
     import multiprocessing
 
     cpu_count = multiprocessing.cpu_count()
-    args.dataloader_num_workers = max(4, cpu_count - 1)  # 强制多核
+    args.dataloader_num_workers = max(8, cpu_count - 1)  # 强制多核
     args.dataloader_pin_memory = True
     logger.info(
         f"强制设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count})"

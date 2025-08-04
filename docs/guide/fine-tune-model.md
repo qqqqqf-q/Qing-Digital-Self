@@ -97,6 +97,7 @@ pip install --upgrade pip && pip install "unsloth[cu126-ampere-torch270] @ git+h
 | `--dataloader_pin_memory`       | str  | `'false'`                                                   | 是否固定 DataLoader 内存              |            
 | `--dataloader_num_workers`      | str  | `'0'`                                                       | DataLoader 工作线程数                |            
 | `--dataloader_prefetch_factor`  | str  | `'2'`                                                       | DataLoader 预取因子                 |            
+| `--use_flash_attention_2`       | str  | `'false'`                                                   | 是否使用 FlashAttention2(对unsloth无效) （使用时加此参数）           |            
 
 ---
 > 参数还是太复杂了,建议询问AI  

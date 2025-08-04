@@ -185,6 +185,13 @@ def main():
         choices=["int8", "int4", "fp16"],
         help="模型加载精度：int8、int4 或 fp16 (default: fp16)",
     )
+    parser.add_argument(
+        "--use_flash_attention_2",
+        type=str,
+        default="false",
+        choices=["true", "false"],
+        help="是否启用FlashAttention2加速（需要fp16或bf16精度）(default: false)",
+    )
 
     # 其余训练设置
     parser.add_argument(
@@ -349,6 +356,8 @@ def main():
             args.dataloader_num_workers,
             "--dataloader_prefetch_factor",
             args.dataloader_prefetch_factor,
+            "--use_flash_attention_2",
+            args.use_flash_attention_2,
         ]
     )
 
