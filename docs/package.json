@@ -10,7 +10,7 @@
     "docs:deploy": "gh-pages -d docs/.vitepress/dist",
     "build": "vitepress build"
   },
-  "keywords": [],
+  "keywords": [], 
   "author": "",
   "license": "ISC",
   "description": "",

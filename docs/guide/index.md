@@ -1,17 +1,16 @@
 ## 项目简介
 
-这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
-<div align="center">
+## 这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
+<p align="center">
+  <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge" style="display:inline-block;margin-right:8px;">
+  <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4" style="display:inline-block;margin-right:8px;">
+  <img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge" style="display:inline-block;margin-right:8px;">
+  <img src="https://img.shields.io/badge/Version-v0.1.1-9370DB?style=for-the-badge" style="display:inline-block;margin-right:8px;">
+  <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2" style="display:inline-block;">
+</p>
 
-<a href="#"><img src="https://cdn.nodeimage.com/i/BTlRBmAcnwN2ZLyItDCfIRJKYmxYDEpc.png" alt="Downloads" style="height:36px; display:inline-block; margin-right:8px;" /></a>
-<a href="#"><img src="https://cdn.nodeimage.com/i/nHNuyUdkph6NfGBmnUQeEk8gPVHKLXg0.png" alt="Stars" style="height:36px; display:inline-block; margin-right:8px;" /></a>
-<a href="#"><img src="https://cdn.nodeimage.com/i/Sd89d1w0xIhSPyPyiVYEfNRTiom8TH1S.png" alt="Status: MVP" style="height:36px; display:inline-block; margin-right:8px;" /></a>
-<a href="#"><img src="https://cdn.nodeimage.com/i/u0r9K3XXnxU6hDIOMY4fkZ7cnVL28EGF.png" alt="Version: v0.1" style="height:36px; display:inline-block; margin-right:8px;" /></a>
-<a href="#"><img src="https://cdn.nodeimage.com/i/CfA8AQa2bVTF2mhOY3m2Kz8nhlwXUN6S.png" alt="License: Apache-2.0" style="height:36px; display:inline-block;" /></a>
 
-</div>
-
- ## 项目包含了**完整的教程**，包括：
+## 项目包含了**完整的教程**，包括：
 
 * QQ 数据库的解密与处理
 * 聊天数据清洗与转换
@@ -24,12 +23,19 @@
 目前这个项目还有很多不足：
 
 * 暂时不知道有什么不足
+* (如果有问题欢迎开Issues)
 * 但已经可以在 4090 24G 显卡上用 fp8 精度微调 Qwen3-8B（亲测可用）
 
 **如果你也想打造属于自己的数字分身，那也来试试吧!**
 
 ——
 X: [@qqqqqf5](https://twitter.com/qqqqqf5)
+
+---
+
+<a href="https://qqqqqf-q.github.io/Qing-Digital-Self/">
+  <img src="https://cdn.nodeimage.com/i/MfTsvmkJD2dQj9c9XZg9XXXS6CYwZBvx.png" alt="快速开始按钮" width="140" style="margin-top: 1em;">
+</a>
 
 ---
 
@@ -41,7 +47,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 ## TODO
 * [完成]增加unsloth支持(重要!可以加快微调速度)
 > ↑ ↑ ↑ 2025/8/4更新,已支持(实际上之前就能用了,可能是我显卡问题?)
-* [完成]增加对MoE模型的支持  
+* [完成但未测试]增加对MoE模型的支持  
 >  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试  
 > 4090的机子塞不下这56.8g的模型,我还是不测了罢(  
 * [完成]为数据清洗增加LLM清洗功能(让成熟的llm来清洗数据,比直接使用算法好得多)
@@ -51,5 +57,3 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 
 ## 更新日志
 > 写在commit里了,这里实在不想写
-
-# [快速开始](/guide/quick-start.md)
