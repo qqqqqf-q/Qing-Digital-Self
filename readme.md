@@ -38,6 +38,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 * 清洗数据也已经进行实机测试(当前版本)
 ## TODO
 * 增加unsloth支持(重要!可以加快微调速度)
+> ↑ ↑ ↑ 2025/8/4更新,已支持(实际上之前就能用了,可能是我显卡问题?)
 * 增加对MoE模型的支持  
 >  ↑ ↑ ↑  2025/8/3更新,或许支持了, 我的显卡跑不动30b a3b,所以还是没法测试  
 > 4090的机子塞不下这56.8g的模型,我还是不测了罢(  
@@ -185,12 +186,12 @@ python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 -
 ## 2.3 将标准数据集和你的数据集混合在一起!
 > 如果没有标准数据参杂在其中,很容易造成`灾难性遗忘`  
 
-所以就有了 `merge_training_data.py`脚本
-
+所以就有了 `merge_data`文件夹
+请去`merge`文件夹选择和你数据集结构相同的脚本,我没有做多结构适配,可以将格式发给llm让他来帮你适配格式
 > 建议往数据集插入**20%-50%**的标准数据集  
 ### 使用方法
 ```bash
-python merge_training_data.py --qa_file qa_final.json --training_file training_data.jsonl --output_file merged_training_data.jsonl --use-new-prompt
+python merge_data/merge_data.py --qa_file qa_final.json --training_file training_data.jsonl --output_file merged_training_data.jsonl --use-new-prompt
 ```
 > 建议使用--use-new-prompt,防止全部都是角色system prompt
 >

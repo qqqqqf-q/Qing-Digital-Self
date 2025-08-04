@@ -29,6 +29,8 @@ os.environ.pop("TORCH_LOGS", None)
 
 # 设置默认环境变量 - 必须在导入 torch 之前设置
 # 禁用各种可能导致兼容性问题的优化
+# 设置CPU并行化
+cpu_count = os.cpu_count()
 os.environ.update({
     "TORCHDYNAMO_DISABLE": "1",
     "TORCH_COMPILE_DISABLE": "1",
@@ -37,11 +39,14 @@ os.environ.update({
     "PYTORCH_DISABLE_TRITON": "1",
     "PYTORCH_ENABLE_BACKWARD_COMPATIBILITY": "0",
     "CUDA_LAUNCH_BLOCKING": "0",
-    "TF_ENABLE_ONEDNN_OPTS": "0",  # 禁用TensorFlow oneDNN自定义操作以减少警告
-    "TF_CPP_MIN_LOG_LEVEL": "2",   # 减少TensorFlow警告信息
-    "OMP_NUM_THREADS": str(os.cpu_count()),  # 设置OpenMP线程数
-    "MKL_NUM_THREADS": str(os.cpu_count()),  # 设置MKL线程数
-    "NUMEXPR_NUM_THREADS": str(os.cpu_count()),  # 设置NumExpr线程数
+    "TF_ENABLE_ONEDNN_OPTS": "0",
+    "TF_CPP_MIN_LOG_LEVEL": "2",
+    # 禁用tokenizers并行化警告
+    "TOKENIZERS_PARALLELISM": "false",
+    # CPU并行化
+    "OMP_NUM_THREADS": str(cpu_count),
+    "MKL_NUM_THREADS": str(cpu_count),
+    "OPENBLAS_NUM_THREADS": str(cpu_count),
 })
 
 # 清理可能存在的triton相关环境变量
@@ -256,14 +261,17 @@ def load_model_and_tokenizer(
                 "PYTORCH_DISABLE_TRITON": "0",
             })
 
+            # Unsloth 只能使用4bit或8bit中的一个，不能同时使用
+            # 使用8bit模式
             model, tokenizer = FastLanguageModel.from_pretrained(
                 base_dir,
                 dtype=None,
-                load_in_8bit=True,
+                load_in_4bit=False,   # 禁用4bit
+                load_in_8bit=True,    # 启用8bit
                 trust_remote_code=True,
             )
 
-            logger.info("成功使用 Unsloth 加载模型")
+            logger.info("成功使用 Unsloth 加载模型 (8bit)")
             return model, tokenizer
         except Exception as e:
             logger.error(f"Unsloth 加载失败: {e}")
@@ -588,13 +596,13 @@ def main() -> None:
     except Exception as e:
         logger.error(f"设置TF32行为失败: {e}")
 
-    # 设置PyTorch多线程支持
+    # 强制PyTorch使用所有CPU核心
     try:
         import multiprocessing
         cpu_count = multiprocessing.cpu_count()
         torch.set_num_threads(cpu_count)
-        torch.set_num_interop_threads(cpu_count)
-        logger.info(f"设置PyTorch线程数: 计算线程={torch.get_num_threads()}, 交互线程={torch.get_num_interop_threads()}")
+        torch.set_num_interop_threads(min(cpu_count, 8))
+        logger.info(f"已设置PyTorch使用{cpu_count}个CPU核心")
     except Exception as e:
         logger.error(f"设置PyTorch线程数失败: {e}")
 
@@ -630,17 +638,12 @@ def main() -> None:
     logger.info("步骤 3/5: 准备训练数据...")
     log_gpu_memory_usage("开始准备数据")
     
-    # 智能设置DataLoader worker数量
-    if args.dataloader_num_workers == 0:
-        import multiprocessing
-        cpu_count = multiprocessing.cpu_count()
-        # Windows系统下推荐设置为CPU核心数-2，避免系统卡顿
-        if platform.system() == "Windows":
-            recommended_workers = max(1, cpu_count - 2)
-        else:
-            recommended_workers = max(1, cpu_count)
-        args.dataloader_num_workers = recommended_workers
-        logger.info(f"自动设置DataLoader工作线程数为: {recommended_workers} (CPU核心数: {cpu_count})")
+    # 强制使用多核CPU
+    import multiprocessing
+    cpu_count = multiprocessing.cpu_count()
+    args.dataloader_num_workers = max(4, cpu_count - 1)  # 强制多核
+    args.dataloader_pin_memory = True
+    logger.info(f"强制设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count})")
     
     train_dataset = JsonlSFTDataset(
         args.data_path,
