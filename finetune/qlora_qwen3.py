@@ -37,7 +37,8 @@ except Exception as exc:
     def snapshot_download(model_id: str, local_dir: str) -> str:
         # 安全回退：不执行任何下载，直接返回本地目录；调用方需确保目录已准备好
         logger.warning(
-            f"未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}"
+            zhcn=f"未能导入 modelscope（{repr(exc)}），跳过自动下载，依赖本地目录: {local_dir}",
+            en=f"Failed to import modelscope ({repr(exc)}), skipping auto-download, relying on local directory: {local_dir}",
         )
         return local_dir
 
@@ -61,6 +62,7 @@ os.environ.update(
         "OMP_NUM_THREADS": str(cpu_count),
         "MKL_NUM_THREADS": str(cpu_count),
         "OPENBLAS_NUM_THREADS": str(cpu_count),
+        "TOKENIZERS_PARALLELISM": "false",
     }
 )
 
@@ -94,11 +96,6 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logger.logger import logger
 
 
-def print_rank0(*args, **kwargs):
-    """仅在主进程打印信息"""
-    print(*args, **kwargs)
-
-
 def log_gpu_memory_usage(step_name: str) -> None:
     """记录GPU显存使用情况
 
@@ -109,10 +106,13 @@ def log_gpu_memory_usage(step_name: str) -> None:
         allocated = torch.cuda.memory_allocated() / 1024**3
         reserved = torch.cuda.memory_reserved() / 1024**3
         logger.info(
-            f"{step_name} - GPU显存使用: 已分配 {allocated:.2f} GB, 已保留 {reserved:.2f} GB"
+            zhcn=f"{step_name} - GPU显存使用: 已分配 {allocated:.2f} GB, 已保留 {reserved:.2f} GB",
+            en=f"{step_name} - GPU memory usage: allocated {allocated:.2f} GB, reserved {reserved:.2f} GB",
         )
     else:
-        logger.warning(f"{step_name} - CUDA不可用")
+        logger.warning(
+            zhcn=f"{step_name} - CUDA不可用", en=f"{step_name} - CUDA not available"
+        )
 
 
 def safe_dtype_preference() -> Dict[str, Union[torch.dtype, bool]]:
@@ -258,7 +258,7 @@ def load_model_and_tokenizer(
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """加载模型和分词器，支持 Unsloth 和普通量化，支持多种加载精度。
     注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
-    
+
     Args:
         base_dir: 模型目录路径
         use_qlora: 是否使用QLoRA量化
@@ -267,30 +267,42 @@ def load_model_and_tokenizer(
         load_precision: 加载精度 ("fp16", "int8", "int4")
         use_flash_attention_2: 是否使用FlashAttention2（仅支持fp16/bf16，Unsloth内置优化）
     """
-    logger.info("加载分词器...")
+    logger.info(zhcn="加载分词器...", en="Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(
         base_dir, use_fast=True, trust_remote_code=True
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
     tokenizer.padding_side = "right"
-    
+
     # FlashAttention2 配置检查
     attn_implementation = None
     if use_flash_attention_2:
         if load_precision == "fp32":
-            logger.warning("FlashAttention2 不支持 fp32 精度，将禁用 FlashAttention2")
+            logger.warning(
+                zhcn="FlashAttention2 不支持 fp32 精度，将禁用 FlashAttention2",
+                en="FlashAttention2 does not support fp32 precision, disabling FlashAttention2",
+            )
             use_flash_attention_2 = False
         elif use_unsloth:
-            logger.info("Unsloth 内置 Flash Attention 优化，无需额外配置")
+            logger.info(
+                zhcn="Unsloth 内置 Flash Attention 优化，无需额外配置",
+                en="Unsloth has built-in Flash Attention optimization, no additional configuration needed",
+            )
         else:
             attn_implementation = "flash_attention_2"
-            logger.info("启用 FlashAttention2 加速注意力计算")
+            logger.info(
+                zhcn="启用 FlashAttention2 加速注意力计算",
+                en="Enabling FlashAttention2 to accelerate attention computation",
+            )
 
     # 尝试使用 Unsloth 加载模型
     if use_unsloth and UNSLOTH_AVAILABLE:
         try:
-            logger.info("尝试使用 Unsloth 加载模型...")
+            logger.info(
+                zhcn="尝试使用 Unsloth 加载模型...",
+                en="Attempting to load model with Unsloth...",
+            )
 
             # 启用 Triton 和相关优化（仅在使用unsloth时）
             os.environ.update(
@@ -312,7 +324,10 @@ def load_model_and_tokenizer(
                     load_in_8bit=False,  # 禁用8bit
                     trust_remote_code=True,
                 )
-                logger.info("成功使用 Unsloth 加载模型 (4bit)")
+                logger.info(
+                    zhcn="成功使用 Unsloth 加载模型 (4bit)",
+                    en="Successfully loaded model with Unsloth (4bit)",
+                )
             elif load_precision == "int8":
                 model, tokenizer = FastLanguageModel.from_pretrained(
                     base_dir,
@@ -321,7 +336,10 @@ def load_model_and_tokenizer(
                     load_in_8bit=True,  # 启用8bit
                     trust_remote_code=True,
                 )
-                logger.info("成功使用 Unsloth 加载模型 (8bit)")
+                logger.info(
+                    zhcn="成功使用 Unsloth 加载模型 (8bit)",
+                    en="Successfully loaded model with Unsloth (8bit)",
+                )
             else:  # fp16
                 model, tokenizer = FastLanguageModel.from_pretrained(
                     base_dir,
@@ -330,11 +348,19 @@ def load_model_and_tokenizer(
                     load_in_8bit=False,  # 禁用8bit
                     trust_remote_code=True,
                 )
-                logger.info("成功使用 Unsloth 加载模型 (fp16)")
+                logger.info(
+                    zhcn="成功使用 Unsloth 加载模型 (fp16)",
+                    en="Successfully loaded model with Unsloth (fp16)",
+                )
             return model, tokenizer
         except Exception as e:
-            logger.error(f"Unsloth 加载失败: {e}")
-            logger.info("回退到普通量化加载...")
+            logger.error(
+                zhcn=f"Unsloth 加载失败: {e}", en=f"Unsloth loading failed: {e}"
+            )
+            logger.info(
+                zhcn="回退到普通量化加载...",
+                en="Falling back to standard quantization loading...",
+            )
             # 恢复原始环境变量设置
             os.environ.update(
                 {
@@ -346,7 +372,10 @@ def load_model_and_tokenizer(
                 }
             )
     elif use_unsloth and not UNSLOTH_AVAILABLE:
-        logger.warning("请求使用 Unsloth 但未安装，回退到普通量化加载...")
+        logger.warning(
+            zhcn="请求使用 Unsloth 但未安装，回退到普通量化加载...",
+            en="Unsloth requested but not installed, falling back to standard quantization loading...",
+        )
 
     # 普通量化加载
     dtype_kwargs = safe_dtype_preference()
@@ -365,16 +394,25 @@ def load_model_and_tokenizer(
             bnb_4bit_use_double_quant=True,
             bnb_4bit_quant_type="nf4",
         )
-        logger.info("使用量化配置: 4bit量化")
+        logger.info(
+            zhcn="使用量化配置: 4bit量化",
+            en="Using quantization config: 4bit quantization",
+        )
     elif load_precision == "int8":
         bnb_config = BitsAndBytesConfig(
             load_in_8bit=True,
             llm_int8_enable_fp32_cpu_offload=True,
         )
-        logger.info("使用量化配置: 8bit量化")
+        logger.info(
+            zhcn="使用量化配置: 8bit量化",
+            en="Using quantization config: 8bit quantization",
+        )
     else:  # fp16
         bnb_config = None
-        logger.info("使用量化配置: fp16无量化")
+        logger.info(
+            zhcn="使用量化配置: fp16无量化",
+            en="Using quantization config: fp16 without quantization",
+        )
 
     # 构建模型加载参数
     model_kwargs = {
@@ -382,11 +420,11 @@ def load_model_and_tokenizer(
         "torch_dtype": dtype_kwargs["torch_dtype"],
         "config": config,
     }
-    
+
     # 添加FlashAttention2支持
     if attn_implementation is not None:
         model_kwargs["attn_implementation"] = attn_implementation
-        
+
     if bnb_config is not None:
         model_kwargs["quantization_config"] = bnb_config
         model = AutoModelForCausalLM.from_pretrained(base_dir, **model_kwargs)
@@ -406,13 +444,17 @@ def load_model_and_tokenizer(
     # 确保模型处于训练模式
     model.train()
 
-    logger.info("模型已准备好进行训练（未注入LoRA，稍后统一注入）")
+    logger.info(
+        zhcn="模型已准备好进行训练（未注入LoRA，稍后统一注入）",
+        en="Model is ready for training (LoRA not injected yet, will be injected uniformly later)",
+    )
 
     # 调试：检查加载后的模型参数状态
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(
-        f"加载后模型状态 - 总参数: {total_params}, 可训练参数: {trainable_params}"
+        zhcn=f"加载后模型状态 - 总参数: {total_params}, 可训练参数: {trainable_params}",
+        en=f"Model state after loading - Total params: {total_params}, Trainable params: {trainable_params}",
     )
 
     return model, tokenizer
@@ -436,9 +478,15 @@ def apply_lora(
             "LoRA target_modules 为空，无法注入。请检查参数或 MoE 模式匹配。"
         )
 
-    logger.info(f"LoRA 目标模块数量: {len(target_modules)}")
+    logger.info(
+        zhcn=f"LoRA 目标模块数量: {len(target_modules)}",
+        en=f"Number of LoRA target modules: {len(target_modules)}",
+    )
     if len(target_modules) <= 50:
-        logger.info(f"LoRA 目标模块示例: {target_modules[:50]}")
+        logger.info(
+            zhcn=f"LoRA 目标模块示例: {target_modules[:50]}",
+            en=f"LoRA target modules examples: {target_modules[:50]}",
+        )
 
     if use_unsloth and UNSLOTH_AVAILABLE:
         model = FastLanguageModel.get_peft_model(
@@ -483,7 +531,7 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
     Returns:
         合并后模型的保存路径
     """
-    logger.info("合并 LoRA 权重...")
+    logger.info(zhcn="合并 LoRA 权重...", en="Merging LoRA weights...")
 
     # 加载基础模型
     model = AutoModelForCausalLM.from_pretrained(
@@ -513,7 +561,10 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
     )
     tokenizer.save_pretrained(merged_dir)
 
-    logger.info(f"合并后的模型已保存到: {merged_dir}")
+    logger.info(
+        zhcn=f"合并后的模型已保存到: {merged_dir}",
+        en=f"Merged model saved to: {merged_dir}",
+    )
     return merged_dir
 
 
@@ -802,14 +853,19 @@ def build_moe_target_modules(
 
 
 def pretty_print_targets(title: str, targets: List[str], max_show: int = 80) -> None:
-    logger.info(f"{title}: 共 {len(targets)} 个")
+    logger.info(
+        zhcn=f"{title}: 共 {len(targets)} 个", en=f"{title}: {len(targets)} total"
+    )
     if len(targets) <= max_show:
         for t in targets:
-            logger.info(f"  - {t}")
+            logger.info(zhcn=f"  - {t}", en=f"  - {t}")
     else:
         for t in targets[:max_show]:
-            logger.info(f"  - {t}")
-        logger.info(f"  ... 其余 {len(targets) - max_show} 项已省略")
+            logger.info(zhcn=f"  - {t}", en=f"  - {t}")
+        logger.info(
+            zhcn=f"  ... 其余 {len(targets) - max_show} 项已省略",
+            en=f"  ... {len(targets) - max_show} more items omitted",
+        )
 
 
 def main() -> None:
@@ -818,23 +874,31 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
     set_seed(args.seed)
 
-    logger.info("=== QLoRA 微调开始 ===")
-    logger.info(f"平台: {platform.system()}")
-    logger.info(f"配置: 使用Unsloth={args.use_unsloth}, 使用8bit量化={args.use_qlora}")
+    logger.info(zhcn="=== QLoRA 微调开始 ===", en="=== QLoRA Fine-tuning Started ===")
+    logger.info(zhcn=f"平台: {platform.system()}", en=f"Platform: {platform.system()}")
+    logger.info(
+        zhcn=f"配置: 使用Unsloth={args.use_unsloth}, 使用qlora={args.use_qlora}",
+        en=f"Config: Use Unsloth={args.use_unsloth}, Use 8bit quantization={args.use_qlora}",
+    )
 
     # 禁用动态编译和相关优化
     try:
         torch._dynamo.config.disable = True
         torch._dynamo.config.suppress_errors = True
     except Exception as e:
-        logger.error(f"禁用动态编译失败: {e}")
+        logger.error(
+            zhcn=f"禁用动态编译失败: {e}",
+            en=f"Failed to disable dynamic compilation: {e}",
+        )
 
     # 设置精度 - 使用新的TF32控制API
     try:
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
     except Exception as e:
-        logger.error(f"设置TF32行为失败: {e}")
+        logger.error(
+            zhcn=f"设置TF32行为失败: {e}", en=f"Failed to set TF32 behavior: {e}"
+        )
 
     # 强制PyTorch使用所有CPU核心
     try:
@@ -843,28 +907,47 @@ def main() -> None:
         cpu_count = multiprocessing.cpu_count()
         torch.set_num_threads(cpu_count)
         torch.set_num_interop_threads(min(cpu_count, 8))
-        logger.info(f"已设置PyTorch使用{cpu_count}个CPU核心")
+        logger.info(
+            zhcn=f"已设置PyTorch使用{cpu_count}个CPU核心",
+            en=f"Set PyTorch to use {cpu_count} CPU cores",
+        )
     except Exception as e:
-        logger.error(f"设置PyTorch线程数失败: {e}")
+        logger.error(
+            zhcn=f"设置PyTorch线程数失败: {e}",
+            en=f"Failed to set PyTorch thread count: {e}",
+        )
 
     # 步骤 1: 下载模型
-    logger.info("步骤 1/5: 下载或复用基础模型...")
+    logger.info(
+        zhcn="步骤 1/5: 下载或复用基础模型...",
+        en="Step 1/5: Download or reuse base model...",
+    )
     log_gpu_memory_usage("开始下载模型")
 
     if os.path.exists(args.local_dir) and os.listdir(args.local_dir):
-        logger.info(f"复用本地模型: {args.local_dir}")
+        logger.info(
+            zhcn=f"复用本地模型: {args.local_dir}",
+            en=f"Reusing local model: {args.local_dir}",
+        )
         base_dir = args.local_dir
     else:
-        logger.info(f"从远程下载模型到: {args.local_dir}")
+        logger.info(
+            zhcn=f"从远程下载模型到: {args.local_dir}",
+            en=f"Downloading model from remote to: {args.local_dir}",
+        )
         base_dir = snapshot_download(
             model_id=args.repo_id,
             local_dir=args.local_dir,
         )
-    logger.info(f"基础模型目录: {base_dir}")
+    logger.info(
+        zhcn=f"基础模型目录: {base_dir}", en=f"Base model directory: {base_dir}"
+    )
     log_gpu_memory_usage("模型下载完成")
 
     # 步骤 2: 加载模型和分词器
-    logger.info("步骤 2/5: 加载模型和分词器...")
+    logger.info(
+        zhcn="步骤 2/5: 加载模型和分词器...", en="Step 2/5: Load model and tokenizer..."
+    )
     log_gpu_memory_usage("开始加载模型")
     model, tokenizer = load_model_and_tokenizer(
         base_dir,
@@ -878,17 +961,25 @@ def main() -> None:
     log_gpu_memory_usage("模型加载完成")
 
     # 步骤 3: 准备数据
-    logger.info("步骤 3/5: 准备训练数据...")
+    logger.info(
+        zhcn="步骤 3/5: 准备训练数据...", en="Step 3/5: Prepare training data..."
+    )
     log_gpu_memory_usage("开始准备数据")
 
-    # 强制使用多核CPU
+    # 优化DataLoader设置以减少显存占用
     import multiprocessing
 
     cpu_count = multiprocessing.cpu_count()
-    args.dataloader_num_workers = max(8, cpu_count - 1)  # 强制多核
+    # 减少DataLoader工作线程数以降低显存占用
+    if (
+        not hasattr(args, "dataloader_num_workers")
+        or args.dataloader_num_workers is None
+    ):
+        args.dataloader_num_workers = min(4, max(1, cpu_count // 2))  # 减少工作线程
     args.dataloader_pin_memory = True
     logger.info(
-        f"强制设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count})"
+        zhcn=f"设置DataLoader工作线程数为: {args.dataloader_num_workers} (CPU核心数: {cpu_count}), pin_memory: {args.dataloader_pin_memory}",
+        en=f"Setting DataLoader worker threads to: {args.dataloader_num_workers} (CPU cores: {cpu_count}), pin_memory: {args.dataloader_pin_memory}",
     )
 
     train_dataset = JsonlSFTDataset(
@@ -899,27 +990,39 @@ def main() -> None:
 
     eval_dataset = None
     if args.eval_data_path and os.path.exists(args.eval_data_path):
-        logger.info("准备验证数据...")
+        logger.info(zhcn="准备验证数据...", en="Preparing validation data...")
         eval_dataset = JsonlSFTDataset(
             args.eval_data_path,
             eos_token=tokenizer.eos_token or "",
             max_samples=args.max_eval_samples,
         )
-        logger.info(f"验证样本数量: {len(eval_dataset)}")
+        logger.info(
+            zhcn=f"验证样本数量: {len(eval_dataset)}",
+            en=f"Validation samples: {len(eval_dataset)}",
+        )
     else:
-        logger.warning("未提供验证数据路径，跳过验证集")
+        logger.warning(
+            zhcn="未提供验证数据路径，跳过验证集",
+            en="No validation data path provided, skipping validation set",
+        )
 
     data_collator = CollatorForCausalLM(tokenizer=tokenizer)
-    logger.info(f"训练样本数量: {len(train_dataset)}")
+    logger.info(
+        zhcn=f"训练样本数量: {len(train_dataset)}",
+        en=f"Training samples: {len(train_dataset)}",
+    )
     log_gpu_memory_usage("数据准备完成")
 
     # 步骤 4: 应用 LoRA（统一入口，支持 MoE）
-    logger.info("步骤 4/5: 应用 LoRA...")
+    logger.info(zhcn="步骤 4/5: 应用 LoRA...", en="Step 4/5: Apply LoRA...")
     log_gpu_memory_usage("开始应用LoRA")
 
     if args.moe_enable:
         info = detect_moe(model)
-        logger.info(f"MoE 检测结果: is_moe={info['is_moe']}")
+        logger.info(
+            zhcn=f"MoE 检测结果: is_moe={info['is_moe']}",
+            en=f"MoE detection result: is_moe={info['is_moe']}",
+        )
         if info["hints"]:
             pretty_print_targets("MoE 模块路径提示", info["hints"])
 
@@ -935,7 +1038,10 @@ def main() -> None:
         pretty_print_targets("匹配到的 LoRA 注入目标（MoE）", moe_targets, max_show=120)
 
         if args.moe_dry_run:
-            logger.warning("MoE dry-run 模式启用，仅打印匹配模块并退出。")
+            logger.warning(
+                zhcn="MoE dry-run 模式启用，仅打印匹配模块并退出。",
+                en="MoE dry-run mode enabled, only printing matched modules and exiting.",
+            )
             return
 
         model = apply_lora(
@@ -975,22 +1081,35 @@ def main() -> None:
             trainable_params += param.numel()
 
     logger.info(
-        f"可训练参数: {trainable_params} || 全部参数: {all_param} || 可训练比例: {100 * trainable_params / all_param:.2f}%"
+        zhcn=f"可训练参数: {trainable_params} || 全部参数: {all_param} || 可训练比例: {100 * trainable_params / all_param:.2f}%",
+        en=f"Trainable params: {trainable_params} || All params: {all_param} || Trainable ratio: {100 * trainable_params / all_param:.2f}%",
     )
 
     # 验证是否有可训练参数
     if trainable_params == 0:
-        raise ValueError("没有检测到可训练参数！请检查LoRA配置是否正确。")
+        raise ValueError(
+            "没有检测到可训练参数！请检查LoRA配置是否正确。 / No trainable parameters detected! Please check if LoRA configuration is correct."
+        )
 
     log_gpu_memory_usage("LoRA应用完成")
 
     # 步骤 5: 训练
-    logger.info("步骤 5/5: 开始训练...")
+    logger.info(zhcn="步骤 5/5: 开始训练...", en="Step 5/5: Start training...")
+
     if args.resume_from_checkpoint:
-        logger.info(f"将从检查点恢复训练: {args.resume_from_checkpoint}")
+        logger.info(
+            zhcn=f"将从检查点恢复训练: {args.resume_from_checkpoint}",
+            en=f"Will resume training from checkpoint: {args.resume_from_checkpoint}",
+        )
     if eval_dataset is not None:
-        logger.info(f"将在每 {args.eval_steps} 步后进行验证")
-    logger.info(f"将每 {args.logging_steps} 步输出训练loss")
+        logger.info(
+            zhcn=f"将在每 {args.eval_steps} 步后进行验证",
+            en=f"Will perform validation every {args.eval_steps} steps",
+        )
+    logger.info(
+        zhcn=f"将每 {args.logging_steps} 步输出训练loss",
+        en=f"Will output training loss every {args.logging_steps} steps",
+    )
     log_gpu_memory_usage("开始训练前")
 
     dtype_kwargs = safe_dtype_preference()
@@ -1017,7 +1136,11 @@ def main() -> None:
         report_to=[],
         dataloader_pin_memory=args.dataloader_pin_memory,
         dataloader_num_workers=args.dataloader_num_workers,
-        dataloader_prefetch_factor=args.dataloader_prefetch_factor,
+        dataloader_prefetch_factor=(
+            min(2, args.dataloader_prefetch_factor)
+            if args.dataloader_prefetch_factor
+            else 2
+        ),  # 限制预取因子以减少显存占用
         eval_strategy="steps" if eval_dataset is not None else "no",
         eval_accumulation_steps=1,
     )
@@ -1036,13 +1159,16 @@ def main() -> None:
     tokenizer.save_pretrained(args.output_dir)
     log_gpu_memory_usage("训练完成")
 
-    logger.info("训练完成!")
+    logger.info(zhcn="训练完成!", en="Training completed!")
 
     if args.merge_and_save:
         merged_dir = merge_and_save(base_dir, args.output_dir)
-        logger.info(f"完整模型已保存到: {merged_dir}")
+        logger.info(
+            zhcn=f"完整模型已保存到: {merged_dir}",
+            en=f"Complete model saved to: {merged_dir}",
+        )
 
-    logger.info("所有步骤完成!")
+    logger.info(zhcn="所有步骤完成!", en="All steps completed!")
 
     del model
     del trainer
@@ -1051,7 +1177,8 @@ def main() -> None:
 
     if args.use_unsloth:
         logger.info(
-            "提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能"
+            zhcn="提示: 您已使用 Unsloth 加速训练，推理时也建议使用 Unsloth 加载模型以获得最佳性能",
+            en="Tip: You have used Unsloth for accelerated training, it is also recommended to use Unsloth to load the model during inference for optimal performance",
         )
 
 

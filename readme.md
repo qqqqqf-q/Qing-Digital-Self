@@ -1,6 +1,8 @@
 ## 项目简介
 
 ## 这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
+
+## This project is a personal digital twin built by fine-tuning a large language model on your own chat history. The goal is to recreate your unique style of expression and conversational behavior with high fidelity.
 <p align="center">
   <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
 <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
@@ -10,9 +12,17 @@
 
 </p>
 
-# 官方文档
+# The project includes bilingual support.
+## 项目包含双语支持
+
+## 中文文档
 <a href="https://qqqqqf-q.github.io/Qing-Digital-Self/">
   <img src="https://cdn.nodeimage.com/i/MfTsvmkJD2dQj9c9XZg9XXXS6CYwZBvx.png" alt="快速开始按钮" width="140" style="margin-top: 1em;">
+</a>
+
+## English Documents
+<a href="https://qqqqqf-q.github.io/Qing-Digital-Self/en/">
+  <img src="https://cdn.nodeimage.com/i/wy2ngEGv8sYYpcJ0zdIlMnHgm8lLmbIA.png" alt="快速开始按钮" width="140" style="margin-top: 1em;">
 </a>
 
 ## 项目包含了**完整的教程**，包括：

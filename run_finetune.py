@@ -258,9 +258,11 @@ def main():
         if "triton" in key.lower():
             env.pop(key, None)
 
-    # 构建命令行参数（将新增参数透传给 finetune/qlora_qwen3.py）
+    # 构建命令行参数（使用torchrun启动分布式训练）
     cmd = [
-        sys.executable,
+        "torchrun",
+        "--nproc_per_node=1",  # 可以根据需要调整GPU数量
+        "--master_port=29500",  # 可以根据需要调整端口
         "finetune/qlora_qwen3.py",
         "--repo_id",
         args.repo_id,
@@ -356,8 +358,6 @@ def main():
             args.dataloader_num_workers,
             "--dataloader_prefetch_factor",
             args.dataloader_prefetch_factor,
-            "--use_flash_attention_2",
-            args.use_flash_attention_2,
         ]
     )
 

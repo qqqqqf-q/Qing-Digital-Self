@@ -12,8 +12,14 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from peft import PeftModel
 import logging
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 导入自定义Logger
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger.logger import Logger
+from config.config import Config
+
+# 初始化配置和日志器
+config = Config()
+logger = Logger('MergeScript')
 
 
 
@@ -38,7 +44,10 @@ def merge_and_save_from_checkpoint(
     Returns:
         合并后模型的保存路径
     """
-    logger.info("=== 开始从checkpoint合并LoRA权重 ===")
+    logger.info(
+        zhcn="=== 开始从checkpoint合并LoRA权重 ===",
+        en="=== Starting LoRA weight merging from checkpoint ==="
+    )
     
     # 检查路径是否存在
     if not os.path.exists(base_model_path):
@@ -50,18 +59,36 @@ def merge_and_save_from_checkpoint(
     # 创建输出目录
     os.makedirs(output_path, exist_ok=True)
     
-    logger.info(f"基础模型: {base_model_path}")
-    logger.info(f"检查点路径: {checkpoint_path}")
-    logger.info(f"输出目录: {output_path}")
+    logger.info(
+        zhcn=f"基础模型: {base_model_path}",
+        en=f"Base model: {base_model_path}"
+    )
+    logger.info(
+        zhcn=f"检查点路径: {checkpoint_path}",
+        en=f"Checkpoint path: {checkpoint_path}"
+    )
+    logger.info(
+        zhcn=f"输出目录: {output_path}",
+        en=f"Output directory: {output_path}"
+    )
     
     # 检查GPU可用性
     if torch.cuda.is_available():
-        logger.info(f"使用GPU: {torch.cuda.get_device_name()}")
+        logger.info(
+            zhcn=f"使用GPU: {torch.cuda.get_device_name()}",
+            en=f"Using GPU: {torch.cuda.get_device_name()}"
+        )
     else:
-        logger.info("使用CPU进行合并")
+        logger.info(
+            zhcn="使用CPU进行合并",
+            en="Using CPU for merging"
+        )
     
     # 加载基础模型
-    logger.info("加载基础模型...")
+    logger.info(
+        zhcn="加载基础模型...",
+        en="Loading base model..."
+    )
     if load_precision == "int8":
         model = AutoModelForCausalLM.from_pretrained(
             base_model_path,
@@ -85,7 +112,10 @@ def merge_and_save_from_checkpoint(
         )
     
     # 加载分词器
-    logger.info("加载分词器...")
+    logger.info(
+        zhcn="加载分词器...",
+        en="Loading tokenizer..."
+    )
     tokenizer = AutoTokenizer.from_pretrained(
         base_model_path,
         use_fast=True,
@@ -102,12 +132,18 @@ def merge_and_save_from_checkpoint(
         
         if possible_lora_dirs:
             checkpoint_path = os.path.join(checkpoint_path, possible_lora_dirs[0])
-            logger.info(f"找到LoRA配置目录: {checkpoint_path}")
+            logger.info(
+                zhcn=f"找到LoRA配置目录: {checkpoint_path}",
+                en=f"Found LoRA config directory: {checkpoint_path}"
+            )
         else:
             raise FileNotFoundError(f"在{checkpoint_path}中未找到LoRA配置(adapter_config.json)")
     
     # 加载PEFT模型
-    logger.info("加载LoRA权重...")
+    logger.info(
+        zhcn="加载LoRA权重...",
+        en="Loading LoRA weights..."
+    )
     peft_model = PeftModel.from_pretrained(
         model,
         checkpoint_path,
@@ -115,15 +151,24 @@ def merge_and_save_from_checkpoint(
     )
     
     # 合并权重
-    logger.info("合并LoRA权重...")
+    logger.info(
+        zhcn="合并LoRA权重...",
+        en="Merging LoRA weights..."
+    )
     merged_model = peft_model.merge_and_unload()
     
     # 保存合并后的模型
-    logger.info("保存合并后的模型...")
+    logger.info(
+        zhcn="保存合并后的模型...",
+        en="Saving merged model..."
+    )
     merged_model.save_pretrained(output_path)
     
     # 保存分词器
-    logger.info("保存分词器...")
+    logger.info(
+        zhcn="保存分词器...",
+        en="Saving tokenizer..."
+    )
     tokenizer.save_pretrained(output_path)
     
     # 清理内存
@@ -133,7 +178,10 @@ def merge_and_save_from_checkpoint(
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
     
-    logger.info(f"合并完成！完整模型已保存到: {output_path}")
+    logger.info(
+        zhcn=f"合并完成！完整模型已保存到: {output_path}",
+        en=f"Merging completed! Complete model saved to: {output_path}"
+    )
     return output_path
 
 
@@ -164,7 +212,10 @@ def auto_detect_checkpoint(base_output_dir: str) -> str:
     latest_checkpoint = checkpoints[-1]
     checkpoint_path = os.path.join(base_output_dir, latest_checkpoint)
     
-    logger.info(f"自动检测到最新checkpoint: {latest_checkpoint}")
+    logger.info(
+        zhcn=f"自动检测到最新checkpoint: {latest_checkpoint}",
+        en=f"Auto-detected latest checkpoint: {latest_checkpoint}"
+    )
     return checkpoint_path
 
 
@@ -228,10 +279,16 @@ def main():
             load_precision=args.load_precision
         )
         
-        logger.info("=== 合并完成 ===")
+        logger.info(
+            zhcn="=== 合并完成 ===",
+            en="=== Merging Completed ==="
+        )
         
     except Exception as e:
-        logger.error(f"合并过程中出现错误: {str(e)}")
+        logger.error(
+            zhcn=f"合并过程中出现错误: {str(e)}",
+            en=f"Error occurred during merging: {str(e)}"
+        )
         sys.exit(1)
 
 
