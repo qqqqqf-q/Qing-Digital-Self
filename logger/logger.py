@@ -1,6 +1,7 @@
 import logging
 import os
 from datetime import datetime
+from typing import Optional
 from config.config import get_config
 
 class Logger:
@@ -8,6 +9,7 @@ class Logger:
         # 获取配置
         self.config = get_config()
         self.log_level = self.config.get('log_level', 'INFO')
+        self.language = self.config.get('language', 'zhcn')  # 默认中文
         self.log_dir = 'logs'
         
         # 创建日志器
@@ -63,25 +65,78 @@ class Logger:
         
         self.logger.addHandler(file_handler)
 
-    def debug(self, message: str):
-        """记录DEBUG级别的日志"""
-        self.logger.debug(message)
+    def _get_message(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None) -> str:
+        """根据配置的语言返回相应的消息"""
+        if message is not None:
+            return message
+        
+        if self.language == 'en' and en is not None:
+            return en
+        elif self.language == 'zhcn' and zhcn is not None:
+            return zhcn
+        
+        # 如果没有对应语言的消息，返回可用的消息
+        if zhcn is not None:
+            return zhcn
+        elif en is not None:
+            return en
+        else:
+            return "No message provided"
 
-    def info(self, message: str):
-        """记录INFO级别的日志"""
-        self.logger.info(message)
+    def debug(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None):
+        """记录DEBUG级别的日志
+        
+        Args:
+            message: 直接传入的消息（优先级最高）
+            zhcn: 中文消息
+            en: 英文消息
+        """
+        msg = self._get_message(message, zhcn, en)
+        self.logger.debug(msg)
 
-    def warning(self, message: str):
-        """记录WARNING级别的日志"""
-        self.logger.warning(message)
+    def info(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None):
+        """记录INFO级别的日志
+        
+        Args:
+            message: 直接传入的消息（优先级最高）
+            zhcn: 中文消息
+            en: 英文消息
+        """
+        msg = self._get_message(message, zhcn, en)
+        self.logger.info(msg)
 
-    def error(self, message: str):
-        """记录ERROR级别的日志"""
-        self.logger.error(message)
+    def warning(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None):
+        """记录WARNING级别的日志
+        
+        Args:
+            message: 直接传入的消息（优先级最高）
+            zhcn: 中文消息
+            en: 英文消息
+        """
+        msg = self._get_message(message, zhcn, en)
+        self.logger.warning(msg)
 
-    def critical(self, message: str):
-        """记录CRITICAL级别的日志"""
-        self.logger.critical(message)
+    def error(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None):
+        """记录ERROR级别的日志
+        
+        Args:
+            message: 直接传入的消息（优先级最高）
+            zhcn: 中文消息
+            en: 英文消息
+        """
+        msg = self._get_message(message, zhcn, en)
+        self.logger.error(msg)
+
+    def critical(self, message: Optional[str] = None, zhcn: Optional[str] = None, en: Optional[str] = None):
+        """记录CRITICAL级别的日志
+        
+        Args:
+            message: 直接传入的消息（优先级最高）
+            zhcn: 中文消息
+            en: 英文消息
+        """
+        msg = self._get_message(message, zhcn, en)
+        self.logger.critical(msg)
 
     def set_level(self, level: str):
         """动态设置日志级别"""
@@ -92,6 +147,18 @@ class Logger:
         for handler in self.logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 handler.setLevel(self._get_log_level())
+    
+    def set_language(self, language: str):
+        """动态设置日志语言
+        
+        Args:
+            language: 语言代码，支持 'zhcn' 或 'en'
+        """
+        if language in ['zhcn', 'en']:
+            self.language = language
+            self.config.set('language', language)
+        else:
+            raise ValueError(f"Unsupported language: {language}. Supported languages: 'zhcn', 'en'")
 
 # 创建全局日志实例
 logger = Logger()
