@@ -535,7 +535,10 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
 
     # 加载基础模型
     model = AutoModelForCausalLM.from_pretrained(
-        base_dir, device_map="auto", trust_remote_code=True
+        base_dir,
+        device_map="auto",
+        trust_remote_code=True,
+        torch_dtype="auto",
     )
 
     # 创建 offload 目录
@@ -544,7 +547,9 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
 
     # 加载 PEFT 模型
     peft_model = PeftModel.from_pretrained(
-        model, output_dir, device_map="auto", offload_dir=offload_dir
+        model,
+        output_dir,
+        device_map="auto",
     )
 
     # 合并权重
