@@ -1,4 +1,4 @@
-## 3.5 .(不建议)微调后直接运行全量模型(建议直接看第4,5,6,7步,等转换为guff并量化完再跑)
+## (不建议)微调后直接运行全量模型(建议直接看第4,5,6,7步,等转换为guff并量化完再跑)
 ### 指定自定义模型路径
 ```bash
 python infer_lora_chat.py --base_dir my-base-model --adapter_dir my-lora-adapter
