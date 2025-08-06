@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
 <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
 <img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge">
-<img src="https://img.shields.io/badge/Version-v0.1-9370DB?style=for-the-badge">
+<img src="https://img.shields.io/badge/Version-v0.1.1-9370DB?style=for-the-badge">
 <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2">
 
 </p>
