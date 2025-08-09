@@ -54,7 +54,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 * 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune.py)
 * 清洗数据也已经进行实机测试(当前版本)
 ## TODO
-* [未完成] 增加对oss模型的支持 (以及MXFP4?这是一个50系的计算,好像我还是没法测试)
+* [完成但未测试] 增加对oss模型的支持 (以及MXFP4?这是一个50系的计算,好像我还是没法测试)
 > 难点:1.MOE模型 2.非原Qwen系列模型 3.我的3080似乎本地没法测试(无论是微调还是MXFP4)
 > 好吧其实一点也不难,只是这几天在写其他项目
 
