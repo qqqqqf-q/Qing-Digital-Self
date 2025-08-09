@@ -33,7 +33,14 @@ export default defineConfig({
               { text: '5. 微调模型', link: '/guide/fine-tune-model' },
               { text: '6. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '7. 转换GUFF和量化模型', link: '/guide/convert-model' },
-              { text: '8. 运行模型', link: '/guide/run-model' }
+              { text: '8. 运行模型', link: '/guide/run-model' },
+              { text: '番外篇: 微调OpenAI OSS模型', link: '/guide/fine-tune-openai-oss-model' }
+            ]
+          },
+          {
+            text: '补充',
+            items: [
+              { text: '修改Logger的语言', link: '/guide/change-logger-language' }
             ]
           },
           {
@@ -76,9 +83,18 @@ export default defineConfig({
               { text: '5. Fine-tune Model', link: '/en/guide/fine-tune-model' },
               { text: '6. (Optional) Run Full Model', link: '/en/guide/run-full-model' },
               { text: '7. Convert GGUF and Quantize', link: '/en/guide/convert-model' },
-              { text: '8. Run Model', link: '/en/guide/run-model' }
+              { text: '8. Run Model', link: '/en/guide/run-model' },
+              { text: '9. (Extra) Fine-tune OpenAI OSS Model', link: '/en/guide/fine-tune-openai-oss-model' }
+
             ]
           },
+          {
+            text: 'Extra',
+            items: [
+              { text: 'Change Logger Language', link: '/en/guide/change-logger-language' }
+            ]
+          },
+
           {
             text: 'Summary',
             items: [

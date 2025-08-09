@@ -62,10 +62,16 @@ class OpenAIClient:
                 return response.json()
             except requests.exceptions.RequestException as e:
                 if attempt < self.max_retries:
-                    logger.warning(f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}")
+                    logger.warning(
+                        zhcn=f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}",
+                        en=f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    )
                     time.sleep(self.retry_delay * (2 ** attempt))  # 指数退避
                 else:
-                    logger.error(f"所有重试都失败: {e}")
+                    logger.error(
+                        zhcn=f"所有重试都失败: {e}",
+                        en=f"All retries failed: {e}"
+                    )
                     raise
     
     def chat_completion(self, messages: List[Dict[str, str]], 
@@ -107,7 +113,10 @@ class OpenAIClient:
             data = response.json()
             return [model["id"] for model in data.get("data", [])]
         except Exception as e:
-            logger.error(f"获取模型列表失败: {e}")
+            logger.error(
+                zhcn=f"获取模型列表失败: {e}",
+                en=f"Failed to get model list: {e}"
+            )
             return []
     
     def health_check(self) -> bool:
@@ -188,25 +197,37 @@ class LLMDataCleaner:
             # 验证响应结构
             choices = response.get("choices", [])
             if not choices:
-                logger.error("LLM响应中没有choices字段")
+                logger.error(
+                    zhcn="LLM响应中没有choices字段",
+                    en="No choices field in LLM response"
+                )
                 return {"is_valid": False, "cleaned_text": text, "reason": "LLM响应中没有choices", "confidence": 0.0}
             
             first_choice = choices[0]
             message = first_choice.get("message")
             if not message:
-                logger.error("LLM响应的choice中没有message字段")
+                logger.error(
+                    zhcn="LLM响应的choice中没有message字段",
+                    en="No message field in LLM response choice"
+                )
                 return {"is_valid": False, "cleaned_text": text, "reason": "LLM响应的choice中没有message", "confidence": 0.0}
             
             content = message.get("content", "")
             if not content:
-                logger.error("LLM响应的message中没有content字段")
+                logger.error(
+                    zhcn="LLM响应的message中没有content字段",
+                    en="No content field in LLM response message"
+                )
                 return {"is_valid": False, "cleaned_text": text, "reason": "LLM响应的message中没有content", "confidence": 0.0}
 
             # 尝试解析JSON格式的响应
             try:
                 result = json.loads(content)
             except json.JSONDecodeError as e:
-                logger.error(f"LLM响应JSON解析失败: {e}，内容：{content}")
+                logger.error(
+                    zhcn=f"LLM响应JSON解析失败: {e}，内容：{content}",
+                    en=f"LLM response JSON parsing failed: {e}, content: {content}"
+                )
                 return {
                     "is_valid": False,
                     "cleaned_text": text,
@@ -218,7 +239,10 @@ class LLMDataCleaner:
             required_fields = ["is_valid", "cleaned_text", "reason", "confidence"]
             missing_fields = [field for field in required_fields if field not in result]
             if missing_fields:
-                logger.warning(f"LLM响应缺少必要字段: {missing_fields}")
+                logger.warning(
+                    zhcn=f"LLM响应缺少必要字段: {missing_fields}",
+                    en=f"LLM response missing required fields: {missing_fields}"
+                )
                 # 设置缺失字段的默认值
                 for field in missing_fields:
                     if field == "is_valid":
@@ -234,7 +258,10 @@ class LLMDataCleaner:
             return result
                 
         except Exception as e:
-            logger.error(f"LLM清洗失败: {e}")
+            logger.error(
+                zhcn=f"LLM清洗失败: {e}",
+                en=f"LLM cleaning failed: {e}"
+            )
             return {
                 "is_valid": True,
                 "cleaned_text": text,
@@ -344,20 +371,29 @@ class LLMDataCleaner:
             # 验证响应结构
             choices = response.get("choices", [])
             if not choices:
-                logger.error("LLM响应中没有choices字段")
+                logger.error(
+                    zhcn="LLM响应中没有choices字段",
+                    en="No choices field in LLM response"
+                )
                 return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                        for msg in messages]
             
             first_choice = choices[0]
             message = first_choice.get("message")
             if not message:
-                logger.error("LLM响应的choice中没有message字段")
+                logger.error(
+                    zhcn="LLM响应的choice中没有message字段",
+                    en="No message field in LLM response choice"
+                )
                 return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                        for msg in messages]
             
             content = message.get("content", "")
             if not content:
-                logger.error("LLM响应的message中没有content字段")
+                logger.error(
+                    zhcn="LLM响应的message中没有content字段",
+                    en="No content field in LLM response message"
+                )
                 return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                        for msg in messages]
             
@@ -386,7 +422,10 @@ class LLMDataCleaner:
                 
                 # 验证必要字段
                 if "removed_indices" not in result:
-                    logger.error("LLM响应缺少removed_indices字段")
+                    logger.error(
+                        zhcn="LLM响应缺少removed_indices字段",
+                        en="LLM response missing removed_indices field"
+                    )
                     return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                            for msg in messages]
                 
@@ -403,16 +442,25 @@ class LLMDataCleaner:
                         })
                 
                 removed_count = len(removed_indices)
-                logger.info(f"LLM清洗完成: 原始{len(messages)}条 -> 删除{removed_count}条 -> 保留{len(cleaned_messages)}条")
+                logger.info(
+                    zhcn=f"LLM清洗完成: 原始{len(messages)}条 -> 删除{removed_count}条 -> 保留{len(cleaned_messages)}条",
+                    en=f"LLM cleaning completed: original {len(messages)} -> removed {removed_count} -> kept {len(cleaned_messages)}"
+                )
                 return cleaned_messages
                 
             except json.JSONDecodeError as e:
-                logger.error(f"LLM响应JSON解析失败: {e}，内容：{content}")
+                logger.error(
+                    zhcn=f"LLM响应JSON解析失败: {e}，内容：{content}",
+                    en=f"LLM response JSON parsing failed: {e}, content: {content}"
+                )
                 return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                        for msg in messages]
                 
         except Exception as e:
-            logger.error(f"LLM清洗失败: {e}")
+            logger.error(
+                zhcn=f"LLM清洗失败: {e}",
+                en=f"LLM cleaning failed: {e}"
+            )
             # 如果LLM调用失败，返回原始消息
             return [{"role": msg.get("role"), "content": msg.get("content"), "timestamp": msg.get("timestamp")}
                    for msg in messages]

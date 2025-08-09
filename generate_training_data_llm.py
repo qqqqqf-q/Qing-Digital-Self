@@ -29,7 +29,10 @@ interrupt_flag = threading.Event()
 
 def signal_handler(signum, frame):
     """处理Ctrl+C中断信号"""
-    logger.info("接收到中断信号，正在优雅退出...")
+    logger.info(
+        zhcn="接收到中断信号，正在优雅退出...",
+        en="Received interrupt signal, gracefully exiting..."
+    )
     interrupt_flag.set()
 
 # 注册信号处理器
@@ -374,7 +377,10 @@ def process_row(row: Tuple[int, int, int, bytes]) -> Optional[dict]:
         ai_qq_int = None
     
     if ai_qq_int is None:
-        logger.warning("AI QQ号未配置，所有消息将被标记为user角色")
+        logger.warning(
+            zhcn="AI QQ号未配置，所有消息将被标记为user角色",
+            en="AI QQ number not configured, all messages will be marked as user role"
+        )
         role = "user"
     elif sender_33 == ai_qq_int:  # AI发送的消息
         role = "assistant"
@@ -421,7 +427,10 @@ def process_single_peer(peer: int, db_path: str, output_file: str) -> int:
         # 处理该QQ号的所有消息
         for (timestamp, sender_30, sender_33, blob_data) in rows:
             if interrupt_flag.is_set():
-                logger.info(f"检测到中断信号，停止处理QQ号 {peer}")
+                logger.info(
+                    zhcn=f"检测到中断信号，停止处理QQ号 {peer}",
+                    en=f"Interrupt signal detected, stopping processing QQ number {peer}"
+                )
                 break
                 
             res = process_row((timestamp, sender_30, sender_33, blob_data))
@@ -447,7 +456,10 @@ def process_single_peer(peer: int, db_path: str, output_file: str) -> int:
             
             # 使用LLM进行按天清洗
             try:
-                logger.info(f"使用LLM清洗 {date} 的对话 ({len(messages)}条消息)")
+                logger.info(
+                    zhcn=f"使用LLM清洗 {date} 的对话 ({len(messages)}条消息)",
+                    en=f"Using LLM to clean conversation for {date} ({len(messages)} messages)"
+                )
                 llm_messages = [
                     {
                         "role": msg["role"], 
@@ -461,10 +473,16 @@ def process_single_peer(peer: int, db_path: str, output_file: str) -> int:
                 
                 # 只保留必要字段
                 daily_dialog = [{"role": msg["role"], "content": msg["content"]} for msg in cleaned_messages]
-                logger.info(f"LLM清洗完成: {date} 保留 {len(daily_dialog)}/{len(messages)} 条消息")
+                logger.info(
+                    zhcn=f"LLM清洗完成: {date} 保留 {len(daily_dialog)}/{len(messages)} 条消息",
+                    en=f"LLM cleaning completed: {date} kept {len(daily_dialog)}/{len(messages)} messages"
+                )
                 
             except Exception as e:
-                logger.error(f"LLM清洗失败 {date}: {e}，保留原始数据")
+                logger.error(
+                    zhcn=f"LLM清洗失败 {date}: {e}，保留原始数据",
+                    en=f"LLM cleaning failed {date}: {e}, keeping original data"
+                )
                 # 如果LLM失败，保留所有原始消息
                 daily_dialog = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
 
@@ -480,7 +498,10 @@ def process_single_peer(peer: int, db_path: str, output_file: str) -> int:
         return written_dialogs
         
     except Exception as e:
-        logger.error(f"处理QQ号 {peer} 时出错: {e}")
+        logger.error(
+            zhcn=f"处理QQ号 {peer} 时出错: {e}",
+            en=f"Error processing QQ number {peer}: {e}"
+        )
         return 0
     finally:
         db.close()
@@ -495,14 +516,23 @@ def main():
     
     try:
         db.connect()
-        logger.info(f"开始生成训练数据，输出到: {output_file}")
-        logger.info("按 Ctrl+C 可随时中断程序，已处理的数据不会丢失")
+        logger.info(
+            zhcn=f"开始生成训练数据，输出到: {output_file}",
+            en=f"Starting to generate training data, output to: {output_file}"
+        )
+        logger.info(
+            zhcn="按 Ctrl+C 可随时中断程序，已处理的数据不会丢失",
+            en="Press Ctrl+C to interrupt the program at any time, processed data will not be lost"
+        )
 
         # 获取所有唯一的QQ号（peer）
         peers = db.query("SELECT DISTINCT `40030` FROM c2c_msg_table WHERE `40030` IS NOT NULL")
         all_peers = [peer[0] for peer in peers]
         total_peers = len(all_peers)
-        logger.info(f"找到 {total_peers} 个QQ号，使用 {max_workers} 个并发线程")
+        logger.info(
+            zhcn=f"找到 {total_peers} 个QQ号，使用 {max_workers} 个并发线程",
+            en=f"Found {total_peers} QQ numbers, using {max_workers} concurrent threads"
+        )
 
         # 清空输出文件
         with open(output_file, 'w', encoding='utf-8') as f:
@@ -523,7 +553,10 @@ def main():
             # 收集结果
             for future in as_completed(future_to_peer):
                 if interrupt_flag.is_set():
-                    logger.info("检测到中断信号，停止提交新任务...")
+                    logger.info(
+                        zhcn="检测到中断信号，停止提交新任务...",
+                        en="Interrupt signal detected, stopping submission of new tasks..."
+                    )
                     # 取消未开始的任务
                     for f in future_to_peer:
                         if not f.done():
@@ -538,29 +571,49 @@ def main():
                     
                     # 实时进度显示
                     progress = (processed_peers / total_peers) * 100
-                    logger.info(f"进度: {processed_peers}/{total_peers} ({progress:.1f}%) - "
+                    logger.info(
+                        zhcn=f"进度: {processed_peers}/{total_peers} ({progress:.1f}%) - "
                               f"QQ号 {peer} 处理完成，写入 {written_count} 段对话，"
-                              f"总计: {total_written} 段")
+                              f"总计: {total_written} 段",
+                        en=f"Progress: {processed_peers}/{total_peers} ({progress:.1f}%) - "
+                           f"QQ number {peer} completed, wrote {written_count} conversations, "
+                           f"total: {total_written} conversations"
+                    )
                     
                     # 每处理10个QQ号就显示一次文件大小
                     if processed_peers % 10 == 0:
                         try:
                             file_size = os.path.getsize(output_file) / (1024 * 1024)  # MB
-                            logger.info(f"当前输出文件大小: {file_size:.2f} MB")
+                            logger.info(
+                                zhcn=f"当前输出文件大小: {file_size:.2f} MB",
+                                en=f"Current output file size: {file_size:.2f} MB"
+                            )
                         except:
                             pass
                             
                 except Exception as e:
                     processed_peers += 1
-                    logger.error(f"QQ号 {peer} 处理失败: {e}")
+                    logger.error(
+                        zhcn=f"QQ号 {peer} 处理失败: {e}",
+                        en=f"Failed to process QQ number {peer}: {e}"
+                    )
 
         if interrupt_flag.is_set():
-            logger.info(f"程序被中断! 已处理 {processed_peers}/{total_peers} 个QQ号，写出 {total_written} 段对话")
+            logger.info(
+                zhcn=f"程序被中断! 已处理 {processed_peers}/{total_peers} 个QQ号，写出 {total_written} 段对话",
+                en=f"Program interrupted! Processed {processed_peers}/{total_peers} QQ numbers, wrote {total_written} conversations"
+            )
         else:
-            logger.info(f"完成! 总共写出 {total_written} 段对话到 {output_file}")
+            logger.info(
+                zhcn=f"完成! 总共写出 {total_written} 段对话到 {output_file}",
+                en=f"Completed! Total {total_written} conversations written to {output_file}"
+            )
 
     except Exception as e:
-        logger.error(f"错误: {e}")
+        logger.error(
+            zhcn=f"错误: {e}",
+            en=f"Error: {e}"
+        )
     finally:
         db.close()
 

@@ -1,4 +1,4 @@
-## 4. 编译 llama.cpp
+## 编译 llama.cpp
 
 > 下面三步都依赖于编译好的 llama.cpp
 
@@ -12,7 +12,7 @@ cmake --build . --config Release
 
 ---
 
-## 5. HuggingFace 权重转 GGUF
+## HuggingFace 权重转 GGUF
 
 ### 命令格式：
 
@@ -32,7 +32,7 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 
 ---
 
-## 6. 量化模型
+## 量化模型
 
 ### 命令格式：
 

@@ -487,12 +487,18 @@ def main():
 
     try:
         db.connect()
-        logger.info(f"开始生成训练数据，输出到: {output_file}")
+        logger.info(
+            zhcn=f"开始生成训练数据，输出到: {output_file}",
+            en=f"Starting to generate training data, output to: {output_file}"
+        )
 
         # 获取所有唯一的QQ号（peer）
         peers = db.query("SELECT DISTINCT `40030` FROM c2c_msg_table WHERE `40030` IS NOT NULL")
         all_peers = [peer[0] for peer in peers]
-        logger.info(f"找到 {len(all_peers)} 个QQ号")
+        logger.info(
+            zhcn=f"找到 {len(all_peers)} 个QQ号",
+            en=f"Found {len(all_peers)} QQ numbers"
+        )
 
         with open(output_file, 'w', encoding='utf-8', buffering=1024 * 1024) as f:
             
@@ -501,7 +507,10 @@ def main():
 
             # 对每个QQ号进行处理
             for peer in all_peers:
-                logger.info(f"处理QQ号: {peer}")
+                logger.info(
+                    zhcn=f"处理QQ号: {peer}",
+                    en=f"Processing QQ number: {peer}"
+                )
                 
                 # 获取该QQ号的所有消息
                 rows = db.query("""
@@ -543,7 +552,10 @@ def main():
                     if use_llm_clean:
                         # 使用LLM进行按天清洗
                         try:
-                            logger.info(f"使用LLM清洗 {date} 的对话 ({len(messages)}条消息)")
+                            logger.info(
+                                zhcn=f"使用LLM清洗 {date} 的对话 ({len(messages)}条消息)",
+                                en=f"Using LLM to clean {date} conversation ({len(messages)} messages)"
+                            )
                             llm_messages = [{"role": msg["role"], "content": msg["content"], "timestamp": msg["timestamp"]}
                                           for msg in messages]
                             cleaned_messages = llm_cleaner.clean_daily_conversation(llm_messages, date)
@@ -551,10 +563,16 @@ def main():
                             # 只保留必要字段
                             daily_dialog = [{"role": msg["role"], "content": msg["content"]}
                                           for msg in cleaned_messages]
-                            logger.info(f"LLM清洗完成: {date} 保留 {len(daily_dialog)}/{len(messages)} 条消息")
+                            logger.info(
+                                zhcn=f"LLM清洗完成: {date} 保留 {len(daily_dialog)}/{len(messages)} 条消息",
+                                en=f"LLM cleaning completed: {date} kept {len(daily_dialog)}/{len(messages)} messages"
+                            )
                             
                         except Exception as e:
-                            logger.error(f"LLM清洗失败 {date}: {e}，使用传统清洗方法")
+                            logger.error(
+                                zhcn=f"LLM清洗失败 {date}: {e}，使用传统清洗方法",
+                                en=f"LLM cleaning failed {date}: {e}, using traditional cleaning method"
+                            )
                             use_llm_clean = False
                     
                     if not use_llm_clean:
@@ -604,12 +622,21 @@ def main():
                         written_dialogs += 1
 
                 if processed % 5000 == 0:
-                    logger.info(f"已处理消息: {processed}，已写入对话段: {written_dialogs}")
+                    logger.info(
+                        zhcn=f"已处理消息: {processed}，已写入对话段: {written_dialogs}",
+                        en=f"Processed messages: {processed}, written dialogs: {written_dialogs}"
+                    )
 
-        logger.info(f"完成! 处理 {processed} 条消息，写出 {written_dialogs} 段对话到 {output_file}")
+        logger.info(
+            zhcn=f"完成! 处理 {processed} 条消息，写出 {written_dialogs} 段对话到 {output_file}",
+            en=f"Completed! Processed {processed} messages, wrote {written_dialogs} dialogs to {output_file}"
+        )
 
     except Exception as e:
-        logger.error(f"错误: {e}")
+        logger.error(
+            zhcn=f"错误: {e}",
+            en=f"Error: {e}"
+        )
     finally:
         db.close()
 
