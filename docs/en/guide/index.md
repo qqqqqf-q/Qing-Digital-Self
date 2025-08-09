@@ -10,41 +10,50 @@
 </p>
 
 
-## The project includes **complete tutorials**, including:
+## This project includes a **complete tutorial**, covering:
 
-* QQ database decryption and processing
-* Chat data cleaning and conversion
-* QLora fine-tuning process
+* Decrypting and processing QQ databases
+* Cleaning and converting chat data
+* QLoRA fine-tuning workflow
 * Testing and using fine-tuned models
-* Using unsloth to accelerate training!
+* Accelerating training with Unsloth!
 
-I know there are already quite a few similar projects, but maybe my tutorials, processes, and code implementations can give you some different help or inspiration. If it's useful to you, feel free to give it a star, I'll be very happy!
+I know there are already quite a few similar projects out there, but maybe my tutorial, workflow, and code implementation can offer you something different or spark new ideas.
+If you find it useful, feel free to give it a star — it’ll make me happy!
 
-Currently this project still has many shortcomings:
+The project still has its shortcomings:
 
-* Don't know what shortcomings there are yet
-* (If you have issues, welcome to open Issues)
-* But it can already fine-tune Qwen3-8B with fp8 precision on 4090 24G graphics card (tested and working)
+* I’m not sure what they are for now
+* (If you run into issues, feel free to open an Issue)
+* But it’s already capable of fine-tuning Qwen3-8B with FP8 precision on a 4090 24G GPU (tested and working)
 
-**If you also want to create your own digital avatar, come and try it!**
+**If you also want to create your own digital persona, give it a try!**
 
 ——
 X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 
 ---
 
-<a href="https://qqqqqf-q.github.io/Qing-Digital-Self/">
-  <img src="https://cdn.nodeimage.com/i/MfTsvmkJD2dQj9c9XZg9XXXS6CYwZBvx.png" alt="Quick Start Button" width="140" style="margin-top: 1em;">
-</a>
-
----
-
 ## Project Version
-# V 0.1.1(MVP)
+
+# V 0.1.1
+
 ## ~~Warning~~ Good News
-* The Qlora_qwen3.py of this version has been tested on 4090 (generate_training_data_llm.py+run_finetune.py)
-* Data cleaning has also been tested on real machines (current version)
+
+* This version of `Qlora_qwen3.py` has been tested on a 4090 (using `generate_training_data_llm.py` + `run_finetune.py`)
+* Data cleaning has also been tested on the current version
+
 ## TODO
-* [Completed] Add unsloth support (important! can speed up fine-tuning)
-> ↑ ↑ ↑ Updated on 2025/8/4, now supported (actually it worked before, might be my graphics card issue?)
-* [Completed but not tested] Add support for MoE models
+
+* \[Completed but untested] Add support for OSS models (and MXFP4? This is a computation for the 50 series, and I still can’t test it myself)
+
+> Challenges:
+>
+> 1. MOE models
+> 2. Non-Qwen series models
+> 3. My 3080 seems unable to run local tests (for either fine-tuning or MXFP4)
+>    Well, it’s actually not that hard — I’ve just been busy with other projects these past few days.
+
+## Changelog
+
+> Written in the commits — don’t feel like writing it here.
