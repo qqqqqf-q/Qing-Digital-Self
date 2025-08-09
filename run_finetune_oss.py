@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""unsloth量化版本的一键QLora微调（已支持 MoE 参数透传）"""
+"""量化版本的一键QLora微调（已支持 MoE 参数透传）"""
 
 import subprocess
 import sys
@@ -8,28 +8,29 @@ import os
 import argparse
 from logger.logger import logger
 
+
 def main():
-    """运行QLoRA微调的主函数（不使用 Unsloth）
+    """运行QLoRA微调的主函数
 
     功能：
         - 解析命令行参数
         - 构建命令行参数
         - 执行训练命令并处理结果
     """
-    parser = argparse.ArgumentParser(description="QLoRA微调脚本（no-unsloth）")
+    parser = argparse.ArgumentParser(description="QLoRA微调脚本")
 
     # 基础与资源相关
     parser.add_argument(
         "--repo_id",
         type=str,
-        default="Qwen/Qwen3-30B-A3B-Instruct-2507",
-        help="HF 仓库ID，默认 Qwen/Qwen3-30B-A3B-Instruct-2507",
+        default="unsloth/gpt-oss-20b-unsloth-bnb-4bit",
+        help="HF 仓库ID，默认 unsloth/gpt-oss-20b-unsloth-bnb-4bit",
     )
     parser.add_argument(
         "--local_dir",
         type=str,
-        default="qwen3-30b-a3b-instruct",
-        help="本地模型目录（默认：qwen3-30b-a3b-instruct）",
+        default="gpt-oss-20b-unsloth-bnb-4bit",
+        help="本地模型目录（默认：gpt-oss-20b-unsloth-bnb-4bit）",
     )
 
     # 训练与QLoRA开关
@@ -247,8 +248,27 @@ def main():
         default="2",
         help="DataLoader 预取因子 (default: 2)",
     )
+    parser.add_argument(
+        "--use_gradient_checkpointing",
+        type=str,
+        default="true",
+        help="梯度检查点设置，可以是 'true'、'false' 或 'unsloth' (default: true)",
+    )
+    parser.add_argument(
+        "--full_finetuning",
+        type=str,
+        default="false",
+        choices=["true", "false"],
+        help="是否进行全量微调 (default: false)",
+    )
 
     args = parser.parse_args()
+
+    # 记录配置信息
+    logger.info(
+        zhcn=f"配置: 使用Unsloth={args.use_unsloth}, 使用qlora={args.use_qlora}",
+        en=f"Config: Use Unsloth={args.use_unsloth}, Use qlora={args.use_qlora}"
+    )
 
     env = os.environ.copy()
     env.update({})
@@ -263,7 +283,7 @@ def main():
         "torchrun",
         "--nproc_per_node=1",  # 可以根据需要调整GPU数量
         "--master_port=29500",  # 可以根据需要调整端口
-        "finetune/qlora_qwen3.py",
+        "finetune/qlora_oss.py",
         "--repo_id",
         args.repo_id,
         "--local_dir",
@@ -329,6 +349,10 @@ def main():
         args.moe_max_experts_lora,
         "--moe_dry_run",
         args.moe_dry_run,
+        "--use_gradient_checkpointing",
+        args.use_gradient_checkpointing,
+        "--full_finetuning",
+        args.full_finetuning,
     ]
 
     # 添加可选参数（仅当值不为None时）

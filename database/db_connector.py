@@ -25,7 +25,10 @@ class DatabaseConnector:
             cursor = self.conn.cursor()
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' LIMIT 1")
             
-            logger.info(f"成功连接到数据库: {self.db_path}")
+            logger.info(
+                zhcn=f"成功连接到数据库: {self.db_path}",
+                en=f"Successfully connected to database: {self.db_path}"
+            )
             return self.conn
             
         except sqlite3.Error as e:
@@ -75,7 +78,10 @@ class DatabaseConnector:
         if self.conn:
             self.conn.close()
             self.conn = None
-            logger.info("数据库连接关闭")
+            logger.info(
+                zhcn="数据库连接关闭",
+                en="Database connection closed"
+            )
     
     def __enter__(self):
         self.connect()
