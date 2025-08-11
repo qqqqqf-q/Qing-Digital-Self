@@ -128,6 +128,122 @@ def safe_dtype_preference() -> Dict[str, Union[torch.dtype, bool]]:
         return {"torch_dtype": torch.float16, "bf16": False, "fp16": True}
 
 
+class HarmonySFTDataset(Dataset):
+    """Harmony 格式的监督微调数据集
+
+    支持处理 Harmony 格式的对话数据，格式如下：
+    <|start|>system<|message|>系统消息<|end|>
+    <|start|>user<|message|>用户消息<|end|>
+    <|start|>assistant<|channel|>final<|message|>助手回复<|return|>
+    """
+
+    def __init__(self, path: str, eos_token: str, max_samples: Optional[int] = None):
+        self.samples = []
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # 按对话分割数据
+        conversations = self._parse_harmony_conversations(content)
+        
+        for i, conversation in enumerate(conversations):
+            if not conversation.strip():
+                continue
+            text = self._convert_harmony_to_text(conversation, eos_token)
+            if text:
+                self.samples.append(text)
+            if max_samples and len(self.samples) >= max_samples:
+                break
+    
+    def _parse_harmony_conversations(self, content: str) -> List[str]:
+        """解析 Harmony 格式的对话数据"""
+        conversations = []
+        current_conversation = []
+        lines = content.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith('<|start|>system<|message|>'):
+                # 开始新对话
+                if current_conversation:
+                    conversations.append('\n'.join(current_conversation))
+                    current_conversation = []
+                current_conversation.append(line)
+            elif line.startswith('<|start|>') or line.startswith('<|end|>') or line.startswith('<|return|>'):
+                current_conversation.append(line)
+        
+        # 添加最后一个对话
+        if current_conversation:
+            conversations.append('\n'.join(current_conversation))
+        
+        return conversations
+    
+    def _convert_harmony_to_text(self, conversation: str, eos_token: str) -> Optional[str]:
+        """将 Harmony 格式转换为训练文本"""
+        lines = conversation.split('\n')
+        messages = []
+        current_message = {}
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            if line.startswith('<|start|>system<|message|>'):
+                system_content = line.replace('<|start|>system<|message|>', '').replace('<|end|>', '')
+                messages.append({"role": "system", "content": system_content})
+            
+            elif line.startswith('<|start|>user<|message|>'):
+                user_content = line.replace('<|start|>user<|message|>', '').replace('<|end|>', '')
+                messages.append({"role": "user", "content": user_content})
+            
+            elif line.startswith('<|start|>assistant<|channel|>final<|message|>'):
+                assistant_content = line.replace('<|start|>assistant<|channel|>final<|message|>', '').replace('<|return|>', '')
+                if assistant_content.strip():  # 只有当内容不为空时才添加
+                    messages.append({"role": "assistant", "content": assistant_content})
+        
+        if not messages:
+            return None
+        
+        # 转换为训练格式
+        text = self._join_messages(messages)
+        return text + eos_token if eos_token else text
+    
+    @staticmethod
+    def _join_messages(msgs: List[Dict[str, str]]) -> str:
+        """将消息列表转换为字符串
+
+        Args:
+            msgs: 包含消息的字典列表，每个字典应包含role和content
+
+        Returns:
+            格式化后的消息字符串
+        """
+        buf = []
+        for m in msgs:
+            role = m.get("role", "user")
+            content = m.get("content", "")
+            buf.append(f"{role}: {content}")
+        return "\n".join(buf)
+
+    def __len__(self) -> int:
+        """返回数据集样本数量"""
+        return len(self.samples)
+
+    def __getitem__(self, idx: int) -> Dict[str, str]:
+        """获取指定索引的样本
+
+        Args:
+            idx: 样本索引
+
+        Returns:
+            包含text字段的字典
+        """
+        return {"text": self.samples[idx]}
+
+
 class JsonlSFTDataset(Dataset):
     """JSONL 格式的监督微调数据集
 
@@ -621,6 +737,13 @@ def parse_args() -> argparse.Namespace:
         "--data_path", type=str, default="training_data.jsonl", help="训练数据文件路径"
     )
     parser.add_argument(
+        "--data_format",
+        type=str,
+        default="jsonl",
+        choices=["jsonl", "harmony"],
+        help="数据格式类型：jsonl 或 harmony (default: jsonl)",
+    )
+    parser.add_argument(
         "--eval_data_path",
         type=str,
         default=None,
@@ -1010,20 +1133,37 @@ def main() -> None:
         en=f"Setting DataLoader worker threads to: {args.dataloader_num_workers} (CPU cores: {cpu_count}), pin_memory: {args.dataloader_pin_memory}",
     )
 
-    train_dataset = JsonlSFTDataset(
-        args.data_path,
-        eos_token=tokenizer.eos_token or "",
-        max_samples=args.max_samples,
-    )
+    # 根据数据格式选择相应的数据集类
+    if args.data_format == "harmony":
+        logger.info(zhcn="使用 Harmony 格式数据集...", en="Using Harmony format dataset...")
+        train_dataset = HarmonySFTDataset(
+            args.data_path,
+            eos_token=tokenizer.eos_token or "",
+            max_samples=args.max_samples,
+        )
+    else:
+        logger.info(zhcn="使用 JSONL 格式数据集...", en="Using JSONL format dataset...")
+        train_dataset = JsonlSFTDataset(
+            args.data_path,
+            eos_token=tokenizer.eos_token or "",
+            max_samples=args.max_samples,
+        )
 
     eval_dataset = None
     if args.eval_data_path and os.path.exists(args.eval_data_path):
         logger.info(zhcn="准备验证数据...", en="Preparing validation data...")
-        eval_dataset = JsonlSFTDataset(
-            args.eval_data_path,
-            eos_token=tokenizer.eos_token or "",
-            max_samples=args.max_eval_samples,
-        )
+        if args.data_format == "harmony":
+            eval_dataset = HarmonySFTDataset(
+                args.eval_data_path,
+                eos_token=tokenizer.eos_token or "",
+                max_samples=args.max_eval_samples,
+            )
+        else:
+            eval_dataset = JsonlSFTDataset(
+                args.eval_data_path,
+                eos_token=tokenizer.eos_token or "",
+                max_samples=args.max_eval_samples,
+            )
         logger.info(
             zhcn=f"验证样本数量: {len(eval_dataset)}",
             en=f"Validation samples: {len(eval_dataset)}",
