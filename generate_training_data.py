@@ -472,9 +472,17 @@ def process_row(row: Tuple[int, int, int, bytes]) -> Optional[dict]:
     text_content = extract_text_content(blob_data)
     if not text_content:
         return None
-    if sender_33 == config.get("qq_number_ai"):  # AI
+    
+    # 获取配置中的AI QQ号并转换为整数进行比较
+    ai_qq_str = config.get("qq_number_ai")
+    try:
+        ai_qq_int = int(ai_qq_str) if ai_qq_str else None
+    except (ValueError, TypeError):
+        ai_qq_int = None
+    
+    if ai_qq_int and sender_33 == ai_qq_int:  # AI发送的消息
         role = "assistant"
-    elif sender_33 == sender_30:  # 用户/好友
+    elif sender_33 == sender_30:  # 用户/好友发送的消息
         role = "user"
     else:
         return None
