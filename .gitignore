@@ -199,3 +199,5 @@ qa_final.json
 qwen3-4b-fp8
 video-to-chatml/test.json
 harmony_data.txt
+gpt-oss-20b-4bit
+harmony_*.txt

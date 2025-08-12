@@ -17,12 +17,12 @@ cmake --build . --config Release
 ### 命令格式：
 
 ```bash
-python3 .convert_hf_to_gguf.py <HF模型路径> --outfile  <输出GGUF路径> --outtype <精度类型>
+python3 ./convert_hf_to_gguf.py <HF模型路径> --outfile  <输出GGUF路径> --outtype <精度类型>
 ```
 
 * `<HF模型路径>`：HuggingFace 格式模型目录（通常为微调或下载后的路径）
 * `<输出GGUF路径>`：转换后生成的 `.gguf` 模型保存路径
-* `<精度类型>`：精度类型，如 `f16`、`f32`，或其他支持的格式
+* `<精度类型>`：精度类型，'f32', 'f16', 'bf16', 'q8_0', 'tq1_0', 'tq2_0', 'auto'
 
 ### 示例：
 
@@ -74,6 +74,9 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 ---
 ## 8.从服务器上高速下载文件
 
+## 可以直接从服务器提供商的数据存储中下载,就不用开机付费了
+
+### 或者
 ### 命令格式
 ```bash
 lftp -u {用户名},{密码} -p {端口} sftp://{服务器地址}-e "set xfer:clobber true;  pget -n {线程数} {服务器文件路径} -o {本地文件名/路径}: bye"

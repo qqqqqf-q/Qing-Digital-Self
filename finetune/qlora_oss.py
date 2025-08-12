@@ -73,6 +73,7 @@ for key in list(os.environ.keys()):
 
 import torch
 from torch.utils.data import Dataset
+from datasets import Dataset as HFDataset
 
 
 from transformers import (
@@ -263,13 +264,13 @@ class JsonlSFTDataset(Dataset):
                     continue
                 try:
                     obj = json.loads(line)
+                    text = self._convert_example(obj, eos_token)
+                    if text:
+                        self.samples.append(text)
+                    if max_samples and len(self.samples) >= max_samples:
+                        break
                 except json.JSONDecodeError:
                     continue
-                text = self._convert_example(obj, eos_token)
-                if text:
-                    self.samples.append(text)
-                if max_samples and len(self.samples) >= max_samples:
-                    break
 
     def _convert_example(self, obj: Dict[str, Any], eos_token: str) -> Optional[str]:
         # 处理 messages 格式
@@ -1136,34 +1137,38 @@ def main() -> None:
     # 根据数据格式选择相应的数据集类
     if args.data_format == "harmony":
         logger.info(zhcn="使用 Harmony 格式数据集...", en="Using Harmony format dataset...")
-        train_dataset = HarmonySFTDataset(
+        _dataset = HarmonySFTDataset(
             args.data_path,
             eos_token=tokenizer.eos_token or "",
             max_samples=args.max_samples,
         )
+        train_dataset = HFDataset.from_dict({"text": [_dataset[i]["text"] for i in range(len(_dataset))]})
     else:
         logger.info(zhcn="使用 JSONL 格式数据集...", en="Using JSONL format dataset...")
-        train_dataset = JsonlSFTDataset(
+        _dataset = JsonlSFTDataset(
             args.data_path,
             eos_token=tokenizer.eos_token or "",
             max_samples=args.max_samples,
         )
+        train_dataset = HFDataset.from_dict({"text": [_dataset[i]["text"] for i in range(len(_dataset))]})
 
     eval_dataset = None
     if args.eval_data_path and os.path.exists(args.eval_data_path):
         logger.info(zhcn="准备验证数据...", en="Preparing validation data...")
         if args.data_format == "harmony":
-            eval_dataset = HarmonySFTDataset(
+            _eval_dataset = HarmonySFTDataset(
                 args.eval_data_path,
                 eos_token=tokenizer.eos_token or "",
                 max_samples=args.max_eval_samples,
             )
+            eval_dataset = HFDataset.from_dict({"text": [_eval_dataset[i]["text"] for i in range(len(_eval_dataset))]})
         else:
-            eval_dataset = JsonlSFTDataset(
+            _eval_dataset = JsonlSFTDataset(
                 args.eval_data_path,
                 eos_token=tokenizer.eos_token or "",
                 max_samples=args.max_eval_samples,
             )
+            eval_dataset = HFDataset.from_dict({"text": [_eval_dataset[i]["text"] for i in range(len(_eval_dataset))]})
         logger.info(
             zhcn=f"验证样本数量: {len(eval_dataset)}",
             en=f"Validation samples: {len(eval_dataset)}",

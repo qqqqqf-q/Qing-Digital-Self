@@ -1,10 +1,17 @@
 ##  微调模型
-
+> 建议使用高单核的CPU进行微调  
+> 不然可能存在CPU瓶颈(暂时没找到问题所在,欢迎PR修复)  
 ## 在此之前,你需要配置环境
 > 很简单,不必担心
 ```bash
 git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
 ```
+
+创建虚拟环境
+```bash
+python3 -m venv venv
+```
+
 
   激活虚拟环境：
 
