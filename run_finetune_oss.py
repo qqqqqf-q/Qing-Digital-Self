@@ -57,6 +57,13 @@ def main():
         help="训练数据路径 (default: training_data.jsonl)",
     )
     parser.add_argument(
+        "--data_format",
+        type=str,
+        default="harmony",
+        choices=["jsonl", "harmony"],
+        help="数据格式类型：jsonl 或 harmony (default: jsonl)",
+    )
+    parser.add_argument(
         "--eval_data_path",
         type=str,
         default=None,
@@ -294,6 +301,8 @@ def main():
         args.use_qlora,
         "--data_path",
         args.data_path,
+        "--data_format",
+        args.data_format,
         "--output_dir",
         args.output_dir,
         "--per_device_train_batch_size",

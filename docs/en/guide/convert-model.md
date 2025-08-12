@@ -1,6 +1,6 @@
-## 4. Compile llama.cpp
+## Compile llama.cpp
 
-> The following three steps all depend on compiled llama.cpp
+> The following three steps depend on having `llama.cpp` compiled.
 
 ```bash
 git clone https://github.com/ggerganov/llama.cpp --depth 1
@@ -12,17 +12,17 @@ cmake --build . --config Release
 
 ---
 
-## 5. Convert HuggingFace Weights to GGUF
+## Convert HuggingFace Weights to GGUF
 
-### Command Format:
+### Command format:
 
 ```bash
-python3 .convert_hf_to_gguf.py <HF_model_path> --outfile <output_GGUF_path> --outtype <precision_type>
+python3 ./convert_hf_to_gguf.py <HF_model_path> --outfile <output_GGUF_path> --outtype <precision_type>
 ```
 
-* `<HF_model_path>`: HuggingFace format model directory (usually the path after fine-tuning or downloading)
-* `<output_GGUF_path>`: Save path for the converted `.gguf` model
-* `<precision_type>`: Precision type, such as `f16`, `f32`, or other supported formats
+* `<HF_model_path>`: Path to the HuggingFace format model directory (usually after fine-tuning or downloading).
+* `<output_GGUF_path>`: Path where the converted `.gguf` model will be saved.
+* `<precision_type>`: Precision type — `'f32'`, `'f16'`, `'bf16'`, `'q8_0'`, `'tq1_0'`, `'tq2_0'`, `'auto'`.
 
 ### Example:
 
@@ -32,17 +32,17 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 
 ---
 
-## 6. Quantize Model
+## Quantize the Model
 
-### Command Format:
+### Command format:
 
 ```bash
 ./build/bin/llama-quantize <input_GGUF_path> <output_GGUF_path> <quantization_level>
 ```
 
-* `<input_GGUF_path>`: Unquantized `.gguf` file path
-* `<output_GGUF_path>`: Save path for quantized `.gguf` file
-* `<quantization_level>`: Such as `Q4_0`, `Q4_K_M`, `Q8_0`, etc., choose based on needs and hardware
+* `<input_GGUF_path>`: Path to the unquantized `.gguf` file.
+* `<output_GGUF_path>`: Path where the quantized `.gguf` file will be saved.
+* `<quantization_level>`: For example `Q4_0`, `Q4_K_M`, `Q8_0`, etc., depending on your needs and hardware.
 
 ### Example:
 
@@ -57,13 +57,13 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 
 ## 7. Run Model Test
 
-### Command Format:
+### Command format:
 
 ```bash
 ./build/bin/llama-run <GGUF_model_path>
 ```
 
-* `<GGUF_model_path>`: The GGUF model path you want to test (can be original or quantized)
+* `<GGUF_model_path>`: Path to the GGUF model you want to test (either original or quantized).
 
 ### Example:
 
@@ -72,16 +72,24 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 ```
 
 ---
-## 8. High-speed File Download from Server
 
-### Command Format
+## 8. High-Speed File Download from Server
+
+> You can download directly from your server provider’s storage without powering on (saving costs).
+
+### Or, using `lftp`:
+
+**Command format:**
+
 ```bash
-lftp -u {username},{password} -p {port} sftp://{server_address} -e "set xfer:clobber true; pget -n {thread_count} {server_file_path} -o {local_file_name/path}; bye"
+lftp -u {username},{password} -p {port} sftp://{server_address} -e "set xfer:clobber true; pget -n {threads} {server_file_path} -o {local_file_name_or_path}; bye"
 ```
-* `pget`: Use multi-threaded parallel download
-* `-n`: Specify thread count (recommend 64+) (even 256 threads will have better performance)
-### Example
+
+* `pget`: Enables parallel download.
+* `-n`: Number of threads (recommend 64+, even 256 for better performance).
+
+### Example:
+
 ```bash
 lftp -u root,askdjiwhakjd -p 27391 sftp://yourserver.com -e "set xfer:clobber true; pget -n 256 /root/autodl-fs/qwen3-8b-fp16-agent.gguf -o qwen3-8b-fp16-agent.gguf; bye"
 ```
----

@@ -1,9 +1,19 @@
 # 番外篇: 微调OpenAI OSS模型
-## 此篇内容未经过实机测试(我的3080显存太小跑不动)
-### 欢迎能测试的朋友进行实机测试并将结果或Bug发在Issues上
+## 此篇内容已经过实机测试(vgpu 32g)
+### 如有Bug请发Issues或联系作者
 ### ~~能直接PR修复那就更棒了~~
+---
+
+# 请注意
+> 在测试时使用`unsloth/gpt-oss-20b-unsloth-bnb-4bit`似乎可以正常微调并合并  
+> 但是在转化为GGUF时失败了  
+> 在测试`unsloth/gpt-oss-20b`时遇到了`'GptOssTopKRouter' object has no attribute 'weight'`错误  
+> 似乎这是一个群体性错误,我发现很多人在微调时也遇到了这个问题  
+> 请给Unsloth和OpenAI团队一些时间,他们会搞定的  
+> 在更新后我会第一时间更新这个文档和代码
 
 ---
+### 微调OSS模型
 
 > 因为OSS发布的时间,似乎微调OSS和Qwen的并不能通用  
 > 并且最好使用新的`unsloth` `torch` `transformers` 等库  
@@ -19,9 +29,45 @@
 **并且!请保证Unsloth和Unsloth_zoo的最新版**
 > 原requirements.txt的unsloth只支持到2025.8.1版本,并不能微调oss  
 
+### 先运行以下命令再安装依赖
+
 ```bash
 pip install "unsloth_zoo[base] @ git+https://github.com/unslothai/unsloth-zoo" "unsloth[base] @ git+https://github.com/unslothai/unsloth" torchvision bitsandbytes git+https://github.com/huggingface/transformers git+https://github.com/triton-lang/triton.git@main#subdirectory=python/triton_kernels
 ```
+
+### 安装依赖
+```bash
+pip install -r requirements_oss.txt
+```
+
+## **请注意,此模型需要使用OpenAI Harmony格式的训练数据进行微调**
+请使用chatml_to_harmony.py将chatml格式的训练数据转换为harmony格式
+```bash
+python3 chatml_to_harmony.py --input training_data.jsonl --output training_data_harmony.txt
+```
+
+
+### 下载模型
+```bash
+huggingface-cli download unsloth/gpt-oss-20b-BF16 --local-dir gpt-oss-20b
+```
+> 如果没有huggingface-cli,请先安装  
+```bash
+pip install huggingface-hub
+```
+> 如果需要镜像站请先运行  
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+```
+> 在测试时使用`unsloth/gpt-oss-20b-unsloth-bnb-4bit`似乎可以正常微调并合并  
+> 但是在转化为GGUF时失败了  
+> 在测试`unsloth/gpt-oss-20b`时遇到了`'GptOssTopKRouter' object has no attribute 'weight'`错误  
+> 似乎这是一个群体性错误,我发现很多人在微调时也遇到了这个问题  
+> 请给Unsloth和OpenAI团队一些时间,他们会搞定的  
+> 在更新后我会第一时间更新这个文档和代码
+
+
+
 
 ## 开始微调
 
@@ -77,10 +123,12 @@ python3 run_finetune_oss.py
 | `--dataloader_prefetch_factor`  | str        | `2`                                                                                         | -                                   | DataLoader 预取因子      |
 | `--use_gradient_checkpointing`  | str        | `true`                                                                                      | `true`, `false`, `unsloth`          | 梯度检查点设置              |
 | `--full_finetuning`             | str        | `false`                                                                                     | `true`, `false`                     | 是否全量微调               |
+| `--data_format`                | str        | `harmony`                                                                                   | `harmony`, `jsonl`                | 数据格式                  |
+
 ---
 
-> 下面是一个4090微调`gpt-oss-20b-unsloth-bnb-4bit`的范例
+> 下面是一个微调`gpt-oss-20b-unsloth-bnb-4bit`的范例
 ```bash
-python3 run_finetune_oss.py --output_dir /root/autodl-fs/gpt-oss-20b-unsloth-bnb-4bit --local_dir gpt-oss-20b-bnb-4bit --data_path ./training_data_ruozhi.jsonl --eval_data_path ./training_data_ruozhi_eval.jsonl --use_qlora true --lora_dropout 0.05 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing --dataloader_prefetch_factor 4 --load_precision int4
+python3 run_finetune_oss.py --output_dir /root/autodl-fs/gpt-oss-20b-unsloth-bnb-4bit --local_dir gpt-oss-20b-4bit --data_path ./harmony_small.txt --eval_data_path ./harmony_small_eval.txt --use_qlora true --lora_dropout 0.05 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing --dataloader_prefetch_factor 4 --load_precision int4 --data_format harmony
 ```
 
