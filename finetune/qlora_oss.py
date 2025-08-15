@@ -700,6 +700,59 @@ def merge_and_save(base_dir: str, output_dir: str) -> str:
     return merged_dir
 
 
+def save_pretrained_gguf(
+    model,
+    tokenizer,
+    output_dir: str,
+    quantization_method: str = "q4_k_m",
+) -> str:
+    """使用Unsloth导出GGUF格式模型
+
+    Args:
+        model: 训练后的模型
+        tokenizer: 分词器
+        output_dir: 输出目录
+        quantization_method: 量化方法
+
+    Returns:
+        GGUF模型的保存路径
+    """
+    if not UNSLOTH_AVAILABLE:
+        raise ImportError(
+            "Unsloth 未安装，无法导出GGUF格式。请安装Unsloth: pip install unsloth"
+        )
+
+    logger.info(
+        zhcn=f"开始导出GGUF格式模型，量化方法: {quantization_method}",
+        en=f"Starting GGUF export with quantization method: {quantization_method}",
+    )
+
+    # 创建GGUF输出目录
+    gguf_dir = os.path.join(output_dir, "gguf")
+    os.makedirs(gguf_dir, exist_ok=True)
+
+    try:
+        # 使用Unsloth导出GGUF
+        model.save_pretrained_gguf(
+            gguf_dir,
+            tokenizer,
+            quantization_method=quantization_method,
+        )
+        
+        logger.info(
+            zhcn=f"GGUF模型已成功导出到: {gguf_dir}",
+            en=f"GGUF model successfully exported to: {gguf_dir}",
+        )
+        return gguf_dir
+        
+    except Exception as e:
+        logger.error(
+            zhcn=f"GGUF导出失败: {e}",
+            en=f"GGUF export failed: {e}",
+        )
+        raise
+
+
 def parse_args() -> argparse.Namespace:
     """解析命令行参数"""
     parser = argparse.ArgumentParser(description="QLoRA 微调（支持稠密与 MoE）")
@@ -917,6 +970,19 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=2,
         help="DataLoader 预取因子 (default: 2)",
+    )
+    parser.add_argument(
+        "--save_gguf",
+        action="store_true",
+        default=False,
+        help="训练后是否保存为GGUF格式（需要Unsloth）",
+    )
+    parser.add_argument(
+        "--gguf_quantization",
+        type=str,
+        default="q4_k_m",
+        choices=["q4_k_m", "q5_k_m", "q8_0", "f16", "f32"],
+        help="GGUF量化类型 (default: q4_k_m)",
     )
 
     return parser.parse_args()
@@ -1340,6 +1406,27 @@ def main() -> None:
             zhcn=f"完整模型已保存到: {merged_dir}",
             en=f"Complete model saved to: {merged_dir}",
         )
+
+    if args.save_gguf:
+        if args.use_unsloth and UNSLOTH_AVAILABLE:
+            try:
+                gguf_dir = save_pretrained_gguf(
+                    model, tokenizer, args.output_dir, args.gguf_quantization
+                )
+                logger.info(
+                    zhcn=f"GGUF模型已保存到: {gguf_dir}",
+                    en=f"GGUF model saved to: {gguf_dir}",
+                )
+            except Exception as e:
+                logger.error(
+                    zhcn=f"GGUF导出失败: {e}",
+                    en=f"GGUF export failed: {e}",
+                )
+        else:
+            logger.warning(
+                zhcn="GGUF导出需要使用Unsloth，请设置 --use_unsloth=True",
+                en="GGUF export requires Unsloth, please set --use_unsloth=True",
+            )
 
     logger.info(zhcn="所有步骤完成!", en="All steps completed!")
 

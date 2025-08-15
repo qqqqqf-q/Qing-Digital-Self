@@ -136,7 +136,7 @@ def main():
         "--weight_decay", type=str, default="0.0", help="权重衰减 (default: 0.0)"
     )
 
-    # MoE 相关参数（与 finetune/qlora_qwen3.py 对齐）
+    # MoE 相关参数
     parser.add_argument(
         "--moe_enable",
         type=str,
@@ -263,7 +263,7 @@ def main():
         "torchrun",
         "--nproc_per_node=1",  # 可以根据需要调整GPU数量
         "--master_port=29500",  # 可以根据需要调整端口
-        "finetune/qlora_qwen3.py",
+        "finetune/finetune.py",
         "--repo_id",
         args.repo_id,
         "--local_dir",
