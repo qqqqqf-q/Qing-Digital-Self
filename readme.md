@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
 <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
 <img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge">
-<img src="https://img.shields.io/badge/Version-v0.1.1-9370DB?style=for-the-badge">
+<img src="https://img.shields.io/badge/Version-v0.1.2-9370DB?style=for-the-badge">
 <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2">
 
 </p>
@@ -49,7 +49,7 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 ---
 
 ## 项目版本
-# V 0.1.1
+# V 0.1.2
 ## ~~警告~~ 喜报
 * 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune.py)
 * 清洗数据也已经进行实机测试(当前版本)
