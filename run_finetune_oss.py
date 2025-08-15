@@ -268,6 +268,20 @@ def main():
         choices=["true", "false"],
         help="是否进行全量微调 (default: false)",
     )
+    parser.add_argument(
+        "--save_gguf",
+        type=str,
+        default="false",
+        choices=["true", "false"],
+        help="训练后是否保存为GGUF格式（需要Unsloth）(default: false)",
+    )
+    parser.add_argument(
+        "--gguf_quantization",
+        type=str,
+        default="q4_k_m",
+        choices=["q4_k_m", "q5_k_m", "q8_0", "f16", "f32"],
+        help="GGUF量化类型 (default: q4_k_m)",
+    )
 
     args = parser.parse_args()
 
@@ -362,6 +376,8 @@ def main():
         args.use_gradient_checkpointing,
         "--full_finetuning",
         args.full_finetuning,
+        "--gguf_quantization",
+        args.gguf_quantization,
     ]
 
     # 添加可选参数（仅当值不为None时）
@@ -378,6 +394,8 @@ def main():
         cmd.append("--gradient_checkpointing")
     if not args.no_merge_and_save:
         cmd.append("--merge_and_save")
+    if args.save_gguf == "true":
+        cmd.append("--save_gguf")
 
     cmd.extend(
         [
