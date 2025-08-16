@@ -8,6 +8,11 @@ cd llama.cpp
 mkdir build && cd build
 cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON
 cmake --build . --config Release
+
+cd..
+python3 -m venv venv
+source venv/bin/activate
+pip install -r "./requirements/requirements-convert_hf_to_gguf.txt"
 ```
 
 ---
