@@ -27,7 +27,6 @@ export default defineConfig({
             items: [
               { text: '1. QQ数据库的获取', link: '/guide/qq-database' },
               { text: '1.5 (可选) 从视频/音频文件中获取聊天数据', link: '/guide/media-chat-data' },
-              { text: '1.6 (可选) Video-to-ChatML 视频对话转换', link: '/guide/video-to-chatml' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. 混合数据', link: '/guide/mix-data' },
               { text: '4. 准备模型', link: '/guide/prepare-model' },
@@ -35,13 +34,16 @@ export default defineConfig({
               { text: '6. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '7. 转换GUFF和量化模型', link: '/guide/convert-model' },
               { text: '8. 运行模型', link: '/guide/run-model' },
-              { text: '番外篇: 微调OpenAI OSS模型', link: '/guide/fine-tune-openai-oss-model' }
             ]
           },
           {
             text: '补充',
             items: [
-              { text: '修改Logger的语言', link: '/guide/change-logger-language' }
+              { text: '修改Logger的语言', link: '/guide/change-logger-language' },
+              { text: '微调OpenAI OSS模型', link: '/guide/fine-tune-openai-oss-model' },
+              { text: '不同种类模型的微调经验(例如Qwen,Llama,Gemma等)', link: '/guide/fine-tune-model-exp' },
+              { text: '节省显存', link: '/guide/save-vram' }
+
             ]
           },
           {
@@ -78,7 +80,6 @@ export default defineConfig({
             items: [
               { text: '1. Get QQ Database', link: '/en/guide/qq-database' },
               { text: '1.5 (Optional) Get Chat Data from Media', link: '/en/guide/media-chat-data' },
-              { text: '1.6 (Optional) Video-to-ChatML Conversion', link: '/en/guide/video-to-chatml' },
               { text: '2. Clean Data', link: '/en/guide/clean-data' },
               { text: '3. Mix Data', link: '/en/guide/mix-data' },
               { text: '4. Prepare Model', link: '/en/guide/prepare-model' },
@@ -93,7 +94,9 @@ export default defineConfig({
           {
             text: 'Extra',
             items: [
-              { text: 'Change Logger Language', link: '/en/guide/change-logger-language' }
+              { text: 'Change Logger Language', link: '/en/guide/change-logger-language' },
+              { text: 'Fine-tuning Experience with Different Models (Qwen, Llama, Gemma, etc.)', link: '/en/guide/fine-tune-model-exp' },
+              { text: 'VRAM Optimization', link: '/en/guide/save-vram' }
             ]
           },
 

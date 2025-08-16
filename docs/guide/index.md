@@ -1,6 +1,6 @@
 ## 项目简介
 
-## 这是一个数字分身项目，核心思想是**利用 QQ 的 C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
+## 这是一个数字分身项目，核心思想是**利用C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
 
 ## This project is a personal digital twin built by fine-tuning a large language model on your own chat history. The goal is to recreate your unique style of expression and conversational behavior with high fidelity.
 <p align="center">
@@ -45,11 +45,13 @@
 
 ——
 X: [@qqqqqf5](https://twitter.com/qqqqqf5)
-
+Email: qingf622@outlook.com
+Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
 ---
 
+
 ## 项目版本
-# V 0.1.1
+# V 0.1.2
 ## ~~警告~~ 喜报
 * 此版本的Qlora_qwen3.py已经过4090实机测试(generate_training_data_llm.py+run_finetune.py)
 * 清洗数据也已经进行实机测试(当前版本)
@@ -57,6 +59,8 @@ X: [@qqqqqf5](https://twitter.com/qqqqqf5)
 * [完成但未测试] 增加对oss模型的支持 (以及MXFP4?这是一个50系的计算,好像我还是没法测试)
 > 难点:1.MOE模型 2.非原Qwen系列模型 3.我的3080似乎本地没法测试(无论是微调还是MXFP4)
 > 好吧其实一点也不难,只是这几天在写其他项目
+* [规划中]增加WebUI支持
+> 这真的很重要,微调模型太恶心了,记得加上Frpc支持让大家都可以公网访问  
 
 ## 更新日志
 > 写在commit里了,这里实在不想写

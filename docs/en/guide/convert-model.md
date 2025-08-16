@@ -8,6 +8,11 @@ cd llama.cpp
 mkdir build && cd build
 cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON
 cmake --build . --config Release
+
+cd..
+python3 -m venv venv
+source venv/bin/activate
+pip install -r "./requirements/requirements-convert_hf_to_gguf.txt"
 ```
 
 ---
@@ -63,7 +68,7 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 ./build/bin/llama-run <GGUF_model_path>
 ```
 
-* `<GGUF_model_path>`: Path to the GGUF model you want to test (either original or quantized).
+* `<GGUF_model_path>`: Path to the GGUF model you want to test (can be original or quantized)
 
 ### Example:
 
@@ -72,24 +77,19 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 ```
 
 ---
+## 8. High-speed File Download from Server
 
-## 8. High-Speed File Download from Server
+## You can download directly from the service provider's data storage without keeping the machine running and paying fees
 
-> You can download directly from your server provider’s storage without powering on (saving costs).
-
-### Or, using `lftp`:
-
-**Command format:**
-
+### Or
+### Command format
 ```bash
-lftp -u {username},{password} -p {port} sftp://{server_address} -e "set xfer:clobber true; pget -n {threads} {server_file_path} -o {local_file_name_or_path}; bye"
+lftp -u {username},{password} -p {port} sftp://{server_address} -e "set xfer:clobber true; pget -n {thread_count} {server_file_path} -o {local_file_name/path}; bye"
 ```
-
-* `pget`: Enables parallel download.
-* `-n`: Number of threads (recommend 64+, even 256 for better performance).
-
-### Example:
-
+* `pget`: Use multi-threaded parallel download
+* `-n`: Specify thread count (recommended 64+) (even 256 threads may perform better)
+### Example
 ```bash
 lftp -u root,askdjiwhakjd -p 27391 sftp://yourserver.com -e "set xfer:clobber true; pget -n 256 /root/autodl-fs/qwen3-8b-fp16-agent.gguf -o qwen3-8b-fp16-agent.gguf; bye"
 ```
+---
