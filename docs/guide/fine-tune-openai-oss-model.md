@@ -4,29 +4,25 @@
 ### ~~能直接PR修复那就更棒了~~
 ---
 
-# 请注意
-> 在测试时使用`unsloth/gpt-oss-20b-unsloth-bnb-4bit`似乎可以正常微调并合并  
-> 但是在转化为GGUF时失败了  
-> 在测试`unsloth/gpt-oss-20b`时遇到了`'GptOssTopKRouter' object has no attribute 'weight'`错误  
-> 似乎这是一个群体性错误,我发现很多人在微调时也遇到了这个问题  
-> 请给Unsloth和OpenAI团队一些时间,他们会搞定的  
-> 在更新后我会第一时间更新这个文档和代码
+# 暂时请不要尝试微调OSS模型  
+# 根据测试还存在大量的微调Bug  
+# ~~如果你是勇士,当我没说~~
 
----
+<img src="https://cdn.nodeimage.com/i/yHMIuFusDfJkDupyVyEdKNE1fUBiDy4C.png" alt="yHMIuFusDfJkDupyVyEdKNE1fUBiDy4C.png">
+
+> 测试了挺久,还是没解决,欢迎大家测试给此项目提PR或者给Unsloth提Issues  
+
+
 ### 微调OSS模型
 
 > 因为OSS发布的时间,似乎微调OSS和Qwen的并不能通用  
 > 并且最好使用新的`unsloth` `torch` `transformers` 等库  
 
-[这是Unsloth提供的OSS微调经验](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/gpt-oss-(20B)-Fine-tuning.ipynb#scrollTo=WQSmUBxXx2r-)
+[这是Unsloth提供的OSS微调经验](https://colab.research.google.com/github/unslothai/notebooks/blob/main/nb/gpt-oss-(20B)-Fine-tuning.ipynb)
 
-## 以下是快速微调指南
+## 环境配置
 > 建议使用新的虚拟环境  
 > 和Qwen的微调环境分离  
-
-请确保以下的库:
-`torch>=2.8.0` `triton>=3.4.0`
-**并且!请保证Unsloth和Unsloth_zoo的最新版**
 > 原requirements.txt的unsloth只支持到2025.8.1版本,并不能微调oss  
 
 ### 先运行以下命令再安装依赖
@@ -49,7 +45,7 @@ python3 chatml_to_harmony.py --input training_data.jsonl --output training_data_
 
 ### 下载模型
 ```bash
-huggingface-cli download unsloth/gpt-oss-20b-BF16 --local-dir gpt-oss-20b
+huggingface-cli download unsloth/gpt-oss-20b-unsloth-bnb-4bit --local-dir gpt-oss-20b
 ```
 > 如果没有huggingface-cli,请先安装  
 ```bash
@@ -59,13 +55,6 @@ pip install huggingface-hub
 ```bash
 export HF_ENDPOINT=https://hf-mirror.com
 ```
-> 在测试时使用`unsloth/gpt-oss-20b-unsloth-bnb-4bit`似乎可以正常微调并合并  
-> 但是在转化为GGUF时失败了  
-> 在测试`unsloth/gpt-oss-20b`时遇到了`'GptOssTopKRouter' object has no attribute 'weight'`错误  
-> 似乎这是一个群体性错误,我发现很多人在微调时也遇到了这个问题  
-> 请给Unsloth和OpenAI团队一些时间,他们会搞定的  
-> 在更新后我会第一时间更新这个文档和代码
-
 
 
 
@@ -127,8 +116,8 @@ python3 run_finetune_oss.py
 
 ---
 
-> 下面是一个微调`gpt-oss-20b-unsloth-bnb-4bit`的范例
+> 下面是一个微调`gpt-oss-20b-unsloth-bnb-4bit`的范例,请根据需要修改
 ```bash
-python3 run_finetune_oss.py --output_dir /root/autodl-fs/gpt-oss-20b-unsloth-bnb-4bit --local_dir gpt-oss-20b-4bit --data_path ./harmony_small.txt --eval_data_path ./harmony_small_eval.txt --use_qlora true --lora_dropout 0.05 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing --dataloader_prefetch_factor 4 --load_precision int4 --data_format harmony
+python3 run_finetune_oss.py --output_dir /root/autodl-fs/gpt-oss-20b --local_dir /root/autodl-tmp/gpt-oss-20b --data_path ./harmony_small.txt --eval_data_path ./harmony_small_eval.txt --use_qlora true --lora_dropout 0.05 --num_train_epochs 2 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --dataloader_prefetch_factor 4 --load_precision int4 --data_format harmony --save_gguf true --gguf_quantization f16
 ```
 
