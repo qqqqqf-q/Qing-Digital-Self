@@ -80,7 +80,7 @@ class Config:
 
     def _load_jsonc_config(self):
         """加载JSONC配置文件"""
-        config_path = "seeting.jsonc"
+        config_path = "setting.jsonc"
         if not os.path.exists(config_path):
             self.logger.warning(f"配置文件不存在: {config_path}")
             return
@@ -280,7 +280,7 @@ class Config:
         """获取配置加载状态"""
         return {
             "config_loaded": True,
-            "jsonc_file_exists": os.path.exists('seeting.jsonc'),
+            "jsonc_file_exists": os.path.exists('setting.jsonc'),
             "total_configs": len(self._config),
             "critical_configs_set": {
                 "qq_db_path": bool(self._config.get('qq_db_path')),

@@ -123,6 +123,11 @@ def confirm_action(message: str, default: bool = False) -> bool:
     default_hint = "[Y/n]" if default else "[y/N]"
     
     try:
+        # 检查标准输入是否可用
+        if not sys.stdin.isatty():
+            print(f"{message} {default_hint}: 使用默认值 ({'是' if default else '否'})")
+            return default
+        
         response = input(f"{message} {default_hint}: ").strip().lower()
         
         if not response:
@@ -132,6 +137,11 @@ def confirm_action(message: str, default: bool = False) -> bool:
     
     except (EOFError, KeyboardInterrupt):
         return False
+    except Exception as e:
+        # 处理所有其他异常，包括 "I/O operation on closed file"
+        print(f"输入错误: {e}")
+        print(f"使用默认值: {'是' if default else '否'}")
+        return default
 
 
 def get_system_info() -> Dict[str, Any]:

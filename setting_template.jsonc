@@ -18,7 +18,7 @@
     "data_args": {
         "qq_agrs": {
             "qq_db_path": "./dataset/original/qq.db",
-            "qq_number_ai": "1684773595"
+            "qq_number_ai": "1234567890"
         },
         "telegram_args": {
             "telegram_chat_id": null

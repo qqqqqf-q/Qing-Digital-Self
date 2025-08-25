@@ -38,11 +38,15 @@ class ColoredFormatter(logging.Formatter):
     
     def _supports_color(self) -> bool:
         """检测终端是否支持颜色输出"""
-        # Windows cmd和PowerShell支持
-        if sys.platform == "win32":
-            return True
-        # Unix系统检查TERM环境变量
-        return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+        try:
+            # Windows cmd和PowerShell支持
+            if sys.platform == "win32":
+                return True
+            # Unix系统检查TERM环境变量
+            return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+        except Exception:
+            # 如果检测失败，默认不使用颜色
+            return False
     
     def format(self, record):
         if self.use_colors:

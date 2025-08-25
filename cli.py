@@ -65,7 +65,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         '--config', '-c',
         type=str,
-        help='指定配置文件路径 (默认: seeting.jsonc)'
+        help='指定配置文件路径 (默认: setting.jsonc)'
     )
     
     parser.add_argument(
@@ -112,6 +112,7 @@ def create_parser() -> argparse.ArgumentParser:
     config_init = config_subparsers.add_parser('init', help='初始化配置文件')
     config_init.add_argument('--interactive', action='store_true', help='交互式配置')
     config_init.add_argument('--template', choices=['basic', 'advanced'], default='basic', help='配置模板')
+    config_init.add_argument('--force', action='store_true', help='强制覆盖已存在的配置文件')
     
     # config show
     config_show = config_subparsers.add_parser('show', help='显示当前配置')

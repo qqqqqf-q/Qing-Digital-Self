@@ -8,38 +8,38 @@
 
 ```bash
 # 查看帮助
-python qds_cli.py --help
+python cli.py --help
 
 # 查看版本
-python qds_cli.py --version
+python cli.py --version
 
 # 详细输出模式
-python qds_cli.py --verbose <command>
+python cli.py --verbose <command>
 
 # 静默模式
-python qds_cli.py --quiet <command>
+python cli.py --quiet <command>
 ```
 
 ### 2. 配置管理
 
 ```bash
 # 初始化配置文件
-python qds_cli.py config init
+python cli.py config init
 
 # 交互式配置向导
-python qds_cli.py config init --interactive
+python cli.py config init --interactive
 
 # 显示当前配置
-python qds_cli.py config show
+python cli.py config show
 
 # 以JSON格式显示配置
-python qds_cli.py config show --format json
+python cli.py config show --format json
 
 # 设置配置项
-python qds_cli.py config set log_level DEBUG
+python cli.py config set log_level DEBUG
 
 # 验证配置
-python qds_cli.py config validate
+python cli.py config validate
 ```
 
 ### 3. 数据处理
@@ -48,36 +48,36 @@ python qds_cli.py config validate
 
 均会自动从conig获取字段,parser仅作为额外使用
 # 从QQ数据库提取数据
-python qds_cli.py data extract
-python qds_cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1684773595 --output ./dataset/csv
+python cli.py data extract
+python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1684773595 --output ./dataset/csv
 
 # 清洗数据（原始算法）
-python qds_cli.py data clean raw
+python cli.py data clean raw
 
 # 清洗数据（LLM方法,为实现,暂时等同于raw）
-python qds_cli.py data clean llm
+python cli.py data clean llm
 
 # 转换数据格式
-python qds_cli.py data convert --input ./data/raw.json --output ./data/chatml.jsonl --format chatml
+python cli.py data convert --input ./data/raw.json --output ./data/chatml.jsonl --format chatml
 
 # 合并多源数据
-python qds_cli.py data merge --inputs ./data/file1.jsonl ./data/file2.jsonl --output ./data/merged.jsonl --deduplicate
+python cli.py data merge --inputs ./data/file1.jsonl ./data/file2.jsonl --output ./data/merged.jsonl --deduplicate
 
 # 预览数据
-python qds_cli.py data preview --input ./dataset/sft.jsonl --count 3
+python cli.py data preview --input ./dataset/sft.jsonl --count 3
 
 # 数据统计
-python qds_cli.py data stats --input ./dataset/sft.jsonl
+python cli.py data stats --input ./dataset/sft.jsonl
 ```
 
 ### 4. 模型训练
 
 ```bash
 # 开始训练
-python qds_cli.py train start --model-path ./model/Qwen3-8B --data-path ./data/training.jsonl --output-dir ./checkpoints
+python cli.py train start
 
 # 高级训练参数
-python qds_cli.py train start \
+python cli.py train start \
   --model-path ./model/Qwen3-8B \
   --data-path ./data/training.jsonl \
   --output-dir ./checkpoints \
@@ -87,80 +87,80 @@ python qds_cli.py train start \
   --max-steps 1000
 
 # 恢复训练
-python qds_cli.py train start --resume ./checkpoints/checkpoint-500
+python cli.py train start --resume ./checkpoints/checkpoint-500
 
 # 查看训练状态
-python qds_cli.py train status
+python cli.py train status
 
 # 实时跟踪训练日志
-python qds_cli.py train status --follow
+python cli.py train status --follow
 
 # 停止训练
-python qds_cli.py train stop
+python cli.py train stop
 
 # 强制停止训练
-python qds_cli.py train stop --force
+python cli.py train stop --force
 
 # 合并LoRA权重
-python qds_cli.py train merge --base-model ./model/Qwen3-8B --lora-path ./checkpoints/final --output ./model/merged
+python cli.py train merge --base-model ./model/Qwen3-8B --lora-path ./checkpoints/final --output ./model/merged
 ```
 
 ### 5. 模型推理
 
 ```bash
 # 交互式对话
-python qds_cli.py infer chat --model-path ./model/merged
+python cli.py infer chat --model-path ./model/merged
 
 # 自定义推理参数
-python qds_cli.py infer chat \
+python cli.py infer chat \
   --model-path ./model/merged \
   --max-length 2048 \
   --temperature 0.7 \
   --top-p 0.9
 
 # 启动API服务
-python qds_cli.py infer serve --model-path ./model/merged --host 0.0.0.0 --port 8000
+python cli.py infer serve --model-path ./model/merged --host 0.0.0.0 --port 8000
 
 # 批量推理
-python qds_cli.py infer batch \
+python cli.py infer batch \
   --model-path ./model/merged \
   --input ./data/test_inputs.jsonl \
   --output ./data/test_outputs.jsonl \
   --batch-size 8
 
 # 测试模型效果
-python qds_cli.py infer test --model-path ./model/merged
+python cli.py infer test --model-path ./model/merged
 
 # 使用自定义测试数据
-python qds_cli.py infer test --model-path ./model/merged --test-data ./data/test_cases.jsonl
+python cli.py infer test --model-path ./model/merged --test-data ./data/test_cases.jsonl
 ```
 
 ### 6. 系统工具
 
 ```bash
 # 检查依赖
-python qds_cli.py utils check-deps
+python cli.py utils check-deps
 
 # 自动修复依赖
-python qds_cli.py utils check-deps --fix
+python cli.py utils check-deps --fix
 
 # 清理缓存
-python qds_cli.py utils clean-cache
+python cli.py utils clean-cache
 
 # 清理所有缓存
-python qds_cli.py utils clean-cache --all
+python cli.py utils clean-cache --all
 
 # 导出模型
-python qds_cli.py utils export --type model --source ./model/merged --target ./exports/model.tar.gz
+python cli.py utils export --type model --source ./model/merged --target ./exports/model.tar.gz
 
 # 导出数据
-python qds_cli.py utils export --type data --source ./data/training.jsonl --target ./exports/data.tar.gz
+python cli.py utils export --type data --source ./data/training.jsonl --target ./exports/data.tar.gz
 
 # 导出配置
-python qds_cli.py utils export --type config --source ./seeting.jsonc --target ./exports/config.jsonc
+python cli.py utils export --type config --source ./seeting.jsonc --target ./exports/config.jsonc
 
 # 导入资源
-python qds_cli.py utils import --type model --source ./imports/model.tar.gz --target ./model/imported
+python cli.py utils import --type model --source ./imports/model.tar.gz --target ./model/imported
 ```
 
 ## 全局参数
@@ -185,7 +185,7 @@ CLI 提供了详细的错误信息和建议：
 ```bash
 # 示例错误信息
 错误：配置文件 'seeting.jsonc' 不存在
-建议：运行 'python qds_cli.py config init' 创建配置文件
+建议：运行 'python cli.py config init' 创建配置文件
 
 # 带解决方案的提示
 错误：CUDA内存不足  

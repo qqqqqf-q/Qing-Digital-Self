@@ -23,8 +23,8 @@ class ConfigCommand(BaseCommand):
     
     def __init__(self):
         super().__init__("config", "配置管理")
-        self.config_file = "seeting.jsonc"
-        self.template_file = "seeting_template.jsonc"
+        self.config_file = "setting.jsonc"
+        self.template_file = "setting_template.jsonc"
     
     def execute(self, args: argparse.Namespace) -> int:
         """执行配置命令"""
@@ -47,9 +47,20 @@ class ConfigCommand(BaseCommand):
         try:
             # 检查配置文件是否已存在
             if os.path.exists(self.config_file):
-                if not confirm_action(f"配置文件 {self.config_file} 已存在，是否覆盖？", False):
-                    self.logger.info("取消配置初始化")
-                    return 0
+                # 如果有--force参数，直接覆盖
+                if getattr(args, 'force', False):
+                    self.logger.info(f"强制覆盖配置文件: {self.config_file}")
+                else:
+                    # 尝试获取用户确认
+                    try:
+                        if not confirm_action(f"配置文件 {self.config_file} 已存在，是否覆盖？", False):
+                            self.logger.info("取消配置初始化")
+                            return 0
+                    except Exception as e:
+                        self.logger.error(f"用户确认失败: {e}")
+                        self.logger.info("配置文件已存在，但无法获取用户确认")
+                        self.logger.info("请使用 --force 参数强制覆盖，或在交互式终端中运行")
+                        return 1
             
             # 选择配置模板
             template_type = getattr(args, 'template', 'basic')
@@ -60,7 +71,9 @@ class ConfigCommand(BaseCommand):
                 return self._template_init(template_type)
                 
         except Exception as e:
+            import traceback
             self.logger.error(f"初始化配置失败: {e}")
+            self.logger.debug(f"详细错误信息: {traceback.format_exc()}")
             return 1
     
     def _template_init(self, template_type: str) -> int:
@@ -398,7 +411,7 @@ class ConfigCommand(BaseCommand):
     def _save_current_config(self) -> None:
         """保存当前配置到文件"""
         try:
-            # 读取原始 seeting.jsonc 文件
+            # 读取原始 setting.jsonc 文件
             if not os.path.exists(self.config_file):
                 self.logger.error(f"配置文件不存在: {self.config_file}")
                 return

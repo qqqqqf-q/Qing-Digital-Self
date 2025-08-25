@@ -252,9 +252,9 @@ class QingCLI:
                 "required": "Python >= 3.8"
             },
             "config_file": {
-                "status": "ok" if os.path.exists("seeting.jsonc") else "error",
-                "message": "配置文件存在" if os.path.exists("seeting.jsonc") else "配置文件不存在",
-                "required": "seeting.jsonc"
+                "status": "ok" if os.path.exists("setting.jsonc") else "error",
+                "message": "配置文件存在" if os.path.exists("setting.jsonc") else "配置文件不存在",
+                "required": "setting.jsonc"
             },
             "dependencies": self._check_dependencies(),
         }
@@ -319,8 +319,8 @@ class QingCLI:
             self.logger.info(f"创建目录: {directory}")
         
         # 复制配置模板
-        template_path = "seeting_template.jsonc"
-        config_path = "seeting.jsonc"
+        template_path = "setting_template.jsonc"
+        config_path = "setting.jsonc"
         
         if os.path.exists(template_path) and not os.path.exists(config_path):
             import shutil
