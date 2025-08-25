@@ -219,7 +219,7 @@ class Config:
             
             # 训练配置
             "use_qlora": self._get_nested_value("data_args.train_sft_args.use_qlora", self._safe_bool(os.getenv("USE_QLORA", "true"), True)),
-            "data_path": self._get_nested_value("data_args.train_sft_args.data_path", os.getenv("DATA_PATH", "./data/sft.jsonl")),
+            "data_path": self._get_nested_value("data_args.train_sft_args.data_path", os.getenv("DATA_PATH", "./dataset/sft.jsonl")),
             "lora_r": self._get_nested_value("data_args.train_sft_args.lora_r", self._safe_int(os.getenv("LORA_R", "16"), 16)),
             "lora_alpha": self._get_nested_value("data_args.train_sft_args.lora_alpha", self._safe_int(os.getenv("LORA_ALPHA", "32"), 32)),
             "lora_dropout": self._get_nested_value("data_args.train_sft_args.lora_dropout", self._safe_float(os.getenv("LORA_DROPOUT", "0.1"), 0.1)),

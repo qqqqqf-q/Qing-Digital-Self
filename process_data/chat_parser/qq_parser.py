@@ -6,6 +6,7 @@ import csv
 import os
 import pandas as pd
 import re
+import argparse
 from typing import Optional, List, Dict, Tuple, Any
 from datetime import datetime
 from pathlib import Path
@@ -27,16 +28,18 @@ class QQParser:
     将 QQ SQLite 数据库格式转换为统一的 CSV 格式
     """
     
-    def __init__(self, db_path: str, output_dir: str = "./dataset/csv/"):
+    def __init__(self, db_path: str, output_dir: str = "./dataset/csv/", qq_number_ai: Optional[str] = None):
         """
         初始化 QQ 解析器
         
         Args:
             db_path: QQ 数据库文件路径
             output_dir: CSV 输出目录
+            qq_number_ai: AI的QQ号码，用于区分发送者
         """
         self.db_path = db_path
         self.output_dir = Path(output_dir)
+        self.qq_number_ai = qq_number_ai
         self.db_connector = DatabaseConnector(db_path)
         # 增强过滤器的已知乱码模式库
         self.known_garbage_patterns = [
@@ -547,7 +550,8 @@ class QQParser:
                 ORDER BY `40050` ASC
             """, (peer_qq,))
             
-            ai_qq = config.get("qq_number_ai")
+            # 优先使用实例参数，其次使用配置文件
+            ai_qq = self.qq_number_ai or config.get("qq_number_ai")
             try:
                 ai_qq_int = int(ai_qq) if ai_qq is not None else None
             except (ValueError, TypeError):
@@ -559,7 +563,7 @@ class QQParser:
                     f"处理QQ号{peer_qq}时，AI QQ号未配置或无效，所有消息将被标记为is_sender=0"
                 )
             else:
-                logger.info(f"处理QQ号{peer_qq}，配置的AI QQ号: {ai_qq_int}")
+                logger.info(f"处理QQ号{peer_qq}，使用的AI QQ号: {ai_qq_int}")
             
             for idx, (timestamp, sender_30, sender_33, blob_data) in enumerate(rows):
                 if not blob_data:
@@ -790,17 +794,84 @@ class QQParser:
         
         return False
 
+def create_parser():
+    """创建命令行参数解析器"""
+    parser = argparse.ArgumentParser(
+        description='QQ聊天记录解析器 - 将QQ SQLite数据库转换为CSV格式',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+使用示例:
+  python qq_parser.py --qq-db-path "/path/to/qq.db" --qq-number-ai "123456789" --output "./output/"
+  python qq_parser.py  # 使用配置文件中的参数
+        """
+    )
+    
+    parser.add_argument(
+        '--qq-db-path',
+        type=str,
+        required=False,
+        help='QQ数据库文件路径 (默认从配置文件获取)'
+    )
+    
+    parser.add_argument(
+        '--qq-number-ai',
+        type=str,
+        required=False,
+        help='AI的QQ号码,用于区分发送者 (默认从配置文件获取)'
+    )
+    
+    parser.add_argument(
+        '--output',
+        type=str,
+        required=False,
+        help='输出目录路径 (默认: "./dataset/csv/")'
+    )
+    
+    return parser
+
+def get_effective_config(args):
+    """
+    获取有效配置，优先级：命令行参数 > 配置文件 > 默认值
+    """
+    # 从命令行参数、配置文件和默认值中获取参数
+    qq_db_path = args.qq_db_path or config.get('qq_db_path') or None
+    qq_number_ai = args.qq_number_ai or config.get('qq_number_ai') or None
+    output_dir = args.output or config.get('output_dir') or "./dataset/csv/"
+    
+    return qq_db_path, qq_number_ai, output_dir
+
 def main():
     """主函数"""
-    # 从配置获取QQ数据库路径
-    db_path = config.get('qq_db_path')
-    if not db_path or not os.path.exists(db_path):
-        logger.error("QQ数据库路径未配置或文件不存在")
-        return
+    # 创建命令行解析器
+    parser = create_parser()
+    args = parser.parse_args()
+    
+    # 获取有效配置
+    qq_db_path, qq_number_ai, output_dir = get_effective_config(args)
+    
+    # 验证必要参数
+    if not qq_db_path:
+        logger.error("QQ数据库路径未指定，请使用 --qq-db-path 参数或在配置文件中设置 qq_db_path")
+        return 1
+        
+    if not os.path.exists(qq_db_path):
+        logger.error(f"QQ数据库文件不存在: {qq_db_path}")
+        return 1
+    
+    if not qq_number_ai:
+        logger.warning("未指定AI QQ号，所有消息将被标记为 is_sender=0")
+    
+    # 输出配置信息
+    logger.info(f"QQ数据库路径: {qq_db_path}")
+    logger.info(f"AI QQ号: {qq_number_ai or '未设置'}")
+    logger.info(f"输出目录: {output_dir}")
     
     # 创建解析器并执行解析
-    parser = QQParser(db_path)
-    parser.parse_all()
+    qq_parser = QQParser(qq_db_path, output_dir, qq_number_ai)
+    qq_parser.parse_all()
+    
+    return 0
 
 if __name__ == "__main__":
-    main()
+    exit_code = main()
+    sys.exit(exit_code)
