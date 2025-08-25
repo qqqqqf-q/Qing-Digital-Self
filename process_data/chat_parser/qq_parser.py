@@ -16,7 +16,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
 from utils.config.config import get_config
 from utils.logger.logger import get_logger
-from database.db_connector import DatabaseConnector
+from utils.database.db_connector import DatabaseConnector
 
 config = get_config()
 logger = get_logger('QQParser')

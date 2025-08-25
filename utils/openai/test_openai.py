@@ -8,7 +8,11 @@ LM Studio集成测试脚本
 import sys
 import os
 from typing import List, Dict
-from openai.openai_client import OpenAIClient, LLMDataCleaner
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from utils.openai.openai_client import OpenAIClient, LLMDataCleaner
 from utils.config.config import get_config
 from utils.logger.logger import get_logger
 
@@ -22,17 +26,17 @@ def test_OpenAI_health():
     client = OpenAIClient()
     
     if client.health_check():
-        print("✅ OpenAI API服务器连接成功")
+        print("[成功] OpenAI API服务器连接成功")
         
         # 获取可用模型
         models = client.list_models()
         if models:
-            print(f"✅ 可用模型: {', '.join(models)}")
+            print(f"[成功] 可用模型: {', '.join(models)}")
         else:
-            print("⚠️  无法获取模型列表")
+            print("[警告] 无法获取模型列表")
         return True
     else:
-        print("❌ OpenAI API服务器连接失败")
+        print("[错误] OpenAI API服务器连接失败")
         print("请确保: 1. OpenAI API服务正在运行 2. 服务器地址正确")
         return False
 
@@ -74,7 +78,7 @@ def test_daily_cleaning():
         return True
         
     except Exception as e:
-        print(f"❌ 清洗测试失败: {e}")
+        print(f"[错误] 清洗测试失败: {e}")
         return False
 
 def test_config():

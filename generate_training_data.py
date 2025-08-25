@@ -7,7 +7,7 @@ import os
 import signal
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Optional, List, Tuple, Dict
-from database.db_connector import DatabaseConnector
+from utils.database.db_connector import DatabaseConnector
 import datetime
 from collections import defaultdict
 from utils.config.config import get_config
@@ -17,7 +17,7 @@ import math
 
 # 导入LM Studio支持（可选）
 try:
-    from openai.openai_client import LLMDataCleaner
+    from utils.openai.openai_client import LLMDataCleaner
     LLM_AVAILABLE = True
     # 创建全局清洗器实例
     llm_cleaner = LLMDataCleaner()

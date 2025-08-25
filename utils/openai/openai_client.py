@@ -4,10 +4,16 @@
 import requests
 import json
 import time
+import sys
+import os
 from typing import Dict, List, Optional, Any
+import math
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
 from utils.config.config import get_config
 from utils.logger.logger import get_logger
-import math
 
 logger = get_logger('OpenAI_Client')
 
