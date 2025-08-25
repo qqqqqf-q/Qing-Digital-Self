@@ -183,7 +183,6 @@ cython_debug/
 finetune/models
 qwen3-8b-base
 unsloth_compiled_cache
-*.jsonl
 *.tar
 *.zip
 *.db
@@ -192,13 +191,14 @@ get_reqs.py
 .vscode
 qwen3-30b-a3b-instruct-2507
 log.txt
-./training_data
+training_data/
 docs/node_modules
 docs/.vitepress/cache
-qa_final.json
 qwen3-4b-fp8
 video-to-chatml/test.json
 harmony_data.txt
 gpt-oss-20b-4bit
 harmony_*.txt
 gemma3-270m
+training_data.jsonl
+training_eval.jsonl
