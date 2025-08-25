@@ -111,20 +111,8 @@ class Logger:
 
     def _add_console_handler(self):
         """添加控制台处理器"""
-        # 创建支持UTF-8编码的控制台处理器
-        import io
-        if sys.platform == "win32":
-            # Windows系统特殊处理
-            try:
-                # 尝试设置控制台为UTF-8
-                console_handler = logging.StreamHandler(
-                    stream=io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-                )
-            except:
-                # 如果失败，使用默认处理器
-                console_handler = logging.StreamHandler()
-        else:
-            console_handler = logging.StreamHandler()
+        # 使用默认的StreamHandler，避免影响标准输入流
+        console_handler = logging.StreamHandler()
             
         console_handler.setLevel(self._get_log_level())
         

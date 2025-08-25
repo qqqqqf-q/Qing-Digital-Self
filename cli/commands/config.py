@@ -103,13 +103,22 @@ class ConfigCommand(BaseCommand):
         try:
             self.logger.info("开始交互式配置向导...")
             
+            # 首先检查stdin状态
+            import sys
+            self.logger.debug(f"stdin状态检查 - isatty: {sys.stdin.isatty()}, closed: {sys.stdin.closed}")
+            
+            if sys.stdin.closed:
+                self.logger.error("标准输入已关闭，无法进行交互式配置")
+                self.logger.info("请使用非交互模式: python cli.py config init")
+                return 1
+            
             config_data = self._get_template_config()
             
             # 基础配置
             print("\n=== 基础配置 ===")
             config_data = self._configure_basic_settings(config_data)
             
-            # 模型配置
+            # 模型配置  
             print("\n=== 模型配置 ===")
             config_data = self._configure_model_settings(config_data)
             
@@ -129,7 +138,9 @@ class ConfigCommand(BaseCommand):
             return 0
             
         except Exception as e:
+            import traceback
             self.logger.error(f"交互式配置失败: {e}")
+            self.logger.debug(f"详细错误信息: {traceback.format_exc()}")
             return 1
     
     def _get_template_config(self) -> Dict[str, Any]:
@@ -167,23 +178,25 @@ class ConfigCommand(BaseCommand):
     def _configure_basic_settings(self, config_data: Dict[str, Any]) -> Dict[str, Any]:
         """配置基础设置"""
         # 项目信息
-        repo_id = input(f"项目ID [{config_data.get('repoid', 'Qing-Agent')}]: ").strip()
+        repo_id = self._safe_input(f"项目ID [{config_data.get('repoid', 'Qing-Agent')}]: ")
         if repo_id:
             config_data['repoid'] = repo_id
         
-        version = input(f"版本号 [{config_data.get('version', '0.1.0')}]: ").strip()
+        version = self._safe_input(f"版本号 [{config_data.get('version', '0.1.0')}]: ")
         if version:
             config_data['version'] = version
         
         # 日志配置
-        log_level = input("日志级别 (DEBUG/INFO/WARNING/ERROR) [INFO]: ").strip().upper()
-        if log_level in ['DEBUG', 'INFO', 'WARNING', 'ERROR']:
+        log_level = self._safe_input("日志级别 (DEBUG/INFO/WARNING/ERROR) [INFO]: ")
+        if log_level and log_level.upper() in ['DEBUG', 'INFO', 'WARNING', 'ERROR']:
             if 'logger_args' not in config_data:
                 config_data['logger_args'] = {}
-            config_data['logger_args']['log_level'] = log_level
+            config_data['logger_args']['log_level'] = log_level.upper()
         
-        language = input("界面语言 (zhcn/en) [zhcn]: ").strip()
-        if language in ['zhcn', 'en']:
+        language = self._safe_input("界面语言 (zhcn/en) [zhcn]: ")
+        if language and language in ['zhcn', 'en']:
+            if 'logger_args' not in config_data:
+                config_data['logger_args'] = {}
             config_data['logger_args']['language'] = language
         
         return config_data
@@ -193,11 +206,11 @@ class ConfigCommand(BaseCommand):
         if 'model_args' not in config_data:
             config_data['model_args'] = {}
         
-        model_path = input("基础模型路径 [./model/Qwen3-8B-Base]: ").strip()
+        model_path = self._safe_input("基础模型路径 [./model/Qwen3-8B-Base]: ")
         if model_path:
             config_data['model_args']['model_path'] = model_path
         
-        template = input("模型模板 (qwen/llama/chatglm) [qwen]: ").strip()
+        template = self._safe_input("模型模板 (qwen/llama/chatglm) [qwen]: ")
         if template:
             config_data['model_args']['template'] = template
         
@@ -209,19 +222,21 @@ class ConfigCommand(BaseCommand):
             config_data['data_args'] = {}
         
         # QQ数据配置
-        qq_db_path = input("QQ数据库路径 [./data/qq.db]: ").strip()
+        qq_db_path = self._safe_input("QQ数据库路径 [./data/qq.db]: ")
         if qq_db_path:
             if 'qq_agrs' not in config_data['data_args']:
                 config_data['data_args']['qq_agrs'] = {}
             config_data['data_args']['qq_agrs']['qq_db_path'] = qq_db_path
         
-        qq_number = input("AI对应的QQ号码: ").strip()
+        qq_number = self._safe_input("AI对应的QQ号码: ")
         if qq_number:
+            if 'qq_agrs' not in config_data['data_args']:
+                config_data['data_args']['qq_agrs'] = {}
             config_data['data_args']['qq_agrs']['qq_number_ai'] = qq_number
         
         # 数据清洗配置
-        clean_method = input("数据清洗方法 (raw/llm) [raw]: ").strip()
-        if clean_method in ['raw', 'llm']:
+        clean_method = self._safe_input("数据清洗方法 (raw/llm) [raw]: ")
+        if clean_method and clean_method in ['raw', 'llm']:
             if 'clean_set_args' not in config_data['data_args']:
                 config_data['data_args']['clean_set_args'] = {}
             config_data['data_args']['clean_set_args']['clean_method'] = clean_method
@@ -234,19 +249,38 @@ class ConfigCommand(BaseCommand):
         if 'train_sft_args' not in config_data['data_args']:
             config_data['data_args']['train_sft_args'] = {}
         
-        lora_r = input("LoRA rank [16]: ").strip()
-        if lora_r.isdigit():
+        lora_r = self._safe_input("LoRA rank [16]: ")
+        if lora_r and lora_r.isdigit():
             config_data['data_args']['train_sft_args']['lora_r'] = int(lora_r)
         
-        lora_alpha = input("LoRA alpha [32]: ").strip()
-        if lora_alpha.isdigit():
+        lora_alpha = self._safe_input("LoRA alpha [32]: ")
+        if lora_alpha and lora_alpha.isdigit():
             config_data['data_args']['train_sft_args']['lora_alpha'] = int(lora_alpha)
         
-        batch_size = input("训练批大小 [1]: ").strip()
-        if batch_size.isdigit():
+        batch_size = self._safe_input("训练批大小 [1]: ")
+        if batch_size and batch_size.isdigit():
             config_data['data_args']['train_sft_args']['tper_device_train_batch_size'] = int(batch_size)
         
         return config_data
+    
+    def _safe_input(self, prompt: str, default: str = "") -> Optional[str]:
+        """安全的输入函数，处理 I/O 异常"""
+        try:
+            import sys
+            # 检查标准输入是否可用
+            if not sys.stdin.isatty():
+                self.logger.warning(f"非交互式环境，跳过输入: {prompt.strip()}")
+                return default
+            
+            response = input(prompt)
+            return response.strip() if response else default
+            
+        except (EOFError, KeyboardInterrupt):
+            self.logger.info("用户取消输入")
+            return None
+        except Exception as e:
+            self.logger.warning(f"输入错误 ({e})，使用默认值")
+            return default
     
     def _save_config(self, config_data: Dict[str, Any]) -> None:
         """保存配置到文件"""

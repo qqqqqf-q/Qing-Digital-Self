@@ -20,7 +20,7 @@
 ### 自动安装（推荐）
 
 ```bash
-python environment/setup_env.py --auto
+python environment/setup_env.py --install
 ```
 
 ### 手动安装
@@ -59,13 +59,13 @@ environment/
 
 ```bash
 # 完整安装流程
-python environment/setup_env.py --auto
+python environment/setup_env.py --install
 
 # 手动选择安装
 python environment/setup_env.py --manual
 
 # 指定虚拟环境名称
-python environment/setup_env.py --auto --venv my_env
+python environment/setup_env.py --install --venv my_env
 
 # 检查环境状态
 python environment/setup_env.py --check

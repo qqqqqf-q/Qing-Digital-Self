@@ -123,9 +123,14 @@ def confirm_action(message: str, default: bool = False) -> bool:
     default_hint = "[Y/n]" if default else "[y/N]"
     
     try:
-        # 检查标准输入是否可用
-        if not sys.stdin.isatty():
+        # 检查标准输入是否可用和打开状态
+        if not sys.stdin.isatty() or sys.stdin.closed:
             print(f"{message} {default_hint}: 使用默认值 ({'是' if default else '否'})")
+            return default
+        
+        # 尝试读取输入前先检查stdin状态
+        if hasattr(sys.stdin, 'readable') and not sys.stdin.readable():
+            print(f"{message} {default_hint}: 标准输入不可读，使用默认值 ({'是' if default else '否'})")
             return default
         
         response = input(f"{message} {default_hint}: ").strip().lower()
@@ -136,10 +141,11 @@ def confirm_action(message: str, default: bool = False) -> bool:
         return response in ['y', 'yes', '是', '确认']
     
     except (EOFError, KeyboardInterrupt):
+        print(f"\n用户取消输入，使用默认值: {'是' if default else '否'}")
         return False
     except Exception as e:
         # 处理所有其他异常，包括 "I/O operation on closed file"
-        print(f"输入错误: {e}")
+        print(f"输入错误 ({type(e).__name__}: {e})")
         print(f"使用默认值: {'是' if default else '否'}")
         return default
 
