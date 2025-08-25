@@ -23,12 +23,14 @@ from ..core.exceptions import TrainingError, ValidationError, FileOperationError
 from ..core.helpers import format_time_duration, format_file_size, ensure_directory
 from ..interface.validators import validate_path, validate_positive_int, validate_model_path
 from utils.config.config import get_config
+from utils.logger.logger import get_logger
 
 
 class TrainCommand(BaseCommand):
     """训练命令"""
     
     def __init__(self):
+        self.logger = get_logger('TrainCommand')
         super().__init__("train", "模型训练")
         self.training_process = None
         self.training_thread = None
@@ -383,15 +385,15 @@ class TrainCommand(BaseCommand):
             return
             
         try:
-            print(text)
+            self.logger.info(text)
         except UnicodeEncodeError:
             try:
                 # 尝试用系统编码
                 encoded = text.encode(sys.stdout.encoding, errors='replace')
-                print(encoded.decode(sys.stdout.encoding))
+                self.logger.info(encoded.decode(sys.stdout.encoding))
             except:
                 # 最后的备用方案
-                print(repr(text))
+                self.logger.debug(repr(text))
     
     def _parse_training_output(self, output: str) -> None:
         """解析训练输出"""
@@ -452,9 +454,9 @@ class TrainCommand(BaseCommand):
             
             latest_checkpoint = max(checkpoints, key=os.path.getctime)
             
-            print(f"训练状态:")
-            print(f"输出目录: {output_dir}")
-            print(f"最新检查点: {latest_checkpoint}")
+            self.logger.info(f"训练状态:")
+            self.logger.info(f"输出目录: {output_dir}")
+            self.logger.info(f"最新检查点: {latest_checkpoint}")
             
             # 显示训练日志
             log_file = os.path.join(output_dir, 'training.log')
@@ -492,7 +494,7 @@ class TrainCommand(BaseCommand):
                 while True:
                     line = f.readline()
                     if line:
-                        print(line.strip())
+                        self.logger.info(line.strip())
                     else:
                         time.sleep(1)
                         
@@ -506,11 +508,11 @@ class TrainCommand(BaseCommand):
                 all_lines = f.readlines()
                 recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
                 
-                print(f"\n最近 {len(recent_lines)} 行训练日志:")
-                print("-" * 80)
+                self.logger.info(f"\n最近 {len(recent_lines)} 行训练日志:")
+                self.logger.info("-" * 80)
                 for line in recent_lines:
-                    print(line.strip())
-                print("-" * 80)
+                    self.logger.info(line.strip())
+                self.logger.info("-" * 80)
                 
         except Exception as e:
             self.logger.error(f"读取日志文件失败: {e}")

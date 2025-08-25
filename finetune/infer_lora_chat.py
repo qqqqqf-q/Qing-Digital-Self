@@ -8,8 +8,16 @@
 
 import argparse
 import os
+import sys
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.logger.logger import get_logger
+
+# 创建 logger 实例
+logger = get_logger('InferLoRAChat')
 
 
 def parse_args():
@@ -78,6 +86,7 @@ def load_model_and_tokenizer(args):
     
     if args.merged:
         model_dir = os.path.join(args.adapter_dir, "merged")
+        logger.info(f"加载合并模型从: {model_dir}")
         print(f"Loading merged full model from: {model_dir}")
         tokenizer = AutoTokenizer.from_pretrained(
             model_dir, 
@@ -108,6 +117,7 @@ def load_model_and_tokenizer(args):
     else:
         # 加载 base + LoRA 适配器
         from peft import PeftModel
+        logger.info(f"加载基础模型从: {args.base_dir}")
         print(f"Loading base model from: {args.base_dir}")
         tokenizer = AutoTokenizer.from_pretrained(
             args.base_dir, 
@@ -135,6 +145,7 @@ def load_model_and_tokenizer(args):
                 torch_dtype=torch.float16,
                 trust_remote_code=args.trust_remote_code
             )
+        logger.info(f"加载LoRA适配器从: {args.adapter_dir}")
         print(f"Loading LoRA adapter from: {args.adapter_dir}")
         model = PeftModel.from_pretrained(base, args.adapter_dir, device_map="auto")
         model = model.merge_and_unload()  # 推理期可合并到内存中，提高速度（可选）
@@ -184,6 +195,8 @@ def main():
     # 加载模型和分词器
     model, tokenizer = load_model_and_tokenizer(args)
     
+    logger.info("模型加载成功")
+    logger.debug(f"系统提示词: {args.system_prompt}")
     print("Model loaded successfully!")
     print(f"System prompt: {args.system_prompt}")
     print("Enter 'quit' or 'exit' to end the conversation.")
@@ -199,6 +212,7 @@ def main():
         try:
             user_input = input("\nUser: ")
             if user_input.lower() in ['quit', 'exit']:
+                logger.info("用户结束对话")
                 print("Goodbye!")
                 break
             
@@ -218,12 +232,15 @@ def main():
             # 添加模型回复到对话历史
             conversation_history.append({"role": "assistant", "content": response})
             
+            logger.debug(f"AI回复: {response}")
             print(f"\nAI: {response}")
             
         except KeyboardInterrupt:
+            logger.info("对话被用户中断")
             print("\nGoodbye!")
             break
         except Exception as e:
+            logger.error(f"对话中出现错误: {str(e)}")
             print(f"Error: {str(e)}")
 
 

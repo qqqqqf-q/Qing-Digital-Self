@@ -22,12 +22,14 @@ from ..core.helpers import format_file_size, get_system_info, ensure_directory
 from ..interface.validators import validate_path, validate_choice
 from ..interface.prompts import format_success_message, format_warning_message
 from utils.config.config import get_config
+from utils.logger.logger import get_logger
 
 
 class UtilsCommand(BaseCommand):
     """工具命令"""
     
     def __init__(self):
+        self.logger = get_logger('UtilsCommand')
         super().__init__("utils", "系统工具")
         
     def execute(self, args: argparse.Namespace) -> int:
@@ -262,42 +264,42 @@ class UtilsCommand(BaseCommand):
                                   system_check: Dict[str, Any],
                                   gpu_check: Dict[str, Any]) -> None:
         """显示依赖检查结果"""
-        print("\n" + "=" * 80)
-        print("依赖检查结果")
-        print("=" * 80)
+        self.logger.info("\n" + "=" * 80)
+        self.logger.info("依赖检查结果")
+        self.logger.info("=" * 80)
         
         # Python版本
         status_symbol = self._get_status_symbol(python_check['status'])
-        print(f"\n{status_symbol} Python版本: {python_check['message']}")
+        self.logger.info(f"\n{status_symbol} Python版本: {python_check['message']}")
         
         # 包依赖
-        print(f"\n包依赖检查:")
+        self.logger.info(f"\n包依赖检查:")
         for category, result in package_results.items():
             status_symbol = self._get_status_symbol(result['status'])
             available_count = len(result['available'])
             total_count = result['total']
-            print(f"  {status_symbol} {category}: {available_count}/{total_count} 可用")
+            self.logger.info(f"  {status_symbol} {category}: {available_count}/{total_count} 可用")
             
             if result['missing']:
-                print(f"    缺失: {', '.join(result['missing'])}")
+                self.logger.warning(f"    缺失: {', '.join(result['missing'])}")
         
         # 系统资源
         if 'memory' in system_check:
             memory_symbol = self._get_status_symbol(system_check['memory']['status'])
             disk_symbol = self._get_status_symbol(system_check['disk']['status'])
-            print(f"\n系统资源:")
-            print(f"  {memory_symbol} 内存: {system_check['memory']['available_gb']:.1f}GB / {system_check['memory']['total_gb']:.1f}GB")
-            print(f"  {disk_symbol} 磁盘: {system_check['disk']['free_gb']:.1f}GB 可用")
+            self.logger.info(f"\n系统资源:")
+            self.logger.info(f"  {memory_symbol} 内存: {system_check['memory']['available_gb']:.1f}GB / {system_check['memory']['total_gb']:.1f}GB")
+            self.logger.info(f"  {disk_symbol} 磁盘: {system_check['disk']['free_gb']:.1f}GB 可用")
         
         # GPU
         if gpu_check['available']:
-            print(f"\n{self._get_status_symbol('ok')} GPU: {gpu_check['count']} 个设备可用")
+            self.logger.info(f"\n{self._get_status_symbol('ok')} GPU: {gpu_check['count']} 个设备可用")
             for device in gpu_check['devices']:
-                print(f"    {device['id']}: {device['name']} ({device['memory_gb']:.1f}GB)")
+                self.logger.info(f"    {device['id']}: {device['name']} ({device['memory_gb']:.1f}GB)")
         else:
-            print(f"\n{self._get_status_symbol('warning')} GPU: {gpu_check['message']}")
+            self.logger.warning(f"\n{self._get_status_symbol('warning')} GPU: {gpu_check['message']}")
         
-        print("=" * 80)
+        self.logger.info("=" * 80)
     
     def _get_status_symbol(self, status: str) -> str:
         """获取状态符号"""
@@ -317,10 +319,10 @@ class UtilsCommand(BaseCommand):
                     all_missing.extend(result['missing'])
             
             if not all_missing:
-                print(format_success_message("所有依赖都已满足"))
+                self.logger.info(format_success_message("所有依赖都已满足"))
                 return 0
             
-            print(f"\n尝试安装缺失的包: {', '.join(all_missing)}")
+            self.logger.info(f"\n尝试安装缺失的包: {', '.join(all_missing)}")
             
             # 构建pip安装命令
             cmd = [sys.executable, '-m', 'pip', 'install'] + all_missing
@@ -329,10 +331,10 @@ class UtilsCommand(BaseCommand):
             result = subprocess.run(cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
-                print(format_success_message("依赖安装完成"))
+                self.logger.info(format_success_message("依赖安装完成"))
                 return 0
             else:
-                print(format_warning_message(f"依赖安装失败: {result.stderr}"))
+                self.logger.error(format_warning_message(f"依赖安装失败: {result.stderr}"))
                 return 1
                 
         except Exception as e:
@@ -381,12 +383,12 @@ class UtilsCommand(BaseCommand):
             
             # 显示清理结果
             if cleaned_items:
-                print(format_success_message(
+                self.logger.info(format_success_message(
                     f"缓存清理完成",
                     f"清理项目: {', '.join(cleaned_items)}\n释放空间: {format_file_size(cleaned_size)}"
                 ))
             else:
-                print("没有需要清理的缓存")
+                self.logger.info("没有需要清理的缓存")
             
             return 0
             

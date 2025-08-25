@@ -220,6 +220,7 @@ class DataCommand(BaseCommand):
                 if output == '' and process.poll() is not None:
                     break
                 if output:
+                    self.logger.info(output.strip())
                     print(output.strip())
             
             return_code = process.poll()
@@ -240,6 +241,7 @@ class DataCommand(BaseCommand):
                 return
             
             file_stats = get_file_stats(output_path)
+            self.logger.info(f"提取结果统计: {output_path}")
             print(f"\n提取结果统计:")
             print(f"输出文件: {output_path}")
             print(f"文件大小: {file_stats['size']}")
@@ -251,11 +253,14 @@ class DataCommand(BaseCommand):
                     if output_path.endswith('.json'):
                         data = json.load(f)
                         if isinstance(data, list):
+                            self.logger.info(f"提取记录数量: {len(data)}")
                             print(f"记录数量: {len(data)}")
                         elif isinstance(data, dict) and 'messages' in data:
+                            self.logger.info(f"提取记录数量: {len(data['messages'])}")
                             print(f"记录数量: {len(data['messages'])}")
                     elif output_path.endswith('.jsonl'):
                         count = sum(1 for _ in f)
+                        self.logger.info(f"提取记录数量: {count}")
                         print(f"记录数量: {count}")
             except:
                 pass
@@ -506,6 +511,7 @@ class DataCommand(BaseCommand):
                         data = [all_data]
             
             # 显示预览
+            self.logger.info(f"数据预览: 显示前{len(data)}条记录")
             print(f"\n数据预览 (前 {len(data)} 条记录):")
             print("=" * 80)
             
@@ -537,6 +543,7 @@ class DataCommand(BaseCommand):
             
             file_stats = get_file_stats(input_path)
             
+            self.logger.info(f"数据统计: {input_path}")
             print(f"\n数据统计: {input_path}")
             print("=" * 80)
             print(f"文件大小: {file_stats['size']}")
@@ -557,30 +564,37 @@ class DataCommand(BaseCommand):
                             elif isinstance(data, str):
                                 total_length += len(data)
                         
+                        self.logger.info(f"数据记录数量: {record_count}")
                         print(f"记录数量: {record_count}")
                         if record_count > 0:
+                            self.logger.info(f"数据平均长度: {total_length // record_count} 字符")
                             print(f"平均长度: {total_length // record_count} 字符")
                         
                     else:
                         data = json.load(f)
                         if isinstance(data, list):
+                            self.logger.info(f"数据记录数量: {len(data)}")
                             print(f"记录数量: {len(data)}")
                             if data:
                                 # 分析数据结构
                                 sample = data[0]
                                 if isinstance(sample, dict):
+                                    self.logger.info(f"数据字段: {list(sample.keys())}")
                                     print("字段统计:")
                                     for key in sample.keys():
                                         print(f"  - {key}")
                         elif isinstance(data, dict):
+                            self.logger.info(f"数据类型: 单个对象, 字段: {list(data.keys())}")
                             print("数据类型: 单个对象")
                             print("字段统计:")
                             for key in data.keys():
                                 print(f"  - {key}")
                 
             except json.JSONDecodeError as e:
+                self.logger.error(f"JSON解析错误: {e}")
                 print(f"JSON解析错误: {e}")
             except Exception as e:
+                self.logger.error(f"统计分析错误: {e}")
                 print(f"统计分析错误: {e}")
             
             print("=" * 80)
@@ -609,6 +623,7 @@ class DataCommand(BaseCommand):
                 if output == '' and process.poll() is not None:
                     break
                 if output:
+                    self.logger.info(output.strip())
                     print(output.strip())
             
             return_code = process.poll()

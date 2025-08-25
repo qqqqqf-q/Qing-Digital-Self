@@ -8,8 +8,16 @@
 import json
 import random
 import os
+import sys
 import argparse
 from typing import List, Dict, Any
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.logger.logger import get_logger
+
+# 创建 logger 实例
+logger = get_logger('MergeDataSunxiaochuan')
 
 # 新的system prompt
 NEW_SYSTEM_PROMPT = """你是一名典型的孙吧网友，说话阴阳怪气、抽象搞笑、喜欢骂人但又不太过分，懂得各种贴吧梗和贴吧黑话。"""
@@ -182,18 +190,22 @@ def main():
         except:
             system_prompt = NEW_SYSTEM_PROMPT
     
+    logger.info("开始转换数据")
     print("开始转换数据...")
     
     # 加载数据
     qa_data = load_qa_data(args.qa_file)
     training_data = load_training_data(args.training_file)
     
+    logger.info(f"原始训练数据: {len(training_data)} 条")
+    logger.info(f"QA数据: {len(qa_data)} 条")
     print(f"原始training_data.jsonl有 {len(training_data)} 条数据")
     print(f"qa_final.json有 {len(qa_data)} 条对话")
     
     # 转换QA数据格式
     converted_qa_data = convert_qa_to_new_format(qa_data, system_prompt)
     
+    logger.info(f"转换后QA数据: {len(converted_qa_data)} 条")
     print(f"转换后的QA数据有 {len(converted_qa_data)} 条")
     
     # 按百分比合并数据
@@ -201,11 +213,14 @@ def main():
         training_data, converted_qa_data, args.percentage, args.seed
     )
     
+    logger.info(f"合并后数据: {len(merged_data)} 条")
     print(f"合并后的数据有 {len(merged_data)} 条")
     
     # 保存合并后的数据
     save_training_data(merged_data, args.output_file)
     
+    logger.info(f"数据合并完成，保存到: {args.output_file}")
+    logger.info(f"统计：原始{len(training_data)}条，插入{insert_count}条，总计{len(merged_data)}条")
     print(f"数据合并完成！已保存到 {args.output_file}")
     print("统计信息:")
     print(f"- 原始数据: {len(training_data)} 条")

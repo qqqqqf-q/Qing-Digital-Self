@@ -20,30 +20,30 @@ logger = get_logger('Test_OpenAI')
 
 def test_OpenAI_health():
     """测试OpenAI API服务器连接"""
-    print("=" * 50)
-    print("测试OpenAI API服务器连接...")
+    logger.info("=" * 50)
+    logger.info("测试OpenAI API服务器连接...")
     
     client = OpenAIClient()
     
     if client.health_check():
-        print("[成功] OpenAI API服务器连接成功")
+        logger.info("[成功] OpenAI API服务器连接成功")
         
         # 获取可用模型
         models = client.list_models()
         if models:
-            print(f"[成功] 可用模型: {', '.join(models)}")
+            logger.info(f"[成功] 可用模型: {', '.join(models)}")
         else:
-            print("[警告] 无法获取模型列表")
+            logger.warning("[警告] 无法获取模型列表")
         return True
     else:
-        print("[错误] OpenAI API服务器连接失败")
-        print("请确保: 1. OpenAI API服务正在运行 2. 服务器地址正确")
+        logger.error("[错误] OpenAI API服务器连接失败")
+        logger.error("请确保: 1. OpenAI API服务正在运行 2. 服务器地址正确")
         return False
 
 def test_daily_cleaning():
     """测试按天清洗功能"""
-    print("\n" + "=" * 50)
-    print("测试按天清洗功能...")
+    logger.info("\n" + "=" * 50)
+    logger.info("测试按天清洗功能...")
     
     # 模拟一天的对话数据
     test_messages = [
@@ -64,60 +64,60 @@ def test_daily_cleaning():
     
     cleaner = LLMDataCleaner()
     
-    print("原始消息:")
+    logger.info("原始消息:")
     for i, msg in enumerate(test_messages):
-        print(f"  {i}. [{msg['role']}] {msg['content']}")
+        logger.info(f"  {i}. [{msg['role']}] {msg['content']}")
     
     try:
         cleaned = cleaner.clean_daily_conversation(test_messages, "2024-01-01")
         
-        print(f"\n清洗后消息 ({len(cleaned)}/{len(test_messages)}条):")
+        logger.info(f"\n清洗后消息 ({len(cleaned)}/{len(test_messages)}条):")
         for i, msg in enumerate(cleaned):
-            print(f"  {i}. [{msg['role']}] {msg['content']}")
+            logger.info(f"  {i}. [{msg['role']}] {msg['content']}")
         
         return True
         
     except Exception as e:
-        print(f"[错误] 清洗测试失败: {e}")
+        logger.error(f"[错误] 清洗测试失败: {e}")
         return False
 
 def test_config():
     """测试配置"""
-    print("\n" + "=" * 50)
-    print("测试配置...")
+    logger.info("\n" + "=" * 50)
+    logger.info("测试配置...")
     
     config = get_config()
     
-    print(f"OpenAI API URL: {config.get('OpenAI_URL')}")
-    print(f"OpenAI API Model: {config.get('OpenAI_Model')}")
-    print(f"Use LLM Clean: {config.get('use_llm_clean')}")
-    print(f"Timeout: {config.get('OpenAI_timeout')}s")
+    logger.info(f"OpenAI API URL: {config.get('OpenAI_URL')}")
+    logger.info(f"OpenAI API Model: {config.get('OpenAI_Model')}")
+    logger.info(f"Use LLM Clean: {config.get('use_llm_clean')}")
+    logger.info(f"Timeout: {config.get('OpenAI_timeout')}s")
     
     return True
 
 def main():
     """运行所有测试"""
-    print("OpenAI API集成测试")
-    print("=" * 50)
+    logger.info("OpenAI API集成测试")
+    logger.info("=" * 50)
     
     # 测试配置
     test_config()
     
     # 测试连接
     if not test_OpenAI_health():
-        print("\n❌ 连接测试失败，跳过清洗测试")
+        logger.warning("\n❌ 连接测试失败，跳过清洗测试")
         return
     
     # 测试清洗功能
     test_daily_cleaning()
     
-    print("\n" + "=" * 50)
-    print("测试完成！")
+    logger.info("\n" + "=" * 50)
+    logger.info("测试完成！")
     
-    print("\n使用说明:")
-    print("1. 启动OpenAI API并加载模型")
-    print("2. 在seeting.jsonc中设置清洗配置启用LLM清洗")
-    print("3. 运行 generate_training_data.py 进行数据清洗")
+    logger.info("\n使用说明:")
+    logger.info("1. 启动OpenAI API并加载模型")
+    logger.info("2. 在seeting.jsonc中设置清洗配置启用LLM清洗")
+    logger.info("3. 运行 generate_training_data.py 进行数据清洗")
 
 if __name__ == "__main__":
     main()

@@ -271,12 +271,14 @@ class ConfigCommand(BaseCommand):
     
     def _show_config_json(self, config_data: Dict[str, Any]) -> None:
         """以JSON格式显示配置"""
+        self.logger.info("显示配置：JSON格式")
         print(json.dumps(config_data, ensure_ascii=False, indent=2))
     
     def _show_config_yaml(self, config_data: Dict[str, Any]) -> None:
         """以YAML格式显示配置"""
         try:
             import yaml
+            self.logger.info("显示配置：YAML格式")
             print(yaml.dump(config_data, allow_unicode=True, default_flow_style=False))
         except ImportError:
             self.logger.warning("YAML模块未安装，使用JSON格式显示")
@@ -284,6 +286,7 @@ class ConfigCommand(BaseCommand):
     
     def _show_config_table(self, config_data: Dict[str, Any]) -> None:
         """以表格格式显示配置"""
+        self.logger.info("显示配置：表格格式")
         print("当前配置:")
         print("-" * 80)
         
@@ -314,6 +317,7 @@ class ConfigCommand(BaseCommand):
         # 显示配置文件信息
         if os.path.exists(self.config_file):
             file_stat = os.stat(self.config_file)
+            self.logger.info(f"配置文件信息: {self.config_file}")
             print(f"\n配置文件: {self.config_file}")
             print(f"文件大小: {format_file_size(file_stat.st_size)}")
             print(f"修改时间: {file_stat.st_mtime}")

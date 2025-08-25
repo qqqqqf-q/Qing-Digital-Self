@@ -4,11 +4,19 @@ CLI 交互提示和界面模块
 提供进度条、用户交互、消息格式化等界面功能。
 """
 
+import os
 import sys
 import time
 import threading
 from typing import Optional, Any, Dict, List
 from datetime import datetime
+
+# 添加项目根目录到Python路径
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+from utils.logger.logger import get_logger
+
+# 创建logger实例
+logger = get_logger('PromptsInterface')
 
 
 class ProgressBar:
@@ -324,6 +332,7 @@ def print_table(data: List[Dict[str, Any]], headers: Optional[List[str]] = None)
     """打印表格"""
     if not data:
         print("(无数据)")
+        logger.debug("尝试打印空表格")
         return
     
     # 确定列

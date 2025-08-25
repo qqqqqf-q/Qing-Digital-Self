@@ -321,12 +321,18 @@ def main() -> int:
         return result
         
     except KeyboardInterrupt:
+        logger = get_logger()
+        logger.info("操作被用户取消")
         print("\n操作已被用户取消")
         return 130  # SIGINT exit code
     except ConfigError as e:
+        logger = get_logger()
+        logger.error(f"配置错误: {e}")
         print(f"配置错误: {e}")
         return 1
     except CLIError as e:
+        logger = get_logger()
+        logger.error(f"CLI错误: {e}")
         print(f"CLI错误: {e}")
         return 1
     except Exception as e:

@@ -15,6 +15,7 @@ try:
 except ImportError as e:
     UNSLOTH_AVAILABLE = False
     FastLanguageModel = None
+    # 注意：这里还没有初始化logger，所以暂时保留print
     print(f"警告: 无法导入 unsloth ({e})，将使用标准 PEFT 训练")
 
 import argparse

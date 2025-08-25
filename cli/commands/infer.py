@@ -139,6 +139,7 @@ class InferCommand(BaseCommand):
                     print("\n\n对话被中断")
                     break
                 except Exception as e:
+                    self.logger.error(f"生成回复时出错: {e}")
                     print(f"\n生成回复时出错: {e}")
                     continue
             
@@ -196,6 +197,7 @@ class InferCommand(BaseCommand):
                     if output == '' and self.server_process.poll() is not None:
                         break
                     if output:
+                        self.logger.info(output.strip())
                         print(output.strip())
             except KeyboardInterrupt:
                 self.logger.info("正在停止服务器...")
@@ -476,6 +478,7 @@ class BatchInferencer:
             
             # 显示进度
             progress = min(i + self.batch_size, len(data))
+            self.logger.debug(f"批量推理进度: {progress}/{len(data)}")
             print(f"\r处理进度: {progress}/{len(data)}", end="", flush=True)
         
         print()  # 换行
