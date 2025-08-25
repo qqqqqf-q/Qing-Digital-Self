@@ -4,7 +4,7 @@
     "version": "0.1.2",
     "model_args": {
         "model_path": "./model/Qwen3-8B-Base",
-        "model_repo": "Qwen/Qwen-3-8B-Base", //如果不存在model_path则自动下载model_repo
+        "model_repo": "Qwen/Qwen3-8B-Base", //如果不存在model_path则自动下载model_repo
         "model_output_path": "./model_output",
         "template": "qwen",
         "finetuning_type": "qlora",

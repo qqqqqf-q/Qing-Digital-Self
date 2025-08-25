@@ -2,15 +2,19 @@
     "repoid": "Qing-Agent",
     "branch": "main",
     "version": "0.1.2",
-    "model_path": "./model/Qwen3-8B-Base",
-    "model_repo": "Qwen/Qwen-3-8B-Base",
-    "model_output_path": "./model_output",
-    "template": "qwen",
-    "finetuning_type": "qlora",
-    "trust_remote_code": true,
-    "download_source": "modelscope",
-    "log_level": "INFO",
-    "language": "zhcn",
+    "model_args": {
+        "model_path": "./model/Qwen2.5-7B-Instruct",
+        "model_repo": "Qwen/Qwen2.5-7B-Instruct",
+        "model_output_path": "./model_output",
+        "template": "qwen",
+        "finetuning_type": "qlora",
+        "trust_remote_code": true,
+        "download_source": "modelscope"
+    },
+    "logger_args": {
+        "log_level": "INFO",
+        "language": "zhcn"
+    },
     "data_args": {
         "qq_agrs": {
             "qq_db_path": "./dataset/original/qq.db",
@@ -60,10 +64,10 @@
             "fp16": true,
             "logging_steps": 10,
             "save_steps": 100,
-            "load_precision": "int8"
+            "load_precision": "int8",
+            "max_workers": 6,
+            "use_unsloth": true
         },
         "system_prompt": "*"
-    },
-    "max_workers": 6,
-    "use_unsloth": false
+    }
 }

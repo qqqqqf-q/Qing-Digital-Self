@@ -10,13 +10,13 @@
 
 然后:
 source qds_env/bin/activate
-或者
-.\qds_env\Scripts\activate
+或者 (Windows PowerShell)
+& ".\qds_env\Scripts\Activate.ps1"
 
 1.首先pip install -r requirements.txt
 此文件应该包含除机器学习外的所有依赖库
 2.安装机器学习依赖
-给用户一个选项:
+给用户一个选项:     
 1.cuda auto torch+unsloth
 检测用户的cuda版本给出最适合的torch版本
 优先pytorch2.8(cu126或128或129)

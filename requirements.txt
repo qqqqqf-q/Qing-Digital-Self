@@ -1,14 +1,56 @@
-bitsandbytes==0.46.1
-huggingface_hub==0.34.3
-numpy==2.1.2
-packaging==25.0
-peft==0.17.0
-python-dotenv==1.1.1
-torch==2.7.1
-transformers==4.54.1
-accelerate==1.7.0
-unsloth==2025.8.1
-unsloth_zoo==2025.8.1
-xformers==0.0.31.post1
-triton==3.4.0
-colorama==0.4.6
+# Core dependencies
+requests>=2.31.0
+urllib3>=1.26.0
+
+# Data processing
+pandas>=2.0.0
+openpyxl>=3.1.0
+
+# Logging and configuration
+pyyaml>=6.0
+
+# Type hints support
+typing-extensions>=4.5.0
+
+# Command line tools
+click>=8.1.0
+rich>=13.0.0
+inquirer>=3.1.0
+
+# JSON and data structures
+dataclasses-json>=0.5.0
+
+# Regular expression enhancement
+regex>=2023.6.0
+
+# Time and date processing
+python-dateutil>=2.8.0
+
+# File operations
+chardet>=5.1.0
+
+# System information
+psutil>=5.9.0
+
+# CSV processing
+csvkit>=1.1.0
+
+# HTTP client
+httpx>=0.24.0
+
+# Math calculations
+scipy>=1.10.0
+
+# Optional: Development tools
+pytest>=7.0.0
+pytest-cov>=4.1.0
+black>=23.0.0
+flake8>=6.0.0
+
+# CLI beautification
+colorama>=0.4.6
+termcolor>=2.3.0
+
+# Model source
+huggingface_hub>=0.31.3
+modelscope>=1.29.0

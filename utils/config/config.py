@@ -148,20 +148,20 @@ class Config:
             # 基础信息
             "repoid": self._get_nested_value("repoid", "Qing-Agent"),
             "branch": self._get_nested_value("branch", "main"),
-            "version": self._get_nested_value("version", "0.1.0"),
+            "version": self._get_nested_value("version", "0.1.2"),
             
             # 模型配置
-            "model_path": self._get_nested_value("model_path", "./model/Qwen3-8B-Base"),
-            "model_repo": self._get_nested_value("model_repo", "Qwen/Qwen-3-8B-Base"),
-            "model_output_path": self._get_nested_value("model_output_path", "./model_output"),
-            "template": self._get_nested_value("template", "qwen"),
-            "finetuning_type": self._get_nested_value("finetuning_type", "qlora"),
-            "trust_remote_code": self._get_nested_value("trust_remote_code", True),
-            "download_source": self._get_nested_value("download_source", "modelscope"),
+            "model_path": self._get_nested_value("model_args.model_path", "./model/Qwen2.5-7B-Instruct"),
+            "model_repo": self._get_nested_value("model_args.model_repo", "Qwen/Qwen2.5-7B-Instruct"),
+            "model_output_path": self._get_nested_value("model_args.model_output_path", "./model_output"),
+            "template": self._get_nested_value("model_args.template", "qwen"),
+            "finetuning_type": self._get_nested_value("model_args.finetuning_type", "qlora"),
+            "trust_remote_code": self._get_nested_value("model_args.trust_remote_code", True),
+            "download_source": self._get_nested_value("model_args.download_source", "modelscope"),
             
             # 日志配置
-            "log_level": self._get_nested_value("log_level", "INFO").upper(),
-            "language": self._get_nested_value("language", "zhcn"),
+            "log_level": self._get_nested_value("logger_args.log_level", "INFO").upper(),
+            "language": self._get_nested_value("logger_args.language", "zhcn"),
             
             # QQ数据配置
             "qq_db_path": self._get_nested_value("data_args.qq_agrs.qq_db_path", "./dataset/original/qq.db"),
@@ -210,11 +210,11 @@ class Config:
             "logging_steps": self._get_nested_value("data_args.train_sft_args.logging_steps", 10),
             "save_steps": self._get_nested_value("data_args.train_sft_args.save_steps", 100),
             "load_precision": self._get_nested_value("data_args.train_sft_args.load_precision", "int8"),
+            "max_workers": self._get_nested_value("data_args.train_sft_args.max_workers", 6),
+            "use_unsloth": self._get_nested_value("data_args.train_sft_args.use_unsloth", True),
             
-            # 兼容性配置
-            "max_workers": self._get_nested_value("max_workers", 6),
+            # 系统提示词配置
             "system_prompt": self._get_nested_value("data_args.system_prompt", "*"),
-            "use_unsloth": self._get_nested_value("use_unsloth", False),
         }
 
     def _validate_config(self):

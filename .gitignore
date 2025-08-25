@@ -206,3 +206,4 @@ seeting.jsonc
 dataset/csv
 chatml_data.jsonl
 chatml_training_data.jsonl
+qds_env
