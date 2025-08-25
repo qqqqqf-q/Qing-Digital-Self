@@ -16,6 +16,9 @@ class Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(self._get_log_level())
         
+        # 防止向父级logger传播，避免重复输出
+        self.logger.propagate = False
+        
         # 确保日志目录存在
         os.makedirs(self.log_dir, exist_ok=True)
         
