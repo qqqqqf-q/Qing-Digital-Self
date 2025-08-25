@@ -23,9 +23,6 @@ class Config:
         # 加载配置文件
         self._load_jsonc_config()
         
-        # 加载.env文件（作为补充）
-        self._load_env_file()
-        
         # 加载默认配置
         self._load_default_config()
         
@@ -42,26 +39,6 @@ class Config:
                 format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             )
 
-    def _load_env_file(self):
-        """安全加载.env文件"""
-        try:
-            from dotenv import load_dotenv
-            
-            env_path = '.env'
-            if os.path.exists(env_path):
-                result = load_dotenv(env_path)
-                if result:
-                    self.logger.info(f"成功加载.env文件: {env_path}")
-                else:
-                    self.logger.warning(f".env文件存在但加载失败: {env_path}")
-            else:
-                self.logger.info(".env文件不存在，使用系统环境变量")
-                
-        except ImportError:
-            self.logger.warning("python-dotenv未安装，跳过.env文件加载")
-        except Exception as e:
-            self.logger.error(f"加载.env文件时发生错误: {e}")
-            raise ConfigError(f"配置加载失败: {e}")
 
     def _safe_int(self, value: str, default: int, min_val: Optional[int] = None, max_val: Optional[int] = None) -> int:
         """安全的整数转换"""
@@ -174,24 +151,24 @@ class Config:
             "version": self._get_nested_value("version", "0.1.0"),
             
             # 模型配置
-            "model_path": self._get_nested_value("model_args.model_path", os.getenv("MODEL_PATH", "./model/Qwen3-8B-Base")),
-            "model_repo": self._get_nested_value("model_args.model_repo", os.getenv("MODEL_REPO", "Qwen/Qwen-3-8B-Base")),
-            "model_output_path": self._get_nested_value("model_args.model_output_path", os.getenv("MODEL_OUTPUT_PATH", "./model_output")),
-            "template": self._get_nested_value("model_args.template", os.getenv("TEMPLATE", "qwen")),
-            "finetuning_type": self._get_nested_value("model_args.finetuning_type", os.getenv("FINETUNING_TYPE", "qlora")),
-            "trust_remote_code": self._get_nested_value("model_args.trust_remote_code", self._safe_bool(os.getenv("TRUST_REMOTE_CODE", "true"), True)),
-            "download_source": self._get_nested_value("model_args.download_source", os.getenv("DOWNLOAD_SOURCE", "modelscope")),
+            "model_path": self._get_nested_value("model_path", "./model/Qwen3-8B-Base"),
+            "model_repo": self._get_nested_value("model_repo", "Qwen/Qwen-3-8B-Base"),
+            "model_output_path": self._get_nested_value("model_output_path", "./model_output"),
+            "template": self._get_nested_value("template", "qwen"),
+            "finetuning_type": self._get_nested_value("finetuning_type", "qlora"),
+            "trust_remote_code": self._get_nested_value("trust_remote_code", True),
+            "download_source": self._get_nested_value("download_source", "modelscope"),
             
             # 日志配置
-            "log_level": self._get_nested_value("logger_args.log_level", os.getenv("LOG_LEVEL", "INFO")).upper(),
-            "language": self._get_nested_value("logger_args.language", os.getenv("LANGUAGE", "zhcn")),
+            "log_level": self._get_nested_value("log_level", "INFO").upper(),
+            "language": self._get_nested_value("language", "zhcn"),
             
-            # QQ数据配置（重命名db_path为qq_db_path）
-            "qq_db_path": self._get_nested_value("data_args.qq_agrs.qq_db_path", os.getenv("DB_PATH", "./data/qq.db")),
-            "qq_number_ai": self._get_nested_value("data_args.qq_agrs.qq_number_ai", os.getenv("QQ_NUMBER_AI")),
+            # QQ数据配置
+            "qq_db_path": self._get_nested_value("data_args.qq_agrs.qq_db_path", "./dataset/original/qq.db"),
+            "qq_number_ai": self._get_nested_value("data_args.qq_agrs.qq_number_ai", None),
             
             # Telegram配置
-            "telegram_chat_id": self._get_nested_value("data_args.telegram_args.telegram_chat_id", os.getenv("TELEGRAM_CHAT_ID")),
+            "telegram_chat_id": self._get_nested_value("data_args.telegram_args.telegram_chat_id", None),
             
             # 数据处理配置
             "include_type": self._get_nested_value("data_args.include_type", ["text"]),
@@ -202,42 +179,42 @@ class Config:
             "messages_max_length": self._get_nested_value("data_args.messages_max_length", 2048),
             
             # 清理配置
-            "clean_method": self._get_nested_value("data_args.clean_set_args.clean_method", os.getenv("CLEAN_METHOD", "llm")),
-            "use_llm_clean": self._get_nested_value("data_args.clean_set_args.clean_method", os.getenv("CLEAN_METHOD", "llm")) == "llm",
+            "clean_method": self._get_nested_value("data_args.clean_set_args.clean_method", "llm"),
+            "use_llm_clean": self._get_nested_value("data_args.clean_set_args.clean_method", "llm") == "llm",
             
             # OpenAI API配置
-            "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", os.getenv("OpenAI_URL", "https://api.openai.com/v1")),
-            "OpenAI_api_key": self._get_nested_value("data_args.clean_set_args.openai_api.api_key", os.getenv("OpenAI_API_KEY", "sk-1234567890abcdef1234567890abcdef")),
-            "OpenAI_Model": self._get_nested_value("data_args.clean_set_args.openai_api.model_name", os.getenv("OpenAI_MODEL", "xxx")),
-            "clean_batch_size": self._get_nested_value("data_args.clean_set_args.openai_api.clean_batch_size", self._safe_int(os.getenv("CLEAN_BATCH_SIZE", "10"), 10)),
-            "clean_workers": self._get_nested_value("data_args.clean_set_args.openai_api.clean_workers", self._safe_int(os.getenv("CLEAN_WORKERS", "4"), 4)),
-            "OpenAI_timeout": self._get_nested_value("data_args.clean_set_args.openai_api.timeout", self._safe_int(os.getenv("OpenAI_TIMEOUT", "120"), 120, 1, 300)),
-            "OpenAI_max_retries": self._safe_int(os.getenv("OpenAI_MAX_RETRIES", "3"), 3, 0, 10),
-            "OpenAI_retry_delay": self._safe_float(os.getenv("OpenAI_RETRY_DELAY", "1.0"), 1.0, 0.1, 10.0),
-            "OpenAI_temperature": self._safe_float(os.getenv("OpenAI_temperature", "0.1"), 0.1, 0.0, 2.0),
-            "OpenAI_max_tokens": self._safe_int(os.getenv("OpenAI_max_tokens", "10000"), 10000, 1, 100000),
+            "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", "http://127.0.0.1:1236"),
+            "OpenAI_api_key": self._get_nested_value("data_args.clean_set_args.openai_api.api_key", "sk-1234567890abcdef1234567890abcdef"),
+            "OpenAI_Model": self._get_nested_value("data_args.clean_set_args.openai_api.model_name", "qwen3-8b-fp6"),
+            "clean_batch_size": self._get_nested_value("data_args.clean_set_args.openai_api.clean_batch_size", 10),
+            "clean_workers": self._get_nested_value("data_args.clean_set_args.openai_api.clean_workers", 4),
+            "OpenAI_timeout": self._get_nested_value("data_args.clean_set_args.openai_api.timeout", 20),
+            "OpenAI_max_retries": 3,
+            "OpenAI_retry_delay": 1.0,
+            "OpenAI_temperature": 0.1,
+            "OpenAI_max_tokens": 10000,
             
             # 训练配置
-            "use_qlora": self._get_nested_value("data_args.train_sft_args.use_qlora", self._safe_bool(os.getenv("USE_QLORA", "true"), True)),
-            "data_path": self._get_nested_value("data_args.train_sft_args.data_path", os.getenv("DATA_PATH", "./dataset/sft.jsonl")),
-            "lora_r": self._get_nested_value("data_args.train_sft_args.lora_r", self._safe_int(os.getenv("LORA_R", "16"), 16)),
-            "lora_alpha": self._get_nested_value("data_args.train_sft_args.lora_alpha", self._safe_int(os.getenv("LORA_ALPHA", "32"), 32)),
-            "lora_dropout": self._get_nested_value("data_args.train_sft_args.lora_dropout", self._safe_float(os.getenv("LORA_DROPOUT", "0.1"), 0.1)),
+            "use_qlora": self._get_nested_value("data_args.train_sft_args.use_qlora", True),
+            "data_path": self._get_nested_value("data_args.train_sft_args.data_path", "./dataset/sft.jsonl"),
+            "lora_r": self._get_nested_value("data_args.train_sft_args.lora_r", 16),
+            "lora_alpha": self._get_nested_value("data_args.train_sft_args.lora_alpha", 32),
+            "lora_dropout": self._get_nested_value("data_args.train_sft_args.lora_dropout", 0.1),
             "lora_target_modules": self._get_nested_value("data_args.train_sft_args.lora_target_modules", ["q_proj", "v_proj"]),
-            "per_device_train_batch_size": self._get_nested_value("data_args.train_sft_args.tper_device_train_batch_size", self._safe_int(os.getenv("PER_DEVICE_TRAIN_BATCH_SIZE", "1"), 1)),
-            "per_device_eval_batch_size": self._get_nested_value("data_args.train_sft_args.per_device_eval_batch_size", self._safe_int(os.getenv("PER_DEVICE_EVAL_BATCH_SIZE", "1"), 1)),
-            "gradient_accumulation_steps": self._get_nested_value("data_args.train_sft_args.gradient_accumulation_steps", self._safe_int(os.getenv("GRADIENT_ACCUMULATION_STEPS", "16"), 16)),
-            "max_steps": self._get_nested_value("data_args.train_sft_args.max_steps", self._safe_int(os.getenv("MAX_STEPS", "-1"), -1)),
-            "learning_rate": self._get_nested_value("data_args.train_sft_args.learning_rate", self._safe_float(os.getenv("LEARNING_RATE", "2e-4"), 2e-4)),
-            "fp16": self._get_nested_value("data_args.train_sft_args.fp16", self._safe_bool(os.getenv("FP16", "true"), True)),
-            "logging_steps": self._get_nested_value("data_args.train_sft_args.logging_steps", self._safe_int(os.getenv("LOGGING_STEPS", "10"), 10)),
-            "save_steps": self._get_nested_value("data_args.train_sft_args.save_steps", self._safe_int(os.getenv("SAVE_STEPS", "100"), 100)),
-            "load_precision": self._get_nested_value("data_args.train_sft_args.load_precision", os.getenv("LOAD_PRECISION", "int8")),
+            "per_device_train_batch_size": self._get_nested_value("data_args.train_sft_args.per_device_train_batch_size", 1),
+            "per_device_eval_batch_size": self._get_nested_value("data_args.train_sft_args.per_device_eval_batch_size", 1),
+            "gradient_accumulation_steps": self._get_nested_value("data_args.train_sft_args.gradient_accumulation_steps", 16),
+            "max_steps": self._get_nested_value("data_args.train_sft_args.max_steps", -1),
+            "learning_rate": self._get_nested_value("data_args.train_sft_args.learning_rate", 0.0002),
+            "fp16": self._get_nested_value("data_args.train_sft_args.fp16", True),
+            "logging_steps": self._get_nested_value("data_args.train_sft_args.logging_steps", 10),
+            "save_steps": self._get_nested_value("data_args.train_sft_args.save_steps", 100),
+            "load_precision": self._get_nested_value("data_args.train_sft_args.load_precision", "int8"),
             
             # 兼容性配置
-            "max_workers": self._safe_int(os.getenv("MAX_WORKERS", "6"), 6, 1, 32),
-            "system_prompt": os.getenv("system_prompt", ""),
-            "use_unsloth": self._safe_bool(os.getenv("USE_UNSLOTH", "false"), False),
+            "max_workers": self._get_nested_value("max_workers", 6),
+            "system_prompt": self._get_nested_value("data_args.system_prompt", "*"),
+            "use_unsloth": self._get_nested_value("use_unsloth", False),
         }
 
     def _validate_config(self):
@@ -303,7 +280,7 @@ class Config:
         """获取配置加载状态"""
         return {
             "config_loaded": True,
-            "env_file_exists": os.path.exists('.env'),
+            "jsonc_file_exists": os.path.exists('seeting.jsonc'),
             "total_configs": len(self._config),
             "critical_configs_set": {
                 "qq_db_path": bool(self._config.get('qq_db_path')),

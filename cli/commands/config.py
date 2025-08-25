@@ -345,10 +345,13 @@ class ConfigCommand(BaseCommand):
             
             self.logger.info(f"配置项已更新: {key} = {converted_value}")
             
+            # 保存当前的键值对以便保存时使用
+            self._current_key = key
+            self._current_value = converted_value
+            
             # 保存到文件
-            if confirm_action("是否保存配置到文件？", True):
-                self._save_current_config()
-                self.logger.info("配置已保存到文件")
+            self._save_current_config()
+            self.logger.info("配置已保存到文件")
             
             return 0
             
@@ -391,14 +394,67 @@ class ConfigCommand(BaseCommand):
     def _save_current_config(self) -> None:
         """保存当前配置到文件"""
         try:
+            # 读取原始 seeting.jsonc 文件
+            if not os.path.exists(self.config_file):
+                self.logger.error(f"配置文件不存在: {self.config_file}")
+                return
+                
+            # 读取现有配置文件
+            with open(self.config_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # 解析 JSONC
+            lines = content.split('\n')
+            cleaned_lines = []
+            in_string = False
+            
+            for line in lines:
+                cleaned_line = ""
+                i = 0
+                while i < len(line):
+                    char = line[i]
+                    
+                    if char == '"' and (i == 0 or line[i-1] != '\\'):
+                        in_string = not in_string
+                    
+                    if not in_string and i < len(line) - 1 and line[i:i+2] == '//':
+                        break
+                    
+                    cleaned_line += char
+                    i += 1
+                
+                cleaned_line = cleaned_line.rstrip()
+                if cleaned_line:
+                    cleaned_lines.append(cleaned_line)
+            
+            cleaned_content = '\n'.join(cleaned_lines)
+            original_data = json.loads(cleaned_content)
+            
+            # 获取当前配置
             config = get_config()
-            config_data = config.all()
+            updated_value = config.get(getattr(self, '_current_key', None))
             
-            # 重新组织配置数据结构
-            organized_data = self._organize_config_data(config_data)
+            # 更新对应的配置项
+            if hasattr(self, '_current_key') and hasattr(self, '_current_value'):
+                key = self._current_key
+                value = self._current_value
+                
+                # 根据键名更新对应的配置
+                if key == 'log_level':
+                    original_data['log_level'] = value
+                elif key == 'language':
+                    original_data['language'] = value
+                elif key == 'model_path':
+                    original_data['model_path'] = value
+                elif key == 'model_repo':
+                    original_data['model_repo'] = value
+                elif key == 'template':
+                    original_data['template'] = value
+                # 更多配置项可以在这里添加
             
+            # 保存更新后的配置
             with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(organized_data, f, ensure_ascii=False, indent=4)
+                json.dump(original_data, f, ensure_ascii=False, indent=4)
                 
         except Exception as e:
             raise FileOperationError(f"保存配置失败: {e}", self.config_file, "write")

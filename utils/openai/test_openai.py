@@ -116,7 +116,7 @@ def main():
     
     print("\n使用说明:")
     print("1. 启动OpenAI API并加载模型")
-    print("2. 在.env中设置 USE_LLM_CLEAN=true 启用LLM清洗")
+    print("2. 在seeting.jsonc中设置清洗配置启用LLM清洗")
     print("3. 运行 generate_training_data.py 进行数据清洗")
 
 if __name__ == "__main__":

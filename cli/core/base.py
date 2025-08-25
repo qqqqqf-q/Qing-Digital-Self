@@ -306,7 +306,6 @@ class QingCLI:
         
         # 创建必要的目录
         directories = [
-            "data",
             "models",
             "checkpoints",
             "logs",
