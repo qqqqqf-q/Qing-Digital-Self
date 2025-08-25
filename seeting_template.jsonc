@@ -18,7 +18,7 @@
     "data_args": {
         "qq_agrs":{
             "qq_db_path": "./data/qq.db",
-            "qq_number_ai": "1684773595"
+            "qq_number_ai": "1234567890"
         },
         "telegram_args": {
             "telegram_chat_id": "user1234567890"
@@ -27,10 +27,11 @@
             "text"
         ],
         "blocked_words": [ // 禁用词
-            "skr65008058",
-            "13586812181"
+            "密码",
+            "账号",
+            "手机号"
         ],
-        "system_prompt": "*",
+        "system_prompt": "*", //请修改此处作为你的system prompt
         "single_combine_time_window": 2, // 单条消息合并时间窗口，单位：分钟
         "qa_match_time_window": 5, // 组成qa时间窗口（分钟）,
         "combine_msg_max_length": 2048, // 组合后消息最大长度

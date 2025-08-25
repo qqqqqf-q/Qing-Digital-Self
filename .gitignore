@@ -202,3 +202,7 @@ harmony_*.txt
 gemma3-270m
 training_data.jsonl
 training_eval.jsonl
+seeting.jsonc
+dataset/csv
+chatml_data.jsonl
+chatml_training_data.jsonl
