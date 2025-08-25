@@ -93,7 +93,7 @@ from peft import (
 
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from logger.logger import logger
+from utils.logger.logger import logger
 
 
 def log_gpu_memory_usage(step_name: str) -> None:

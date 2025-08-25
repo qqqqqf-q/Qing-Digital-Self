@@ -14,8 +14,8 @@ import sys
 # 添加项目根目录到路径以导入项目模块
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 from database.db_connector import DatabaseConnector
 
 config = get_config()

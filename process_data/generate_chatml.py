@@ -8,8 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 
 
 @dataclass

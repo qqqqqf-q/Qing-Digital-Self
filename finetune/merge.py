@@ -14,8 +14,8 @@ import logging
 
 # 导入自定义Logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from logger.logger import Logger
-from config.config import Config
+from utils.logger.logger import Logger
+from utils.config.config import Config
 
 # 初始化配置和日志器
 config = Config()

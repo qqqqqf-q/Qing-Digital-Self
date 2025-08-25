@@ -6,7 +6,7 @@ import subprocess
 import sys
 import os
 import argparse
-from logger.logger import logger
+from utils.logger.logger import logger
 
 def main():
     """运行QLoRA微调的主函数（不使用 Unsloth）

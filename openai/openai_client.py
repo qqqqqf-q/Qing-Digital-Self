@@ -5,8 +5,8 @@ import requests
 import json
 import time
 from typing import Dict, List, Optional, Any
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 import math
 
 logger = get_logger('OpenAI_Client')

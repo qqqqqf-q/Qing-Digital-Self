@@ -1,8 +1,8 @@
 import sqlite3
 import os
 from typing import Optional
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 # 获取配置实例
 config = get_config()
 logger = get_logger('Database')

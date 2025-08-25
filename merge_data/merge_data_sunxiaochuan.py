@@ -176,7 +176,7 @@ def main():
         try:
             import sys
             sys.path.append('.')
-            from config.config import get_config
+            from utils.config.config import get_config
             config = get_config()
             system_prompt = config.get("system_prompt")
         except:

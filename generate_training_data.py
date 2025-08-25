@@ -10,8 +10,8 @@ from typing import Optional, List, Tuple, Dict
 from database.db_connector import DatabaseConnector
 import datetime
 from collections import defaultdict
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 import threading
 import math
 

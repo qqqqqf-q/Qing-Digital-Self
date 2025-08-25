@@ -17,7 +17,7 @@
     },
     "data_args": {
         "qq_agrs":{
-            "qq_db_path": "./data/qq.db",
+            "qq_db_path": "./dataset/original/qq.db",
             "qq_number_ai": "1684773595"
         },
         "telegram_args": {

@@ -1,8 +1,65 @@
 import logging
 import os
+import sys
 from datetime import datetime
 from typing import Optional
-from config.config import get_config
+from utils.config.config import get_config
+try:
+    from colorama import init, Fore, Back, Style
+    init(autoreset=True)
+    COLORAMA_AVAILABLE = True
+except ImportError:
+    COLORAMA_AVAILABLE = False
+
+class ColoredFormatter(logging.Formatter):
+    """彩色日志格式化器"""
+    
+    def __init__(self, use_colors: bool = True):
+        super().__init__()
+        self.use_colors = use_colors and COLORAMA_AVAILABLE and self._supports_color()
+        
+        # 颜色映射
+        if self.use_colors:
+            self.colors = {
+                'DEBUG': Fore.CYAN,
+                'INFO': Fore.GREEN,
+                'WARNING': Fore.YELLOW,
+                'ERROR': Fore.RED,
+                'CRITICAL': Fore.RED + Style.BRIGHT,
+            }
+            self.reset = Style.RESET_ALL
+        else:
+            self.colors = {}
+            self.reset = ''
+    
+    def _supports_color(self) -> bool:
+        """检测终端是否支持颜色输出"""
+        # Windows cmd和PowerShell支持
+        if sys.platform == "win32":
+            return True
+        # Unix系统检查TERM环境变量
+        return hasattr(sys.stdout, "isatty") and sys.stdout.isatty()
+    
+    def format(self, record):
+        if self.use_colors:
+            # 获取颜色
+            color = self.colors.get(record.levelname, '')
+            
+            # 格式化时间戳
+            formatted_time = self.formatTime(record, '%Y-%m-%d %H:%M:%S')
+            
+            # 构建彩色格式
+            log_message = (
+                f"{Fore.BLUE}[{formatted_time}]{self.reset} "
+                f"{Fore.MAGENTA}{record.name}{self.reset} "
+                f"{color}[{record.levelname}]{self.reset} "
+                f"{record.getMessage()}"
+            )
+            
+            return log_message
+        else:
+            # 无颜色的格式
+            return super().format(record)
 
 class Logger:
     def __init__(self, name: str = 'QingAgent'):
@@ -10,6 +67,7 @@ class Logger:
         self.config = get_config()
         self.log_level = self.config.get('log_level', 'INFO')
         self.language = self.config.get('language', 'zhcn')  # 默认中文
+        self.enable_colors = self.config.get('enable_colors', True)  # 默认启用颜色
         self.log_dir = 'logs'
         
         # 创建日志器
@@ -48,8 +106,11 @@ class Logger:
         console_handler = logging.StreamHandler()
         console_handler.setLevel(self._get_log_level())
         
-        # 设置日志格式
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        # 设置彩色格式化器
+        if self.enable_colors:
+            formatter = ColoredFormatter(use_colors=True)
+        else:
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
         
         self.logger.addHandler(console_handler)
@@ -162,6 +223,24 @@ class Logger:
             self.config.set('language', language)
         else:
             raise ValueError(f"Unsupported language: {language}. Supported languages: 'zhcn', 'en'")
+    
+    def set_colors(self, enable: bool):
+        """动态设置彩色输出
+        
+        Args:
+            enable: 是否启用彩色输出
+        """
+        self.enable_colors = enable
+        self.config.set('enable_colors', enable)
+        
+        # 重新配置控制台处理器
+        console_handlers = [h for h in self.logger.handlers if isinstance(h, logging.StreamHandler) 
+                           and not isinstance(h, logging.FileHandler)]
+        
+        for handler in console_handlers:
+            self.logger.removeHandler(handler)
+        
+        self._add_console_handler()
 
 # 创建全局日志实例
 logger = Logger()

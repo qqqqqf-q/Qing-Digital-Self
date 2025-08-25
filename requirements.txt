@@ -11,3 +11,4 @@ unsloth==2025.8.1
 unsloth_zoo==2025.8.1
 xformers==0.0.31.post1
 triton==3.4.0
+colorama==0.4.6

@@ -9,8 +9,8 @@ import sys
 import os
 from typing import List, Dict
 from openai.openai_client import OpenAIClient, LLMDataCleaner
-from config.config import get_config
-from logger.logger import get_logger
+from utils.config.config import get_config
+from utils.logger.logger import get_logger
 
 logger = get_logger('Test_OpenAI')
 
