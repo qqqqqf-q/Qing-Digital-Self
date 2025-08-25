@@ -6,8 +6,12 @@
 > 建议往数据集插入**20%-50%**的标准数据集  
 ### 使用方法
 ```bash
-python merge_data/merge_data.py --qa_file qa_final.json --training_file training_data.jsonl --output_file merged_training_data.jsonl --use-new-prompt
+python merge_data/merge_data.py --qa-file ./data/qa_final.json --training-file training_data.jsonl --output-file merged_training_data.jsonl --use-new-prompt
 ```
+可以使用`--percentage`来设置插入百分比(对比于原始训练数据,例如原始200条,设置为100则插入200条,最终有400条数据)
+**请注意,`qa_final.json`只是一个在网上下载的ai训练集,可以由你自己寻找的训练集替换,若有结构不适配的问题可以使用llm来帮你适配**
+**此文件已上传至仓库,但不确定训练集的质量**
+~~联系作者也是个不错的选择~~
 > 建议使用--use-new-prompt,防止全部都是角色system prompt
 >
 ### 插入20%数据：
