@@ -6,47 +6,41 @@
 ```bash
 git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
 ```
-
-创建虚拟环境
+或使用镜像(中国大陆加速)
 ```bash
-python3 -m venv venv
+git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/Qing-Digital-Self.git  --depth 1
 ```
 
-
-  激活虚拟环境：
-
-  * 在Linux/Mac上：
-
-    ```bash
-    source venv/bin/activate
-    ```
-  * 在Windows上：
-
-    ```bash
-    .\venv\Scripts\activate
-    ```
-
-* 安装依赖
-
+# 配置环境
 ```bash
-pip install -r requirements.txt
+python3 environment/setup_env.py --install 
 ```
-
-> PS:~~我在依赖这一步测试了很久很久,之前不知道为什么就是有一堆奇怪的问题()~~  
-> 但是这个requirements是我自己测试出来的版本,~~应该是稳定的吧~~
-
----
-
-### 如果你需要Unsloth提供的unsloth+torch的版本,请运行以下命令
+默认跟着流程走就好
+安装完自带检查
+也可以使用
+```bash
+python3 environment/setup_env.py --check
+``` 
+来进行检查环境
+如果遇到unsloth无法安装请自行安装
+先运行以下命令
 ```bash
 wget -qO- https://raw.githubusercontent.com/unslothai/unsloth/main/unsloth/_auto_install.py | python -
 ```
-它会输出一个pip命令,请复制下来并在shell里运行
-例如
+它会输出一个pip命令,请复制下来并在shell里运行 例如
+
 ```bash
 pip install --upgrade pip && pip install "unsloth[cu126-ampere-torch270] @ git+https://github.com/unslothai/unsloth.git"
 ```
+如果遇到flah attn安装问题
+可以尝试前往[此Github仓库](https://github.com/Dao-AILab/flash-attention/releases/)
+来查看你需要的离线安装包(这个不需要编译,会快非常多)
+命令类似:
+```bash
+wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.4cxx11abiTRUE-cp312-cp312-linux_x86_64.whl'
 
+pip install flash_attn-2.8.3+cu12torch2.4cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
+```
 # 以下才是真正的微调
 
 >参数在测试时其实可以不填,都是有默认值的  
@@ -110,7 +104,7 @@ pip install --upgrade pip && pip install "unsloth[cu126-ampere-torch270] @ git+h
 > 参数还是太复杂了,建议询问AI  
 > 下面是一个4090微调`qwen3-8b-base`的范例
 ```bash
-python3 run_finetune.py --output_dir /root/autodl-fs/qwen3-8b-qing-v4 --local_dir qwen3-8b-base --data_path ./training_data_ruozhi.jsonl --eval_data_path ./training_data_ruozhi_eval.jsonl --use_qlora true --lora_dropout 0.05 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing --dataloader_prefetch_factor 4
+python3 run_finetune.py --output_dir /root/autodl-fs/qwen2.5-7b-qing-v1 --local_dir ./model/Qwen2.5-7B-Instruct --data_path ./dataset/sft.jsonl --use_qlora true --lora_dropout 0.1 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing  --load_precision int8
 ```
 ### 验证集未生效
 - 检查`--eval_data_path`路径是否正确
@@ -121,3 +115,9 @@ python3 run_finetune.py --output_dir /root/autodl-fs/qwen3-8b-qing-v4 --local_di
 - 减小`--per_device_eval_batch_size`
 - 减小`--max_eval_samples`
 - 增加`--eval_steps`间隔
+
+### Dev注
+```bash
+python3 cli.py train start
+```
+此参数似乎还是不太能使用的样子,有很多Bug,有待修改

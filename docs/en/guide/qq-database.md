@@ -10,3 +10,4 @@
 * Get a database like this
 * Structure as shown below, it's a plaintext database (you can open it and see the data, which means it's normal)
 * <img src="https://cdn.nodeimage.com/i/oBfbWfVLhJI0CeZHTwwxq6G7XGO40Vy4.webp" alt="Database Image">
+* Rename the database to `qq.db` and place it in the `data` directory, or modify the `qq_db_path` configuration in `setting.jsonc` to point to your database file path.

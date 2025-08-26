@@ -25,11 +25,11 @@ export default defineConfig({
           {
             text: '快速上手',
             items: [
-              { text: '1. QQ数据库的获取', link: '/guide/qq-database' },
+              { text: '1. QQ/其他数据的获取', link: '/guide/qq-database' },
               { text: '1.5 (可选) 从视频/音频文件中获取聊天数据', link: '/guide/media-chat-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
-              { text: '3. 混合数据', link: '/guide/mix-data' },
-              { text: '4. 准备模型', link: '/guide/prepare-model' },
+              { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
+              { text: '4. 准备模型(可跳过但不建议)', link: '/guide/prepare-model' },
               { text: '5. 微调模型', link: '/guide/fine-tune-model' },
               { text: '6. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '7. 转换GUFF和量化模型', link: '/guide/convert-model' },
@@ -40,7 +40,6 @@ export default defineConfig({
             text: '补充',
             items: [
               { text: '修改Logger的语言', link: '/guide/change-logger-language' },
-              { text: '微调OpenAI OSS模型', link: '/guide/fine-tune-openai-oss-model' },
               { text: '不同种类模型的微调经验(例如Qwen,Llama,Gemma等)', link: '/guide/fine-tune-model-exp' },
               { text: '节省显存', link: '/guide/save-vram' }
 
@@ -87,7 +86,6 @@ export default defineConfig({
               { text: '6. (Optional) Run Full Model', link: '/en/guide/run-full-model' },
               { text: '7. Convert GGUF and Quantize', link: '/en/guide/convert-model' },
               { text: '8. Run Model', link: '/en/guide/run-model' },
-              { text: '9. (Extra) Fine-tune OpenAI OSS Model', link: '/en/guide/fine-tune-openai-oss-model' }
 
             ]
           },

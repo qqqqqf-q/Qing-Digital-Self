@@ -8,53 +8,57 @@ import os
 import argparse
 import torch
 from utils.logger.logger import logger
+from utils.config.config import get_config
 
 def main():
     """运行QLoRA微调的主函数（不使用 Unsloth）
 
     功能：
         - 解析命令行参数
-        - 构建命令行参数
+        - 自动从config读取默认值
         - 执行训练命令并处理结果
     """
-    parser = argparse.ArgumentParser(description="QLoRA微调脚本（no-unsloth）")
+    # 获取配置实例
+    config = get_config()
+    
+    parser = argparse.ArgumentParser(description="QLoRA微调脚本-")
 
     # 基础与资源相关
     parser.add_argument(
         "--repo_id",
         type=str,
-        default="Qwen/Qwen3-30B-A3B-Instruct-2507",
-        help="HF 仓库ID，默认 Qwen/Qwen3-30B-A3B-Instruct-2507",
+        default=config.get("model_repo", "Qwen/Qwen3-30B-A3B-Instruct-2507"),
+        help="HF 仓库ID，默认从config读取或使用 Qwen/Qwen3-30B-A3B-Instruct-2507",
     )
     parser.add_argument(
         "--local_dir",
         type=str,
-        default="qwen3-30b-a3b-instruct",
-        help="本地模型目录（默认：qwen3-30b-a3b-instruct）",
+        default=config.get("model_path", "qwen3-30b-a3b-instruct"),
+        help="本地模型目录（默认从config读取或使用 qwen3-30b-a3b-instruct）",
     )
 
     # 训练与QLoRA开关
     parser.add_argument(
         "--use_unsloth",
         type=str,
-        default="false",
+        default=str(config.get("use_unsloth", "false")).lower(),
         choices=["true", "false"],
-        help="是否使用unsloth (default: false)",
+        help="是否使用unsloth (默认从config读取或使用 false)",
     )
     parser.add_argument(
         "--use_qlora",
         type=str,
-        default="true",
+        default=str(config.get("use_qlora", "true")).lower(),
         choices=["true", "false"],
-        help="是否使用qlora (default: true)",
+        help="是否使用qlora (默认从config读取或使用 true)",
     )
 
     # 数据与输出
     parser.add_argument(
         "--data_path",
         type=str,
-        default="training_data.jsonl",
-        help="训练数据路径 (default: training_data.jsonl)",
+        default=config.get("data_path", "training_data.jsonl"),
+        help="训练数据路径 (默认从config读取或使用 training_data.jsonl)",
     )
     parser.add_argument(
         "--eval_data_path",
@@ -74,14 +78,14 @@ def main():
     parser.add_argument(
         "--model_max_length",
         type=str,
-        default="2048",
-        help="最大序列长度 (default: 2048)",
+        default=str(config.get("messages_max_length", "2048")),
+        help="最大序列长度 (默认从config读取或使用 2048)",
     )
     parser.add_argument(
         "--output_dir",
         type=str,
-        default="finetune/models/qwen3-30b-a3b-qlora",
-        help="输出目录 (default: finetune/models/qwen3-30b-a3b-qlora)",
+        default=config.get("model_output_path", "finetune/models/qwen3-30b-a3b-qlora"),
+        help="输出目录 (默认从config读取或使用 finetune/models/qwen3-30b-a3b-qlora)",
     )
     parser.add_argument("--seed", type=str, default="42", help="随机种子 (default: 42)")
 
@@ -89,52 +93,70 @@ def main():
     parser.add_argument(
         "--per_device_train_batch_size",
         type=str,
-        default="1",
-        help="每个设备的训练批次大小 (default: 1)",
+        default=str(config.get("per_device_train_batch_size", "1")),
+        help="每个设备的训练批次大小 (默认从config读取或使用 1)",
     )
     parser.add_argument(
         "--per_device_eval_batch_size",
         type=str,
-        default="1",
-        help="每个设备的验证批次大小 (default: 1)",
+        default=str(config.get("per_device_eval_batch_size", "1")),
+        help="每个设备的验证批次大小 (默认从config读取或使用 1)",
     )
     parser.add_argument(
         "--gradient_accumulation_steps",
         type=str,
-        default="16",
-        help="梯度累积步数 (default: 16)",
+        default=str(config.get("gradient_accumulation_steps", "16")),
+        help="梯度累积步数 (默认从config读取或使用 16)",
     )
     parser.add_argument(
-        "--learning_rate", type=str, default="2e-4", help="学习率 (default: 2e-4)"
+        "--learning_rate", 
+        type=str, 
+        default=str(config.get("learning_rate", "2e-4")), 
+        help="学习率 (默认从config读取或使用 2e-4)"
     )
     parser.add_argument(
-        "--num_train_epochs", type=str, default="3", help="训练轮数 (default: 3)"
+        "--num_train_epochs", 
+        type=str, 
+        default="3", 
+        help="训练轮数 (default: 3)"
     )
     parser.add_argument(
-        "--max_steps", type=str, default="-1", help="最大步数，-1不限制 (default: -1)"
+        "--max_steps", 
+        type=str, 
+        default=str(config.get("max_steps", "-1")), 
+        help="最大步数，-1不限制 (默认从config读取或使用 -1)"
     )
 
     # LoRA 参数
     parser.add_argument(
-        "--lora_r", type=str, default="16", help="LoRA的秩 (default: 16)"
+        "--lora_r", 
+        type=str, 
+        default=str(config.get("lora_r", "16")), 
+        help="LoRA的秩 (默认从config读取或使用 16)"
     )
     parser.add_argument(
-        "--lora_alpha", type=str, default="32", help="LoRA的alpha值 (default: 32)"
+        "--lora_alpha", 
+        type=str, 
+        default=str(config.get("lora_alpha", "32")), 
+        help="LoRA的alpha值 (默认从config读取或使用 32)"
     )
     parser.add_argument(
         "--lora_dropout",
         type=str,
-        default="0.05",
-        help="LoRA的dropout率 (default: 0.05)",
+        default=str(config.get("lora_dropout", "0.05")),
+        help="LoRA的dropout率 (默认从config读取或使用 0.05)",
     )
     parser.add_argument(
         "--target_modules",
         type=str,
-        default="q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj",
+        default=",".join(config.get("lora_target_modules", ["q_proj", "v_proj"])) if isinstance(config.get("lora_target_modules"), list) else config.get("lora_target_modules", "q_proj,k_proj,v_proj,o_proj,gate_proj,up_proj,down_proj"),
         help="稠密模型 LoRA 目标模块（逗号分隔）",
     )
     parser.add_argument(
-        "--weight_decay", type=str, default="0.0", help="权重衰减 (default: 0.0)"
+        "--weight_decay", 
+        type=str, 
+        default="0.0", 
+        help="权重衰减 (default: 0.0)"
     )
 
     # MoE 相关参数
@@ -182,9 +204,9 @@ def main():
     parser.add_argument(
         "--load_precision",
         type=str,
-        default="fp16",
+        default=config.get("load_precision", "fp16"),
         choices=["int8", "int4", "fp16"],
-        help="模型加载精度：int8、int4 或 fp16 (default: fp16)",
+        help="模型加载精度：int8、int4 或 fp16 (默认从config读取或使用 fp16)",
     )
     parser.add_argument(
         "--use_flash_attention_2",
@@ -198,11 +220,14 @@ def main():
     parser.add_argument(
         "--logging_steps",
         type=str,
-        default="1",
+        default=str(config.get("logging_steps", "1")),
         help="日志记录步数，设置为1以每step输出loss",
     )
     parser.add_argument("--eval_steps", type=str, default="50", help="验证间隔步数")
-    parser.add_argument("--save_steps", type=str, default="200", help="保存模型步数")
+    parser.add_argument("--save_steps", 
+        type=str, 
+        default=str(config.get("save_steps", "200")), 
+        help="保存模型步数")
     parser.add_argument("--save_total_limit", type=str, default="2", help="最多保存数")
     parser.add_argument("--warmup_ratio", type=str, default="0.05", help="预热比例")
     parser.add_argument(
@@ -227,9 +252,9 @@ def main():
     parser.add_argument(
         "--fp16",
         type=str,
-        default="true",
+        default=str(config.get("fp16", "true")).lower(),
         choices=["true", "false"],
-        help="是否使用fp16 (default: true)",
+        help="是否使用fp16 (默认从config读取或使用 true)",
     )
     parser.add_argument("--optim", type=str, default="adamw_torch_fused", help="优化器")
     parser.add_argument(
@@ -240,7 +265,10 @@ def main():
         help="是否固定数据加载器内存 (default: false)",
     )
     parser.add_argument(
-        "--dataloader_num_workers", type=str, default="0", help="DataLoader 工作线程数"
+        "--dataloader_num_workers", 
+        type=str, 
+        default=str(config.get("max_workers", "0")), 
+        help="DataLoader 工作线程数"
     )
     parser.add_argument(
         "--dataloader_prefetch_factor",

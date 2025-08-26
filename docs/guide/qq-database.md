@@ -9,4 +9,9 @@
 * 新建数据库，**导入刚才导出的 SQL 文件**
 * 获得一个这样的数据库
 * 结构如下图,是明文数据库(你能打开并且能看到数据就是正常的)
+* 将数据库重命名为 `qq.db`并放在`dataset/original`文件夹下
+> 或修改`setting.jsonc`中的`qq_db_path`
+
+
+
 * <img src="https://cdn.nodeimage.com/i/oBfbWfVLhJI0CeZHTwwxq6G7XGO40Vy4.webp" alt="数据库图片">

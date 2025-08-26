@@ -1,13 +1,21 @@
-## 2.1 Clean Data (Regular Version, LLM cleaning version in next chapter)
-> This method is much faster than LLM cleaning, 300k messages done in half a minute
+## Prerequisite: Convert Data to CSV
+```bash
+python cli.py data extract
+# Or customize parser fields
+python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
+```
+
+## Clean Data (Regular Version, LLM cleaning version in next chapter)
+> This method is much faster than LLM cleaning, 300k messages done in a few seconds
 > But correspondingly the quality is also lower
 > This part is recommended to be optimized on Windows first, then uploaded to GPU server
-> Not sure if there are compatibility issues on Linux
-* Modify the database path and related parameters in the `.env` file (please note the required fields)
+
+* Modify the database path and related parameters in the `setting.jsonc` file (please note the required fields)
+* Some fields in `data_agrs` and the `system prompt` below
 * Run the cleaning script:
 
   ```bash
-  python generate_training_data.py
+  python cli.py data clean raw
   ```
 
 ## 2.2 Clean Data (LLM Cleaning)

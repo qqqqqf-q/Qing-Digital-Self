@@ -1,16 +1,26 @@
+## 前提:将数据转化为csv
+```bash
+python cli.py data extract
+或自定义parser字段
+python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890--output ./dataset/csv
+```
+
 ## 清洗数据(普通版本,llm清洗版本在下一章节)
-> 此方法比llm清洗快得多,30w条消息半分钟就好了
+> 此方法比llm清洗快得多,30w条消息几秒就好了
 > 但是对应的质量也更低
 > 这个部分建议在windows上优化完再上传至GPU服务器  
-> 不确定在Linux上有没有兼容性问题  
-* 在 `.env` 文件中修改数据库路径及相关参数(请注意其中的必填段)
+
+* 在 `setting.jsonc` 文件中修改数据库路径及相关参数(请注意其中的必填段)
+* `data_agrs`中的一些字段以及下面的`system prompt`
 * 运行清洗脚本：
 
-  ```bash
-  python generate_training_data.py
-  ```
-
+```bash
+python cli.py data clean raw
+```
+---
 ## 清洗数据(llm清洗)
+# Develop版本可能暂时不适配此功能
+# 请优先使用raw版本或等待更新新清洗方法
 > 需要配置一个OpenAI兼容的API  
 > 比如:LM Studio 或者 vLLM(速度更快,但搭建更麻烦,需要Linux环境)  
 
@@ -20,7 +30,7 @@
 * 1.前往[LM Studio](https://lmstudio.ai/)下载LM Studio
 * 2.安装LM Studio
 * 3.打开LM Studio,点击左侧`搜索`->`Model Search`
-* 4.搜索 `qwen3 8b`->`Complete Download`  
+* 4.搜索 `qwen2.5-7b-instruct`->`Complete Download`  
 * 5.选择合适你的量化版本**建议至少Q4,最好Q6-Q8,随你的设备情况而定,不知道的可以问AI**
 * 记住你的**模型名称**,填写到`.env`文件的`Openai_model`中
 * 如果不知道你的模型名称可以运行test_openai.py,会输出所有的模型名称
@@ -63,7 +73,7 @@ pip install vllm
 ```
 
 ### 和lm studio不同的注意点
-*   1.`.env`中的`Openai_model`需要设置路径而不只是文件夹名
+*   1.`setting.jsonc`中的`model_name`需要设置路径而不只是文件夹名
 > 是`/home/vllm/qwen3-4b-int8`而非`qwen3-4b-int8`  
 *  2.需要运行的**api_server**是`vllm.entrypoints.openai.api_server`而不是`vllm.entrypoints.api_server`,因为第二个不兼容OpenAI API
   
@@ -73,3 +83,9 @@ python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 -
 ```
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 
+
+### dev注
+> 目前尚未实现新的llm处理  
+> `python cli.py data clean llm`命令可用但是等同于raw  
+> 另外`python cli.py data extract`命令现在只支持QQ Parser,没有对多parser多数据源进行优化  
+> 可以添加`qq/tg/wx`等`metamodel`来支持更多parser

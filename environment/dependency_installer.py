@@ -174,19 +174,54 @@ class DependencyInstaller:
                     self._log("info", f"获得Unsloth安装命令: {install_command}")
                     self._log("info", "正在执行Unsloth安装（包含所有深度学习依赖）...")
                     
-                    # 直接执行安装命令
-                    if install_command.startswith("pip install"):
-                        # 提取pip参数
-                        pip_args = install_command.split()[2:]  # 跳过"pip install"
+                    # 处理安装命令（可能包含 && 连接多个命令）
+                    if "pip install" in install_command:
+                        # 拆分命令（处理 && 连接的情况）
+                        commands = []
+                        current_command = []
                         
-                        install_result = self.venv_manager.run_in_venv(
-                            ["pip", "install"] + pip_args,
-                            venv_name,
-                            capture_output=False,  # 实时显示输出
-                            timeout=1800  # 30分钟超时，unsloth安装可能很慢
-                        )
+                        for part in install_command.split():
+                            if part == "&&":
+                                if current_command:
+                                    commands.append(current_command)
+                                    current_command = []
+                            else:
+                                current_command.append(part)
                         
-                        if install_result.returncode == 0:
+                        if current_command:
+                            commands.append(current_command)
+                        
+                        # 执行所有命令
+                        all_success = True
+                        for cmd_parts in commands:
+                            if cmd_parts[0] == "pip" and cmd_parts[1] == "install":
+                                # 这是pip install命令
+                                pip_args = cmd_parts[2:]  # 跳过"pip install"
+                                
+                                install_result = self.venv_manager.run_in_venv(
+                                    ["pip", "install"] + pip_args,
+                                    venv_name,
+                                    capture_output=False,  # 实时显示输出
+                                    timeout=1800  # 30分钟超时，unsloth安装可能很慢
+                                )
+                                
+                                if install_result.returncode != 0:
+                                    self._log("error", f"命令执行失败: {' '.join(cmd_parts)}")
+                                    all_success = False
+                                    break
+                            else:
+                                # 其他命令（如pip upgrade）
+                                install_result = self.venv_manager.run_in_venv(
+                                    cmd_parts,
+                                    venv_name,
+                                    capture_output=False,
+                                    timeout=300
+                                )
+                                
+                                if install_result.returncode != 0:
+                                    self._log("warning", f"辅助命令执行失败: {' '.join(cmd_parts)}")
+                        
+                        if all_success:
                             self._log("info", "Unsloth及相关依赖安装成功")
                             return True
                         else:

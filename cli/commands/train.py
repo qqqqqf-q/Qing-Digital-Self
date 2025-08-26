@@ -138,31 +138,29 @@ class TrainCommand(BaseCommand):
     
     def _validate_training_environment(self, params: Dict[str, Any]) -> None:
         """验证训练环境"""
-        # 检查GPU可用性 - 暂时跳过torch检查避免null bytes错误
+        # 检查GPU可用性
         try:
-            self.logger.info("跳过torch验证（避免null bytes错误）")
-            # import torch
-            # if not torch.cuda.is_available():
-            #     self.logger.warning("CUDA不可用，将使用CPU训练（速度较慢）")
-            # else:
-            #     gpu_count = torch.cuda.device_count()
-            #     self.logger.info(f"检测到 {gpu_count} 个GPU设备")
+            import torch
+            if not torch.cuda.is_available():
+                self.logger.warning("CUDA不可用，将使用CPU训练（速度较慢）")
+            else:
+                gpu_count = torch.cuda.device_count()
+                self.logger.info(f"检测到 {gpu_count} 个GPU设备")
         except ImportError:
             raise TrainingError("PyTorch未安装")
         
-        # 检查必要的库 - 暂时跳过避免null bytes错误
-        self.logger.info("跳过依赖检查（避免null bytes错误）")
-        # required_packages = ['transformers', 'peft', 'datasets']
-        # missing_packages = []
-        # 
-        # for package in required_packages:
-        #     try:
-        #         __import__(package)
-        #     except ImportError:
-        #         missing_packages.append(package)
-        # 
-        # if missing_packages:
-        #     raise TrainingError(f"缺少必要的训练库: {missing_packages}")
+        # 检查必要的库
+        required_packages = ['transformers', 'peft', 'datasets', 'accelerate']
+        missing_packages = []
+        
+        for package in required_packages:
+            try:
+                __import__(package)
+            except ImportError:
+                missing_packages.append(package)
+        
+        if missing_packages:
+            raise TrainingError(f"缺少必要的训练库: {missing_packages}")
         
         # 检查输出目录
         ensure_directory(params['output_dir'])

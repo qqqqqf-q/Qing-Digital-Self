@@ -1,29 +1,24 @@
-## 准备模型(可跳过)
->我似乎是写了自动从modelscope下载模型的  
->当然也可以手动下载,因为我真的不确定那里有没有Bug  
+## 准备模型(可跳过但不建议)
 
-# ModelScope下载
-### 运行代码
-```bash
-pip install modelscope
-modelscope download --model Qwen/Qwen3-14B --local_dir ./qwen3-14b
-```
->嗯...对,就是这么简单  
-> 需要自己去modelscope社区找你需要的模型
+在设置完`setting.jsonc`中的模型参数后可以不用填写参数使用这个下载模型
 
->这一段是可以跳过的(大概是)
+支持从ModelScope和HuggingFace下载模型：
 
-# HuggingFace下载
+```bash
+# 使用配置文件中的设置
+# 优先使用此方法
+python3 environment/download/model_download.py
 
-### 下载模型
-```bash
-huggingface-cli download unsloth/gpt-oss-20b-BF16 --local-dir gpt-oss-20b
-```
-> 如果没有huggingface-cli,请先安装  
-```bash
-pip install huggingface-hub
-```
-> 如果需要镜像站请先运行  
-```bash
-export HF_ENDPOINT=https://hf-mirror.com
+# 指定参数下载
+python3 environment/download/model_download.py \
+  --model-repo Qwen/Qwen-3-8B-Base \
+  --model-path ./model/Qwen-3-8B-Base \
+  --download-source modelscope
+ #download-source 可选modelscope或者huggingface
+
+# 列出已下载的模型
+python3 environment/download/model_download.py --list
+
+# 查看模型信息
+python3 environment/download/model_download.py --info ./model/Qwen2.5-7B-Instruct
 ```

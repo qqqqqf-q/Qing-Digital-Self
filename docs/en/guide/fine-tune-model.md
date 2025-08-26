@@ -5,44 +5,36 @@
 
 ## Before You Begin — Environment Setup
 
-> It’s simple, don’t worry.
+> It's simple, don't worry.
 
 ```bash
 git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
 ```
 
-Create a virtual environment:
+Or use a mirror (China mainland acceleration):
 
 ```bash
-python3 -m venv venv
+git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/Qing-Digital-Self.git  --depth 1
 ```
 
-Activate the virtual environment:
-
-* On Linux/Mac:
+# Configure the Environment
 
 ```bash
-source venv/bin/activate
+python3 environment/setup_env.py --install
 ```
 
-* On Windows:
+Just follow the default process.
+Installation includes built-in checks.
+You can also use:
 
 ```bash
-.\venv\Scripts\activate
+python3 environment/setup_env.py --check
 ```
 
-Install dependencies:
+To check the environment.
 
-```bash
-pip install -r requirements.txt
-```
-
-> PS: ~~I spent a very long time debugging dependency issues at this step — no idea why I had so many weird problems before()~~
-> But this requirements file is my own tested version, ~~so it should be stable~~.
-
----
-
-### If you need the Unsloth + Torch version provided by Unsloth, run the following:
+If you encounter issues with Unsloth installation, please install it manually.
+First run the following command:
 
 ```bash
 wget -qO- https://raw.githubusercontent.com/unslothai/unsloth/main/unsloth/_auto_install.py | python -
@@ -53,6 +45,17 @@ For example:
 
 ```bash
 pip install --upgrade pip && pip install "unsloth[cu126-ampere-torch270] @ git+https://github.com/unslothai/unsloth.git"
+```
+
+If you encounter issues with flash attention installation,
+You can try visiting [this GitHub repository](https://github.com/Dao-AILab/flash-attention/releases/)
+To find the offline installation package you need (this doesn't require compilation and will be much faster).
+Commands are similar to:
+
+```bash
+wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.4cxx11abiTRUE-cp312-cp312-linux_x86_64.whl'
+
+pip install flash_attn-2.8.3+cu12torch2.4cxx11abiTRUE-cp312-cp312-linux_x86_64.whl
 ```
 
 ---
