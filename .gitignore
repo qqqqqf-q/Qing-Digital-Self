@@ -211,3 +211,5 @@ dataset/sft.jsonl
 openai_connect_util.py
 logs
 .trae
+dataset/sft.jsonl
+dataset/sft.jsonl
