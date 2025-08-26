@@ -207,3 +207,7 @@ dataset/csv
 chatml_data.jsonl
 chatml_training_data.jsonl
 qds_env
+dataset/sft.jsonl
+openai_connect_util.py
+logs
+.trae
