@@ -213,3 +213,5 @@ logs
 .trae
 dataset/sft.jsonl
 dataset/sft.jsonl
+.codebuddy
+checkpoints
