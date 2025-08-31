@@ -1,7 +1,7 @@
-## 前提:将数据转化为csv
+## 第一步:将数据转化为csv
 ```bash
 python cli.py data extract
-或自定义parser字段
+# 或自定义parser字段
 python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890--output ./dataset/csv
 ```
 

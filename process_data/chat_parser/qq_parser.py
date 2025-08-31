@@ -315,6 +315,18 @@ class QQParser:
         
         return cleaned.strip()
     
+    def normalize_multiple_messages(self, text: str) -> str:
+        """规范化多次发送的消息：将连续空格替换为换行符"""
+        if not text:
+            return text
+        
+        # 将连续的多个空格（2个或以上）替换为换行符
+        # 这样可以保持原有的消息分段结构
+        import re
+        # 匹配2个或以上连续空格，替换为换行符
+        normalized = re.sub(r' {2,}', '\n', text)
+        return normalized
+    
     def calculate_text_quality(self, text: str) -> float:
         """计算文本质量评分"""
         if not text:
@@ -578,6 +590,9 @@ class QQParser:
                     
                 # 去除首尾空格
                 content = content.strip()
+                
+                # 规范化多次发送的消息（将连续空格替换为换行符）
+                content = self.normalize_multiple_messages(content)
                 
                 # 使用集成的增强过滤器检查文本有效性
                 if not self.is_enhanced_valid_text(content):

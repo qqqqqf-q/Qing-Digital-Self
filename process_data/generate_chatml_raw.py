@@ -179,7 +179,7 @@ class ChatMLGenerator:
             
             if same_room and same_sender and time_diff <= self.single_combine_time_window:
                 # 检查合并后长度是否超限
-                combined_content = last_msg.msg + " " + current_msg.msg
+                combined_content = last_msg.msg + "\n" + current_msg.msg
                 if len(combined_content) <= self.combine_msg_max_length:
                     current_group.append(current_msg)
                     continue
@@ -210,7 +210,7 @@ class ChatMLGenerator:
             return None
             
         first_msg = group[0]
-        combined_content = " ".join([msg.msg for msg in group])
+        combined_content = "\n".join([msg.msg for msg in group])
         
         # 创建合并后的消息
         merged_msg = Message(

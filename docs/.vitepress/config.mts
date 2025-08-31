@@ -25,7 +25,7 @@ export default defineConfig({
           {
             text: '快速上手',
             items: [
-              { text: '1. QQ/其他数据的获取', link: '/guide/qq-database' },
+              { text: '1. QQ/其他数据的获取', link: '/guide/prepare-data' },
               { text: '1.5 (可选) 从视频/音频文件中获取聊天数据', link: '/guide/media-chat-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
@@ -77,7 +77,7 @@ export default defineConfig({
           {
             text: 'Quick Start',
             items: [
-              { text: '1. Get QQ Database', link: '/en/guide/qq-database' },
+              { text: '1. Get QQ Database', link: '/en/guide/prepare-data' },
               { text: '1.5 (Optional) Get Chat Data from Media', link: '/en/guide/media-chat-data' },
               { text: '2. Clean Data', link: '/en/guide/clean-data' },
               { text: '3. Mix Data', link: '/en/guide/mix-data' },
