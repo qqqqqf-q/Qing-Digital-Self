@@ -28,7 +28,7 @@ export default defineConfig({
               { text: '1. QQ/TG/其他数据的获取', link: '/guide/prepare-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
-              { text: '4. 准备模型(可跳过但不建议)', link: '/guide/prepare-model' },
+              { text: '4. 准备模型', link: '/guide/prepare-model' },
               { text: '5. 微调模型', link: '/guide/fine-tune-model' },
               { text: '6. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '7. 转换GUFF和量化模型', link: '/guide/convert-model' },

@@ -9,7 +9,7 @@ from .data import DataCommand
 from .train import TrainCommand
 from .infer import InferCommand
 from .utils import UtilsCommand
-from .download import DownloadCommand
+from .download import ModelCommand
 
 __all__ = [
     'ConfigCommand',
@@ -17,5 +17,5 @@ __all__ = [
     'TrainCommand',
     'InferCommand',
     'UtilsCommand',
-    'DownloadCommand'
+    'ModelCommand'
 ]

@@ -1,5 +1,5 @@
 """
-模型下载命令
+模型管理命令
 
 提供模型下载、列表查看和信息获取功能。
 支持从ModelScope和HuggingFace下载模型。
@@ -15,32 +15,25 @@ from ..core.exceptions import ConfigurationError, ValidationError
 from ..core.helpers import confirm_action, format_file_size
 
 
-class DownloadCommand(BaseCommand):
-    """模型下载命令"""
+class ModelCommand(BaseCommand):
+    """模型管理命令"""
     
     def __init__(self):
-        super().__init__("download", "模型下载")
+        super().__init__("model", "模型管理")
     
     def execute(self, args: argparse.Namespace) -> int:
-        """执行下载命令"""
-        # 检查是否是直接参数
-        if hasattr(args, 'list') and args.list:
-            return self._list_models(args)
-        elif hasattr(args, 'info') and args.info:
-            return self._show_model_info(args)
-        
+        """执行模型管理命令"""
         # 检查子命令
-        action = getattr(args, 'download_action', None)
+        action = getattr(args, 'model_action', None)
         
-        # 如果没有指定子命令，默认执行模型下载
-        if action is None or action == 'model':
+        if action == 'download':
             return self._download_model(args)
         elif action == 'list':
             return self._list_models(args)
         elif action == 'info':
             return self._show_model_info(args)
         else:
-            self.logger.error("未指定下载操作")
+            self.logger.error("未指定模型操作，请使用: download, list, info")
             return 1
     
     def _download_model(self, args: argparse.Namespace) -> int:
@@ -160,13 +153,16 @@ class DownloadCommand(BaseCommand):
         """显示模型信息"""
         try:
             from environment.download.model_download import ModelDownloader
+            from utils.config.config import get_config
             
             # 获取模型路径（支持直接参数和子命令参数）
-            model_path = getattr(args, 'info', None) or getattr(args, 'model_path', None)
-            if not model_path:
-                self.logger.error("请指定模型路径")
-                return 1
+            model_path = getattr(args, 'model_path', None)
             
+            # 如果没有指定模型路径，显示所有模型的信息
+            if not model_path:
+                return self._show_all_models_info(args)
+            
+            # 显示特定模型的信息
             if not os.path.exists(model_path):
                 self.logger.error(f"模型路径不存在: {model_path}")
                 return 1
@@ -204,4 +200,90 @@ class DownloadCommand(BaseCommand):
             
         except Exception as e:
             self.logger.error(f"获取模型信息失败: {e}")
+            return 1
+    
+    def _show_all_models_info(self, args: argparse.Namespace) -> int:
+        """显示所有模型的详细信息"""
+        try:
+            from environment.download.model_download import ModelDownloader
+            from utils.config.config import get_config
+            
+            config = get_config()
+            # 获取模型目录
+            models_dir = config.get('models_dir')
+            if not models_dir:
+                model_path = config.get('model_path', './model/default')
+                models_dir = os.path.dirname(model_path)
+            
+            if not os.path.exists(models_dir):
+                self.logger.info(f"模型目录不存在: {models_dir}")
+                return 0
+            
+            downloader = ModelDownloader(self.logger)
+            model_count = 0
+            
+            self.logger.info(f"所有模型详细信息 (位置: {models_dir}):")
+            
+            for item in os.listdir(models_dir):
+                item_path = os.path.join(models_dir, item)
+                # 只处理目录，且不是以点开头的隐藏文件/目录
+                if os.path.isdir(item_path) and not item.startswith('.'):
+                    model_count += 1
+                    model_info = downloader.get_model_info(item_path)
+                    
+                    # 输出模型信息
+                    print(f"\n{'='*80}")
+                    print(f"模型 {model_count}: {item}")
+                    print(f"{'='*80}")
+                    print(f"{'属性':<20} {'值'}")
+                    print("-" * 50)
+                    print(f"{'路径':<20} {model_info['path']}")
+                    print(f"{'存在':<20} {'是' if model_info['exists'] else '否'}")
+                    print(f"{'文件数量':<20} {len(model_info.get('files', []))}")
+                    print(f"{'总大小':<20} {format_file_size(model_info.get('size', 0))}")
+                    
+                    # 检查模型完整性
+                    config_files = ['config.json', 'configuration.json']
+                    has_config = any(os.path.exists(os.path.join(item_path, cf)) for cf in config_files)
+                    
+                    model_files = ['pytorch_model.bin', 'model.safetensors', 'pytorch_model.safetensors']
+                    has_model = any(os.path.exists(os.path.join(item_path, mf)) for mf in model_files)
+                    
+                    if not has_model:
+                        for file in os.listdir(item_path):
+                            if file.startswith('model-') and file.endswith('.safetensors'):
+                                has_model = True
+                                break
+                    
+                    status = "完整" if (has_config and has_model) else "不完整"
+                    print(f"{'模型状态':<20} {status}")
+                    
+                    # 显示主要文件
+                    if model_info.get('files'):
+                        print(f"\n主要文件:")
+                        important_files = []
+                        for file_info in model_info['files']:
+                            filename = file_info['name']
+                            if any(ext in filename for ext in ['.json', '.bin', '.safetensors', '.txt']):
+                                important_files.append(file_info)
+                        
+                        if important_files:
+                            print(f"{'文件名':<40} {'大小'}")
+                            print("-" * 60)
+                            for file_info in important_files[:8]:  # 最多显示8个
+                                print(f"{file_info['name']:<40} {format_file_size(file_info['size'])}")
+                            
+                            if len(important_files) > 8:
+                                print(f"... 还有 {len(important_files) - 8} 个文件")
+            
+            if model_count == 0:
+                print("\n未找到已下载的模型")
+            else:
+                print(f"\n{'='*80}")
+                print(f"总共找到 {model_count} 个模型")
+            
+            return 0
+            
+        except Exception as e:
+            self.logger.error(f"获取所有模型信息失败: {e}")
             return 1

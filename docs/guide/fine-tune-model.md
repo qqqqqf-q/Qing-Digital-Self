@@ -102,7 +102,7 @@ pip install flash_attn-2.8.3+cu12torch2.4cxx11abiTRUE-cp312-cp312-linux_x86_64.w
 
 ---
 > 参数还是太复杂了,建议询问AI  
-> 下面是一个4090微调`qwen3-8b-base`的范例
+> 下面是一个4090微调`qwen2.5-7b-instruct`的范例
 ```bash
 python3 run_finetune.py --output_dir /root/autodl-fs/qwen2.5-7b-qing-v1 --local_dir ./model/Qwen2.5-7B-Instruct --data_path ./dataset/sft.jsonl --use_qlora true --lora_dropout 0.1 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing  --load_precision int8
 ```

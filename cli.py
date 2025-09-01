@@ -290,34 +290,26 @@ def create_parser() -> argparse.ArgumentParser:
     utils_import.add_argument('--source', required=True, help='源路径')
     utils_import.add_argument('--target', required=True, help='目标路径')
     
-    # 模型下载命令
-    download_parser = subparsers.add_parser(
-        'download',
-        help='模型下载',
-        description='从ModelScope或HuggingFace下载模型'
+    # 模型管理命令
+    model_parser = subparsers.add_parser(
+        'model',
+        help='模型管理',
+        description='模型下载、列表和信息查看'
     )
+    model_subparsers = model_parser.add_subparsers(dest='model_action')
     
-    # 添加全局下载参数（不需要子命令时使用）
-    download_parser.add_argument('--model-repo', help='模型仓库 (如: Qwen/Qwen-3-8B-Base)')
-    download_parser.add_argument('--model-path', help='本地保存路径 (如: ./model/Qwen-3-8B-Base)')
-    download_parser.add_argument('--download-source', choices=['modelscope', 'huggingface'], help='下载源')
-    download_parser.add_argument('--list', action='store_true', help='列出已下载的模型')
-    download_parser.add_argument('--info', help='查看模型信息（指定模型路径）')
+    # model download
+    model_download = model_subparsers.add_parser('download', help='下载模型')
+    model_download.add_argument('--model-repo', help='模型仓库 (如: Qwen/Qwen-3-8B-Base)')
+    model_download.add_argument('--model-path', help='本地保存路径 (如: ./model/Qwen-3-8B-Base)')
+    model_download.add_argument('--download-source', choices=['modelscope', 'huggingface'], help='下载源')
     
-    download_subparsers = download_parser.add_subparsers(dest='download_action')
+    # model list
+    model_list = model_subparsers.add_parser('list', help='列出已下载的模型')
     
-    # download model (显式子命令)
-    download_model = download_subparsers.add_parser('model', help='下载模型')
-    download_model.add_argument('--model-repo', help='模型仓库 (如: Qwen/Qwen-3-8B-Base)')
-    download_model.add_argument('--model-path', help='本地保存路径 (如: ./model/Qwen-3-8B-Base)')
-    download_model.add_argument('--download-source', choices=['modelscope', 'huggingface'], help='下载源')
-    
-    # download list
-    download_list = download_subparsers.add_parser('list', help='列出已下载的模型')
-    
-    # download info
-    download_info = download_subparsers.add_parser('info', help='查看模型信息')
-    download_info.add_argument('model_path', help='模型路径')
+    # model info
+    model_info = model_subparsers.add_parser('info', help='查看模型信息')
+    model_info.add_argument('model_path', nargs='?', help='模型路径（可选，不指定则显示所有模型信息）')
     
     return parser
 
