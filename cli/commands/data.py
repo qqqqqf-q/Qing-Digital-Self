@@ -73,13 +73,19 @@ class DataCommand(BaseCommand):
     
     def _validate_extract_args(self, args: argparse.Namespace) -> None:
         """验证数据提取参数"""
-        # QQ数据库路径验证
-        qq_db_path = getattr(args, 'qq_db_path') or self.config.get('qq_db_path')
-        if not qq_db_path:
-            raise ValidationError("必须指定QQ数据库路径")
+        # 获取数据源类型
+        source_type = getattr(args, 'source_type', None)
+        data_dir = getattr(args, 'data_dir') or self.config.get('data_dir', './dataset/original/')
         
-        if not os.path.exists(qq_db_path):
-            raise ValidationError(f"QQ数据库文件不存在: {qq_db_path}")
+        # 验证数据目录存在
+        if not os.path.exists(data_dir):
+            raise ValidationError(f"数据目录不存在: {data_dir}")
+        
+        # 根据数据源类型进行特定验证
+        if source_type == 'qq':
+            qq_db_path = getattr(args, 'qq_db_path') or self.config.get('qq_db_path')
+            if qq_db_path and not os.path.exists(qq_db_path):
+                raise ValidationError(f"QQ数据库文件不存在: {qq_db_path}")
         
         # 输出路径验证
         output_path = getattr(args, 'output')
@@ -122,29 +128,33 @@ class DataCommand(BaseCommand):
         validate_path(args.input, must_exist=True)
     
     def _extract_data(self, args: argparse.Namespace) -> int:
-        """从QQ数据库提取数据"""
+        """从聊天数据中提取数据（支持QQ和Telegram）"""
         try:
-            self.logger.info("开始从QQ数据库提取数据...")
+            self.logger.info("开始从聊天数据中提取数据...")
             
             # 准备参数
-            qq_db_path = getattr(args, 'qq_db_path') or self.config.get('qq_db_path')
-            qq_number_ai = getattr(args, 'qq_number_ai') or self.config.get('qq_number_ai')
+            source_type = getattr(args, 'source_type', None)
+            data_dir = getattr(args, 'data_dir') or self.config.get('data_dir', './dataset/original/')
             output_path = getattr(args, 'output') or "./dataset/csv"
-            time_range = getattr(args, 'time_range')
             
             # 确保输出目录存在
-            ensure_directory(os.path.dirname(output_path))
+            ensure_directory(output_path)
             
             # 构建提取命令参数
             extract_args = {
-                'qq_db_path': qq_db_path,
-                'qq_number_ai': qq_number_ai,
-                'output_path': output_path,
-                'time_range': time_range
+                'data_dir': data_dir,
+                'output_dir': output_path,
+                'source_type': source_type,
+                # QQ相关参数
+                'qq_db_path': getattr(args, 'qq_db_path', None) or self.config.get('qq_db_path'),
+                'qq_number_ai': getattr(args, 'qq_number_ai', None) or self.config.get('qq_number_ai'),
+                # Telegram相关参数
+                'telegram_chat_id': getattr(args, 'telegram_chat_id', None) or self.config.get('telegram_chat_id'),
+                'tg_data_dir': getattr(args, 'tg_data_dir', None) or self.config.get('tg_data_dir')
             }
             
             # 执行数据提取
-            result = self._execute_data_extraction(extract_args)
+            result = self._execute_unified_data_extraction(extract_args)
             
             if result == 0:
                 # 显示提取结果统计
@@ -156,31 +166,85 @@ class DataCommand(BaseCommand):
         except Exception as e:
             raise DataProcessingError(f"数据提取失败: {e}")
     
-    def _execute_data_extraction(self, extract_args: Dict[str, Any]) -> int:
-        """执行数据提取过程"""
+    def _execute_unified_data_extraction(self, extract_args: Dict[str, Any]) -> int:
+        """执行统一数据提取过程"""
         try:
-            # 导入数据提取模块
+            # 导入统一解析器
+            from process_data.chat_parser.generate_parser import UnifiedParser
+            
+            # 创建统一解析器
+            unified_parser = UnifiedParser(
+                data_dir=extract_args['data_dir'],
+                output_dir=extract_args['output_dir']
+            )
+            
+            # 构建解析参数
+            parse_kwargs = {}
+            
+            # 添加QQ相关参数
+            if extract_args.get('qq_db_path'):
+                parse_kwargs['qq_db_path'] = extract_args['qq_db_path']
+            if extract_args.get('qq_number_ai'):
+                parse_kwargs['qq_number_ai'] = extract_args['qq_number_ai']
+            
+            # 添加Telegram相关参数
+            if extract_args.get('telegram_chat_id'):
+                parse_kwargs['telegram_chat_id'] = extract_args['telegram_chat_id']
+            if extract_args.get('tg_data_dir'):
+                parse_kwargs['tg_data_dir'] = extract_args['tg_data_dir']
+            
+            # 执行解析
+            if extract_args.get('source_type'):
+                # 指定数据源类型
+                from process_data.chat_parser.generate_parser import DataSourceType
+                
+                if extract_args['source_type'] == 'qq':
+                    source_type = DataSourceType.QQ
+                elif extract_args['source_type'] in ['tg', 'telegram']:
+                    source_type = DataSourceType.TELEGRAM
+                else:
+                    raise DataProcessingError(f"不支持的数据源类型: {extract_args['source_type']}")
+                
+                return unified_parser.parse_with_source_type(source_type, **parse_kwargs)
+            else:
+                # 自动检测数据源
+                return unified_parser.parse_auto(**parse_kwargs)
+            
+        except ImportError as e:
+            self.logger.error(f"无法导入统一解析器: {e}")
+            # 降级到原有的QQ解析器
+            return self._fallback_to_qq_parser(extract_args)
+        except Exception as e:
+            raise DataProcessingError(f"统一数据提取执行失败: {e}")
+    
+    def _fallback_to_qq_parser(self, extract_args: Dict[str, Any]) -> int:
+        """降级到原有的QQ解析器方法"""
+        try:
+            # 导入QQ解析器
             from process_data.chat_parser.qq_parser import QQParser
+            
+            qq_db_path = extract_args.get('qq_db_path')
+            if not qq_db_path:
+                self.logger.error("降级到QQ解析器时未指定QQ数据库路径")
+                return 1
             
             # 使用正确的参数初始化QQParser
             parser = QQParser(
-                db_path=extract_args['qq_db_path'],
-                output_dir=extract_args['output_path'],
-                qq_number_ai=extract_args['qq_number_ai']
+                db_path=qq_db_path,
+                output_dir=extract_args['output_dir'],
+                qq_number_ai=extract_args.get('qq_number_ai')
             )
             
             # 执行提取
             parser.parse_all()
-            
             return 0
             
         except ImportError as e:
             self.logger.error(f"无法导入QQ解析模块: {e}")
-            # 降级到直接调用脚本
+            # 继续降级到直接调用脚本
             return self._fallback_extract_data(extract_args)
         except Exception as e:
-            raise DataProcessingError(f"数据提取执行失败: {e}")
-    
+            raise DataProcessingError(f"QQ解析器降级失败: {e}")
     def _fallback_extract_data(self, extract_args: Dict[str, Any]) -> int:
         """降级的数据提取方法，直接调用脚本"""
         try:
@@ -197,11 +261,8 @@ class DataCommand(BaseCommand):
             if extract_args.get('qq_number_ai'):
                 cmd.extend(['--qq-number-ai', extract_args['qq_number_ai']])
             
-            if extract_args.get('output_path'):
-                cmd.extend(['--output', extract_args['output_path']])
-            
-            if extract_args.get('time_range'):
-                cmd.extend(['--time-range', extract_args['time_range']])
+            if extract_args.get('output_dir'):
+                cmd.extend(['--output', extract_args['output_dir']])
             
             # 执行命令
             self.logger.info(f"执行命令: {' '.join(cmd)}")

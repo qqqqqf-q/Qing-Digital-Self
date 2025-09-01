@@ -5,6 +5,7 @@
     "model_args": {
         "model_path": "./model/Qwen2.5-7B-Instruct",
         "model_repo": "Qwen/Qwen2.5-7B-Instruct",
+        "models_dir": "./model",
         "model_output_path": "./model_output",
         "template": "qwen",
         "finetuning_type": "qlora",
@@ -16,12 +17,15 @@
         "language": "zhcn"
     },
     "data_args": {
+        "data_dir": "./dataset/original/",
+        "output_dir": "./dataset/csv/",
         "qq_agrs": {
             "qq_db_path": "./dataset/original/qq.db",
             "qq_number_ai": "1234567890"
         },
         "telegram_args": {
-            "telegram_chat_id": null
+            "telegram_chat_id": null,
+            "tg_data_dir": "./dataset/original/"
         },
         "include_type": [
             "text"

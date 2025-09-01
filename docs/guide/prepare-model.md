@@ -7,7 +7,7 @@
 ```bash
 # 使用配置文件中的设置
 # 优先使用此方法
-python3 environment/download/model_download.py
+python3 cli.py download
 
 # 指定参数下载
 python3 environment/download/model_download.py \

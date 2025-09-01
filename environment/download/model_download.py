@@ -216,7 +216,10 @@ class ModelDownloader:
     def list_downloaded_models(self, base_path: str = None) -> List[Dict]:
         """列出已下载的模型"""
         if base_path is None:
-            base_path = os.path.dirname(self.config.get('model_path', './model'))
+            # 优先使用配置文件中的models_dir，如果没有则从model_path推导
+            base_path = self.config.get('models_dir')
+            if not base_path:
+                base_path = os.path.dirname(self.config.get('model_path', './model'))
         
         models = []
         

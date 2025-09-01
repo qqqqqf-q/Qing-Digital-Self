@@ -12,17 +12,21 @@ Qing-Digital-Self CLI 主入口
     qds infer chat                  # 启动对话模式
 
 支持的命令:
-    config  - 配置管理
-    data    - 数据处理
-    train   - 模型训练
-    infer   - 模型推理
-    utils   - 工具命令
+    config   - 配置管理
+    data     - 数据处理
+    train    - 模型训练
+    infer    - 模型推理
+    utils    - 工具命令
+    download - 模型下载
 """
 
 import sys
 import os
 import argparse
 from typing import List, Optional, Dict, Any
+
+# 设置NumExpr最大线程数，避免警告信息
+os.environ.setdefault('NUMEXPR_MAX_THREADS', '12')
 
 # 添加项目根目录到 Python 路径
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -135,11 +139,22 @@ def create_parser() -> argparse.ArgumentParser:
     data_subparsers = data_parser.add_subparsers(dest='data_action')
     
     # data extract
-    data_extract = data_subparsers.add_parser('extract', help='从QQ数据库提取数据')
-    data_extract.add_argument('--qq-db-path', help='QQ数据库文件路径')
-    data_extract.add_argument('--qq-number-ai', help='AI的QQ号码(用于区分发送者)')
-    data_extract.add_argument('--output', help='输出文件路径')
-    data_extract.add_argument('--time-range', help='时间范围 (格式: 2023-01-01,2024-01-01)')
+    data_extract = data_subparsers.add_parser('extract', help='从聊天数据中提取数据（支持QQ和Telegram）')
+    
+    # 数据源选择
+    data_extract.add_argument('--source-type', choices=['qq', 'tg', 'telegram'], help='指定数据源类型（不指定则自动检测）')
+    data_extract.add_argument('--data-dir', help='数据目录路径（默认: ./dataset/original/）')
+    data_extract.add_argument('--output', help='输出目录路径（默认: ./dataset/csv/）')
+    
+    # QQ相关参数
+    qq_group = data_extract.add_argument_group('QQ数据源参数')
+    qq_group.add_argument('--qq-db-path', help='QQ数据库文件路径')
+    qq_group.add_argument('--qq-number-ai', help='AI的QQ号码（用于区分发送者）')
+    
+    # Telegram相关参数
+    tg_group = data_extract.add_argument_group('Telegram数据源参数')
+    tg_group.add_argument('--telegram-chat-id', help='AI的Telegram聊天名称（用于区分发送者）')
+    tg_group.add_argument('--tg-data-dir', help='Telegram数据目录（如不指定则使用--data-dir）')
     
     # data clean
     data_clean = data_subparsers.add_parser('clean', help='清洗训练数据')
@@ -274,6 +289,35 @@ def create_parser() -> argparse.ArgumentParser:
     utils_import.add_argument('--type', choices=['model', 'data', 'config'], required=True, help='导入类型')
     utils_import.add_argument('--source', required=True, help='源路径')
     utils_import.add_argument('--target', required=True, help='目标路径')
+    
+    # 模型下载命令
+    download_parser = subparsers.add_parser(
+        'download',
+        help='模型下载',
+        description='从ModelScope或HuggingFace下载模型'
+    )
+    
+    # 添加全局下载参数（不需要子命令时使用）
+    download_parser.add_argument('--model-repo', help='模型仓库 (如: Qwen/Qwen-3-8B-Base)')
+    download_parser.add_argument('--model-path', help='本地保存路径 (如: ./model/Qwen-3-8B-Base)')
+    download_parser.add_argument('--download-source', choices=['modelscope', 'huggingface'], help='下载源')
+    download_parser.add_argument('--list', action='store_true', help='列出已下载的模型')
+    download_parser.add_argument('--info', help='查看模型信息（指定模型路径）')
+    
+    download_subparsers = download_parser.add_subparsers(dest='download_action')
+    
+    # download model (显式子命令)
+    download_model = download_subparsers.add_parser('model', help='下载模型')
+    download_model.add_argument('--model-repo', help='模型仓库 (如: Qwen/Qwen-3-8B-Base)')
+    download_model.add_argument('--model-path', help='本地保存路径 (如: ./model/Qwen-3-8B-Base)')
+    download_model.add_argument('--download-source', choices=['modelscope', 'huggingface'], help='下载源')
+    
+    # download list
+    download_list = download_subparsers.add_parser('list', help='列出已下载的模型')
+    
+    # download info
+    download_info = download_subparsers.add_parser('info', help='查看模型信息')
+    download_info.add_argument('model_path', help='模型路径')
     
     return parser
 

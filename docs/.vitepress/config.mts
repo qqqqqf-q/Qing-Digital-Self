@@ -25,8 +25,7 @@ export default defineConfig({
           {
             text: '快速上手',
             items: [
-              { text: '1. QQ/其他数据的获取', link: '/guide/prepare-data' },
-              { text: '1.5 (可选) 从视频/音频文件中获取聊天数据', link: '/guide/media-chat-data' },
+              { text: '1. QQ/TG/其他数据的获取', link: '/guide/prepare-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
               { text: '4. 准备模型(可跳过但不建议)', link: '/guide/prepare-model' },

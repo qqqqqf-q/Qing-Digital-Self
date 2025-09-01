@@ -1,9 +1,21 @@
-## 第一步:将数据转化为csv
+## 将数据转化为csv
 ```bash
 python cli.py data extract
 # 或自定义parser字段
 python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890--output ./dataset/csv
 ```
+
+| 参数 | 说明 | 默认值/备注 |
+|------|------|-------------|
+| `-h, --help` | 显示帮助信息并退出 | - |
+| `--source-type {qq,tg,telegram}` | 指定数据源类型 | 不指定则自动检测 |
+| `--data-dir DATA_DIR` | 数据目录路径 | `./dataset/original/` |
+| `--output OUTPUT` | 输出目录路径 | `./dataset/csv/` |
+| `--qq-db-path QQ_DB_PATH` | QQ 数据库文件路径 | - |
+| `--qq-number-ai QQ_NUMBER_AI` | AI 的 QQ 号码（用于区分发送者） | - |
+| `--telegram-chat-id TELEGRAM_CHAT_ID` | AI 的 Telegram 聊天名称（用于区分发送者） | - |
+| `--tg-data-dir TG_DATA_DIR` | Telegram 数据目录 | 如不指定则使用 `--data-dir` |
+
 
 ## 清洗数据(普通版本,llm清洗版本在下一章节)
 > 此方法比llm清洗快得多,30w条消息几秒就好了

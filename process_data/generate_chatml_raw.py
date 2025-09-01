@@ -7,6 +7,10 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from pathlib import Path
 import sys
+
+# 设置NumExpr最大线程数，避免警告信息
+os.environ.setdefault('NUMEXPR_MAX_THREADS', '12')
+
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from utils.config.config import get_config
 from utils.logger.logger import get_logger

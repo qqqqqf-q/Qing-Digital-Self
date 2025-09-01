@@ -122,7 +122,8 @@ class QingCLI:
                 DataCommand,
                 TrainCommand,
                 InferCommand,
-                UtilsCommand
+                UtilsCommand,
+                DownloadCommand
             )
             
             # 注册命令
@@ -131,6 +132,7 @@ class QingCLI:
             self.register_command(TrainCommand())
             self.register_command(InferCommand())
             self.register_command(UtilsCommand())
+            self.register_command(DownloadCommand())
             
         except ImportError as e:
             self.logger.error(f"加载命令模块失败: {e}")

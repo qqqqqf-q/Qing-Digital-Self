@@ -153,6 +153,7 @@ class Config:
             # 模型配置
             "model_path": self._get_nested_value("model_args.model_path", "./model/Qwen2.5-7B-Instruct"),
             "model_repo": self._get_nested_value("model_args.model_repo", "Qwen/Qwen2.5-7B-Instruct"),
+            "models_dir": self._get_nested_value("model_args.models_dir", "./model"),
             "model_output_path": self._get_nested_value("model_args.model_output_path", "./model_output"),
             "template": self._get_nested_value("model_args.template", "qwen"),
             "finetuning_type": self._get_nested_value("model_args.finetuning_type", "qlora"),

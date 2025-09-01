@@ -216,3 +216,4 @@ dataset/sft.jsonl
 .codebuddy
 checkpoints
 dataset/original/*
+model/
