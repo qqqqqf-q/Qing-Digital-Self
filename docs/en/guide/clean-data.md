@@ -1,11 +1,23 @@
-## Prerequisite: Convert Data to CSV
+## Convert Data to CSV
 ```bash
 python cli.py data extract
 # Or customize parser fields
-python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
+python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890--output ./dataset/csv
 ```
 
-## Clean Data (Regular Version, LLM cleaning version in next chapter)
+| Parameter | Description | Default/Notes |
+|-----------|-------------|---------------|
+| `-h, --help` | Show help information and exit | - |
+| `--source-type {qq,tg,telegram}` | Specify data source type | Auto-detect if not specified |
+| `--data-dir DATA_DIR` | Data directory path | `./dataset/original/` |
+| `--output OUTPUT` | Output directory path | `./dataset/csv/` |
+| `--qq-db-path QQ_DB_PATH` | QQ database file path | - |
+| `--qq-number-ai QQ_NUMBER_AI` | AI's QQ number (to distinguish sender) | - |
+| `--telegram-chat-id TELEGRAM_CHAT_ID` | AI's Telegram chat name (to distinguish sender) | - |
+| `--tg-data-dir TG_DATA_DIR` | Telegram data directory | Use `--data-dir` if not specified |
+
+
+## Clean Data (Regular Version, LLM cleaning version in next section)
 > This method is much faster than LLM cleaning, 300k messages done in a few seconds
 > But correspondingly the quality is also lower
 > This part is recommended to be optimized on Windows first, then uploaded to GPU server
@@ -14,22 +26,23 @@ python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 -
 * Some fields in `data_agrs` and the `system prompt` below
 * Run the cleaning script:
 
-  ```bash
-  python cli.py data clean raw
-  ```
-
-## 2.2 Clean Data (LLM Cleaning)
+```bash
+python cli.py data clean raw
+```
+---
+## Clean Data (LLM Cleaning)
+# Develop version may temporarily not support this feature
+# Please prioritize using raw version or wait for updates to new cleaning methods
 > Need to configure an OpenAI-compatible API
 > For example: LM Studio or vLLM (faster, but more complicated to set up, requires Linux environment)
 
 > This part is also recommended to be optimized on Windows first, then uploaded to GPU server
 > Not sure if there are compatibility issues on Linux
-
 ## LM Studio Setup Tutorial
 * 1. Go to [LM Studio](https://lmstudio.ai/) to download LM Studio
 * 2. Install LM Studio
 * 3. Open LM Studio, click `Search` -> `Model Search` on the left
-* 4. Search for `qwen3 8b` -> `Complete Download`
+* 4. Search for `qwen2.5-7b-instruct` -> `Complete Download`
 * 5. Choose a quantization version suitable for you **recommend at least Q4, preferably Q6-Q8, depends on your device situation, ask AI if you don't know**
 * Remember your **model name**, fill it in the `Openai_model` field in the `.env` file
 * If you don't know your model name, you can run test_openai.py, it will output all model names
@@ -72,7 +85,7 @@ pip install vllm
 ```
 
 ### Different considerations from LM Studio
-* 1. The `Openai_model` in `.env` needs to be set to a path rather than just a folder name
+* 1. The `model_name` in `setting.jsonc` needs to be set to a path rather than just a folder name
 > It should be `/home/vllm/qwen3-4b-int8` instead of `qwen3-4b-int8`
 * 2. The **api_server** to run is `vllm.entrypoints.openai.api_server` not `vllm.entrypoints.api_server`, because the second one is not compatible with OpenAI API
 
@@ -81,3 +94,10 @@ pip install vllm
 python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 --gpu-memory-utilization 0.7 --max-model-len 10240 --max-num-seqs 4 --max-num-batched-tokens 2048 --dtype auto
 ```
 > If you encounter 400 error, it's most likely because the message is too large and was rejected by the model framework
+
+
+### Dev Notes
+> Currently, new LLM processing has not been implemented yet
+> The `python cli.py data clean llm` command is available but equivalent to raw
+> Also, the `python cli.py data extract` command now only supports QQ Parser, not optimized for multi-parser multi-data sources
+> You can add `qq/tg/wx` etc. `metamodel` to support more parsers

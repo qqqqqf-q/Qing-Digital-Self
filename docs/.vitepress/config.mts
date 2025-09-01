@@ -76,14 +76,13 @@ export default defineConfig({
           {
             text: 'Quick Start',
             items: [
-              { text: '1. Get QQ Database', link: '/en/guide/prepare-data' },
-              { text: '1.5 (Optional) Get Chat Data from Media', link: '/en/guide/media-chat-data' },
+              { text: '1. QQ/TG/Other Data Acquisition', link: '/en/guide/prepare-data' },
               { text: '2. Clean Data', link: '/en/guide/clean-data' },
-              { text: '3. Mix Data', link: '/en/guide/mix-data' },
+              { text: '3. (Optional) Mix Data', link: '/en/guide/mix-data' },
               { text: '4. Prepare Model', link: '/en/guide/prepare-model' },
               { text: '5. Fine-tune Model', link: '/en/guide/fine-tune-model' },
-              { text: '6. (Optional) Run Full Model', link: '/en/guide/run-full-model' },
-              { text: '7. Convert GGUF and Quantize', link: '/en/guide/convert-model' },
+              { text: '6. (Recommended to Skip) Run Full Model After Fine-tuning', link: '/en/guide/run-full-model' },
+              { text: '7. Convert GGUF and Quantize Model', link: '/en/guide/convert-model' },
               { text: '8. Run Model', link: '/en/guide/run-model' },
 
             ]
