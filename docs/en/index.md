@@ -21,4 +21,7 @@ features:
     details: You can use it to build your own digital avatar, or use it to fine-tune models
   - title: Supports QLoRA + Unsloth Efficient Fine-tuning
     details: Fine-tuning acceleration, move forward!
+  - title: Support Multiple Data Sources
+    details: Supports extracting data from WeChat/QQ/Telegram! Includes tutorials!!
+
 ---

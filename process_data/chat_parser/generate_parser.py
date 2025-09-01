@@ -4,7 +4,7 @@
 """
 统一聊天数据解析器
 
-支持自动检测数据源类型（QQ/Telegram）并调用对应的解析器，
+支持自动检测数据源类型（QQ/Telegram/WeChat）并调用对应的解析器，
 提供统一的数据解析入口，符合工厂模式设计。
 """
 
@@ -30,6 +30,7 @@ class DataSourceType(Enum):
     """数据源类型枚举"""
     QQ = "qq"
     TELEGRAM = "telegram"
+    WECHAT = "wechat"
     UNKNOWN = "unknown"
 
 
@@ -55,6 +56,16 @@ class DataSourceDetector:
                 self.logger.info(f"检测到QQ数据文件: {pattern}")
                 return True
         
+        return False
+
+    def detect_wechat_data(self) -> bool:
+        """检测是否存在WeChat数据"""
+        wechat_dir = self.data_dir / "wechat"
+        if wechat_dir.is_dir():
+            wechat_db_files = list(wechat_dir.glob("MSG*.db"))
+            if wechat_db_files:
+                self.logger.info(f"检测到WeChat数据库文件: {[str(f) for f in wechat_db_files]}")
+                return True
         return False
     
     def detect_telegram_data(self) -> bool:
@@ -102,6 +113,9 @@ class DataSourceDetector:
         
         if self.detect_telegram_data():
             sources.append(DataSourceType.TELEGRAM)
+
+        if self.detect_wechat_data():
+            sources.append(DataSourceType.WECHAT)
         
         if not sources:
             sources.append(DataSourceType.UNKNOWN)
@@ -125,12 +139,17 @@ class UnifiedParser:
             return self._parse_qq_data(**kwargs)
         elif source_type == DataSourceType.TELEGRAM:
             return self._parse_telegram_data(**kwargs)
+        elif source_type == DataSourceType.WECHAT:
+            return self._parse_wechat_data(**kwargs)
         else:
             self.logger.error(f"不支持的数据源类型: {source_type}")
             return 1
     
     def parse_auto(self, prefer_source: Optional[str] = None, **kwargs) -> int:
-        """自动检测数据源并解析"""
+        """自动检测数据源并解析。
+        如果指定了 prefer_source，则只解析该来源。
+        否则，将解析所有检测到的数据源。
+        """
         available_sources = self.detector.detect_data_sources()
         
         if DataSourceType.UNKNOWN in available_sources and len(available_sources) == 1:
@@ -151,23 +170,34 @@ class UnifiedParser:
                 prefer_type = DataSourceType.QQ
             elif prefer_source.lower() in ['tg', 'telegram']:
                 prefer_type = DataSourceType.TELEGRAM
+            elif prefer_source.lower() in ['wx', 'wechat']:
+                prefer_type = DataSourceType.WECHAT
             
             if prefer_type and prefer_type in available_sources:
                 self.logger.info(f"使用指定的数据源: {prefer_type.value}")
                 return self.parse_with_source_type(prefer_type, **kwargs)
             else:
-                self.logger.warning(f"指定的数据源 {prefer_source} 不可用，将自动选择")
+                self.logger.warning(f"指定的数据源 '{prefer_source}' 不可用或未检测到，将解析所有可用源。")
+
+        # 自动解析所有检测到的数据源
+        self.logger.info(f"自动模式启动，将解析所有检测到的数据源: {[s.value for s in available_sources]}")
         
-        # 自动选择数据源（优先级：QQ > Telegram）
-        if DataSourceType.QQ in available_sources:
-            self.logger.info("自动选择QQ数据源进行解析")
-            return self.parse_with_source_type(DataSourceType.QQ, **kwargs)
-        elif DataSourceType.TELEGRAM in available_sources:
-            self.logger.info("自动选择Telegram数据源进行解析")
-            return self.parse_with_source_type(DataSourceType.TELEGRAM, **kwargs)
-        
-        self.logger.error("未找到支持的数据源")
-        return 1
+        overall_success = True
+        for source in available_sources:
+            self.logger.info(f"--- 开始解析: {source.value} ---")
+            result = self.parse_with_source_type(source, **kwargs)
+            if result != 0:
+                self.logger.error(f"解析数据源 {source.value} 失败。")
+                overall_success = False
+            else:
+                self.logger.info(f"--- 完成解析: {source.value} ---")
+
+        if overall_success:
+            self.logger.info("所有可用数据源均已成功解析。")
+        else:
+            self.logger.warning("部分数据源在解析过程中出现错误。")
+            
+        return 0 if overall_success else 1
     
     def _parse_qq_data(self, **kwargs) -> int:
         """解析QQ数据"""
@@ -206,6 +236,35 @@ class UnifiedParser:
             return 1
         except Exception as e:
             self.logger.error(f"QQ数据解析失败: {e}")
+            return 1
+
+    def _parse_wechat_data(self, **kwargs) -> int:
+        """解析WeChat数据"""
+        try:
+            from .wx_parser import WXParser
+            
+            wechat_data_dir = os.path.join(self.data_dir, 'wechat')
+            
+            if not os.path.isdir(wechat_data_dir):
+                self.logger.error(f"WeChat数据目录不存在: {wechat_data_dir}")
+                return 1
+
+            self.logger.info(f"开始解析WeChat数据: {wechat_data_dir}")
+            
+            parser = WXParser(
+                input_dir=wechat_data_dir,
+                output_dir=self.output_dir
+            )
+            
+            parser.run()
+            self.logger.info("WeChat数据解析完成")
+            return 0
+            
+        except ImportError as e:
+            self.logger.error(f"无法导入WeChat解析器: {e}")
+            return 1
+        except Exception as e:
+            self.logger.error(f"WeChat数据解析失败: {e}")
             return 1
     
     def _parse_telegram_data(self, **kwargs) -> int:
@@ -258,6 +317,12 @@ class UnifiedParser:
                 if item.is_dir() and (item / "result.json").exists():
                     tg_dirs.append(str(item))
             result['telegram_directories'] = tg_dirs
+
+        if DataSourceType.WECHAT in sources:
+            wechat_dir = Path(self.data_dir) / 'wechat'
+            if wechat_dir.is_dir():
+                wx_files = list(wechat_dir.glob("MSG*.db"))
+                result['wechat_files'] = [str(f) for f in wx_files]
         
         return result
 
@@ -265,7 +330,7 @@ class UnifiedParser:
 def create_parser():
     """创建命令行参数解析器"""
     parser = argparse.ArgumentParser(
-        description='统一聊天数据解析器 - 支持自动检测和解析QQ/Telegram数据',
+        description='统一聊天数据解析器 - 支持自动检测和解析QQ/Telegram/WeChat数据',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 使用示例:
@@ -275,6 +340,7 @@ def create_parser():
   # 指定数据源类型
   python generate_parser.py --source qq
   python generate_parser.py --source tg
+  python generate_parser.py --source wx
 
   # 列出可用数据源
   python generate_parser.py --list
@@ -292,8 +358,8 @@ def create_parser():
     
     parser.add_argument(
         '--source',
-        choices=['qq', 'tg', 'telegram'],
-        help='指定数据源类型 (qq: QQ数据, tg/telegram: Telegram数据)'
+        choices=['qq', 'tg', 'telegram', 'wx', 'wechat'],
+        help='指定数据源类型 (qq: QQ, tg/telegram: Telegram, wx/wechat: WeChat)'
     )
     
     parser.add_argument(
@@ -370,6 +436,9 @@ def main():
         
         if 'telegram_directories' in sources_info:
             print(f"Telegram数据目录: {', '.join(sources_info['telegram_directories'])}")
+
+        if 'wechat_files' in sources_info:
+            print(f"WeChat数据文件: {', '.join(sources_info['wechat_files'])}")
         
         return 0
     
@@ -393,6 +462,8 @@ def main():
             source_type = DataSourceType.QQ
         elif args.source in ['tg', 'telegram']:
             source_type = DataSourceType.TELEGRAM
+        elif args.source in ['wx', 'wechat']:
+            source_type = DataSourceType.WECHAT
         
         return unified_parser.parse_with_source_type(source_type, **parse_kwargs)
     else:

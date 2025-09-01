@@ -118,7 +118,7 @@ python run_finetune.py
 | `--dataloader_pin_memory`       | str  | `'false'`                                | Whether to pin DataLoader memory                            |
 | `--dataloader_num_workers`      | str  | `'0'`                                    | Number of DataLoader workers                                |
 | `--dataloader_prefetch_factor`  | str  | `'2'`                                    | DataLoader prefetch factor                                  |
-| `--use_flash_attention_2`       | str  | `'false'`                                | Use FlashAttention2 (not effective for Unsloth)             |
+| `--use_flash_attention_2`       | str  | `'false'`                                | Use FlashAttention2 (not effective for Unsloth) (enable by adding this flag) |
 
 ---
 

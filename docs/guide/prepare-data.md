@@ -16,6 +16,8 @@
 
 * <img src="https://cdn.nodeimage.com/i/oBfbWfVLhJI0CeZHTwwxq6G7XGO40Vy4.webp" alt="数据库图片">
 
+---
+
 ## 获取Telegram(TG)聊天数据
 
 * 请使用[Telegram Desktop](https://desktop.telegram.org/)导出聊天数据
@@ -33,9 +35,28 @@
 > **包含空格!!!**  
 * 比如以下ID需要填写的是`qqqqq f`
 
----
 
+## 获取微信(WX)聊天数据
+* 前往[WeChatBakTool的Github项目](https://github.com/SuxueCode/WechatBakTool)并且去release下载最新版
+* 或点此下载[WechatBakTool](https://github.com/SuxueCode/WechatBakTool/releases/download/v0.9.7.6/WechatBakTool.zip)
+* 前往[此项目](https://github.com/tom-snow/wechat-windows-versions/releases)下载老版本微信(v3.9.12.15)
+* 或点此链接快速下载[微信](https://github.com/tom-snow/wechat-windows-versions/releases/download/v3.9.12.15/WeChatSetup-3.9.12.15.exe)
 
+* 安装微信并登录
+* 手机打开`设置-聊天-聊天记录迁移与备份-迁移-迁移至电脑微信`并继续
+* 解压baktool
+
+* 0.安装.NET Desktop Runtime(注意是6.0版本的Desktop Runtime，如已经安装忽略)
+* 1.打开微信，并登录。
+* 2.在软件左侧下方点击新建工作区，
+* 3.在新建工作区界面，选择要创建工作区的微信进程，并确认下方微信号是否正确
+* 4.解密方式推荐选择用户名推断查找！该方式理论支持所有64位版本微信。但该模式需要确保微信账号正确
+* 5.新手请忽略其他选项，直接点击创建工作区，程序会自动进行工作区创建、解密。
+
+* 右键`工作区`-`管理`,导出好友聊天,全部
+* 将前往`baktool`的文件夹,进入`workspace-[随机名文件夹]-DecDB`
+* 找到所有`MSG*.db`的文件,例如`MSG1.db`,全部移动至`dataset/original/wechat`文件夹内
+<img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP">
 ## (可选) 从视频/音频文件中获取聊天数据'
 
 *  从双音轨的视频/音频中提取(需要有音轨分离的文件)

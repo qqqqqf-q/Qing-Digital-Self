@@ -1,4 +1,4 @@
-## 9. Digital Life!
+## 9. Summary
 > If you successfully made it here
 > You probably already have a "you" now
 > This is really cool

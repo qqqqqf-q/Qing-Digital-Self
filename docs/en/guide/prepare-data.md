@@ -35,6 +35,27 @@
 
 ---
 
+## Getting WeChat (WX) Chat Data
+* Go to the [WeChatBakTool Github project](https://github.com/SuxueCode/WechatBakTool) and download the latest version from the releases page.
+* Or click here to download [WeChatBakTool](https://github.com/SuxueCode/WechatBakTool/releases/download/v0.9.7.6/WechatBakTool.zip).
+* Go to [this project](https://github.com/tom-snow/wechat-windows-versions/releases) to download an older version of WeChat (v3.9.12.15).
+* Or click this link to quickly download [WeChat](https://github.com/tom-snow/wechat-windows-versions/releases/download/v3.9.12.15/WeChatSetup-3.9.12.15.exe).
+
+* Install and log in to WeChat.
+* On your phone, go to `Settings - Chats - Chat History Migration & Backup - Migrate - Migrate to PC/Mac` and proceed.
+* Unzip BakTool.
+
+* 0. Install .NET Desktop Runtime (note: this is the Desktop Runtime version 6.0; ignore if already installed).
+* 1. Open and log in to WeChat.
+* 2. At the bottom left of the software, click "New Workspace".
+* 3. In the "New Workspace" interface, select the WeChat process for which you want to create a workspace, and confirm that the WeChat ID below is correct.
+* 4. For the decryption method, it is recommended to choose "Username Inference Search"! This method theoretically supports all 64-bit versions of WeChat. However, this mode requires ensuring the WeChat account is correct.
+* 5. Beginners should ignore other options and directly click "Create Workspace". The program will automatically create and decrypt the workspace.
+
+* Right-click on the `Workspace` -> `Manage`, export friend chats, all.
+* Go to the `baktool` folder, enter `workspace-[random_folder_name]-DecDB`.
+* Find all `MSG*.db` files, for example `MSG1.db`, and move them all to the `dataset/original/wechat` folder.
+<img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png">
 
 ## (Optional) Getting Chat Data from Video/Audio Files
 
@@ -98,7 +119,7 @@ The generated ChatML file format is as follows:
 [
   {
     "role": "user",
-    "content": "What the user said",
+    "content": "User's spoken content",
     "timestamp": {
       "start": 0.0,
       "end": 2.5
@@ -106,7 +127,7 @@ The generated ChatML file format is as follows:
   },
   {
     "role": "assistant", 
-    "content": "Assistant's reply",
+    "content": "Assistant's response",
     "timestamp": {
       "start": 2.5,
       "end": 5.0

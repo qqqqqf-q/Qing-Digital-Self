@@ -139,10 +139,11 @@ def create_parser() -> argparse.ArgumentParser:
     data_subparsers = data_parser.add_subparsers(dest='data_action')
     
     # data extract
-    data_extract = data_subparsers.add_parser('extract', help='从聊天数据中提取数据（支持QQ和Telegram）')
+        # data extract
+    data_extract = data_subparsers.add_parser('extract', help='从聊天数据中提取数据（支持QQ、Telegram和WeChat）')
     
     # 数据源选择
-    data_extract.add_argument('--source-type', choices=['qq', 'tg', 'telegram'], help='指定数据源类型（不指定则自动检测）')
+    data_extract.add_argument('--source-type', choices=['qq', 'tg', 'telegram', 'wx', 'wechat'], help='指定数据源类型（不指定则自动检测）')
     data_extract.add_argument('--data-dir', help='数据目录路径（默认: ./dataset/original/）')
     data_extract.add_argument('--output', help='输出目录路径（默认: ./dataset/csv/）')
     

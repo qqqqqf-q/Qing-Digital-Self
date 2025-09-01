@@ -3,7 +3,6 @@ import { defineConfig } from 'vitepress'
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   base: '/Qing-Digital-Self/',
-  
   locales: {
     root: {
       label: '中文',
@@ -25,7 +24,7 @@ export default defineConfig({
           {
             text: '快速上手',
             items: [
-              { text: '1. QQ/TG/其他数据的获取', link: '/guide/prepare-data' },
+              { text: '1. QQ/TG/WX其他数据的获取', link: '/guide/prepare-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
               { text: '4. 准备模型', link: '/guide/prepare-model' },
@@ -33,6 +32,7 @@ export default defineConfig({
               { text: '6. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '7. 转换GUFF和量化模型', link: '/guide/convert-model' },
               { text: '8. 运行模型', link: '/guide/run-model' },
+
             ]
           },
           {
@@ -44,6 +44,7 @@ export default defineConfig({
 
             ]
           },
+
           {
             text: '总结',
             items: [
@@ -51,9 +52,6 @@ export default defineConfig({
             ]
           }
         ],
-        socialLinks: [
-          { icon: 'github', link: 'https://github.com/qqqqqf-q/Qing-Digital-Self' }
-        ]
       }
     },
     en: {
@@ -99,13 +97,10 @@ export default defineConfig({
           {
             text: 'Summary',
             items: [
-              { text: '9. Summary', link: '/en/guide/summary' }
+              { text: '9. summary', link: '/en/guide/summary' }
             ]
           }
         ],
-        socialLinks: [
-          { icon: 'github', link: 'https://github.com/qqqqqf-q/Qing-Digital-Self' }
-        ]
       }
     }
   },
@@ -113,7 +108,8 @@ export default defineConfig({
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/qqqqqf-q/Qing-Digital-Self' }
+      { icon: 'github', link: 'https://github.com/qqqqqf-q/Qing-Digital-Self' },
+      { icon: { svg: `<svg role="img" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><title>X</title><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 7.184L18.901 1.153Zm-1.653 19.57h2.608L6.852 3.24H4.21l13.038 17.484Z"/></svg>` }, link: 'https.x.com/qqqqqf5' }
     ]
   }
 })

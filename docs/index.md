@@ -21,5 +21,7 @@ features:
     details: 你可以用它来搭建自己的数字分身,也可以用它来微调模型
   - title: 支持 QLoRA + Unsloth 高效微调
     details: 微调加速,前进四!
+  - title: 支持多数据来源
+    details: 支持从微信/QQ/TG提取数据!包含教程!!
 ---
 

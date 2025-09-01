@@ -202,6 +202,8 @@ class DataCommand(BaseCommand):
                     source_type = DataSourceType.QQ
                 elif extract_args['source_type'] in ['tg', 'telegram']:
                     source_type = DataSourceType.TELEGRAM
+                elif extract_args['source_type'] in ['wx', 'wechat']:
+                    source_type = DataSourceType.WECHAT
                 else:
                     raise DataProcessingError(f"不支持的数据源类型: {extract_args['source_type']}")
                 

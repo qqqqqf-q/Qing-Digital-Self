@@ -265,39 +265,55 @@ def check_file_permissions(path: Union[str, Path], operation: str = "read") -> b
 
 def get_file_stats(path: Union[str, Path]) -> Dict[str, Any]:
     """
-    获取文件统计信息
+    获取文件或目录的统计信息。
+    如果路径是目录，则递归计算其中所有文件的总大小。
     
     Args:
-        path: 文件路径
+        path: 文件或目录路径
         
     Returns:
-        文件统计信息字典
+        统计信息字典
         
     Raises:
-        FileOperationError: 如果文件不存在或无法访问
+        FileOperationError: 如果路径不存在或无法访问
     """
     path_obj = Path(path)
     
     if not path_obj.exists():
-        raise FileOperationError(f"文件不存在", str(path_obj), "stat")
+        raise FileOperationError(f"路径不存在", str(path_obj), "stat")
     
     try:
-        stat = path_obj.stat()
+        # 获取基本信息
+        stat_info = path_obj.stat()
+        is_dir = path_obj.is_dir()
         
+        total_size = 0
+        if is_dir:
+            # 如果是目录，递归计算总大小
+            for dirpath, dirnames, filenames in os.walk(path_obj):
+                for f in filenames:
+                    fp = os.path.join(dirpath, f)
+                    # 检查是否是符号链接，避免重复计算和错误
+                    if not os.path.islink(fp):
+                        total_size += os.path.getsize(fp)
+        else:
+            # 如果是文件，直接获取大小
+            total_size = stat_info.st_size
+
         return {
             "path": str(path_obj.absolute()),
-            "size": format_file_size(stat.st_size),
-            "size_bytes": stat.st_size,
-            "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            "created": datetime.fromtimestamp(stat.st_ctime).isoformat(),
-            "permissions": oct(stat.st_mode)[-3:],
+            "size": format_file_size(total_size),
+            "size_bytes": total_size,
+            "modified": datetime.fromtimestamp(stat_info.st_mtime).isoformat(),
+            "created": datetime.fromtimestamp(stat_info.st_ctime).isoformat(),
+            "permissions": oct(stat_info.st_mode)[-3:],
             "is_file": path_obj.is_file(),
-            "is_directory": path_obj.is_dir(),
+            "is_directory": is_dir,
             "is_symlink": path_obj.is_symlink(),
         }
     
     except Exception as e:
-        raise FileOperationError(f"无法获取文件信息: {e}", str(path_obj), "stat") from e
+        raise FileOperationError(f"无法获取路径信息: {e}", str(path_obj), "stat") from e
 
 
 def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
