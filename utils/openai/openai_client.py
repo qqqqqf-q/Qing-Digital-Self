@@ -41,27 +41,33 @@ class OpenAIClient:
     
     def __init__(self, base_url: Optional[str] = None):
         """
-        初始化LM Studio客户端
+        初始化OpenAI客户端
         
         Args:
-            base_url: LM Studio服务器地址，如果为None则从配置中读取
+            base_url: API服务器地址，如果为None则从配置中读取
         """
         self.config = get_config()
         self.base_url = base_url or self.config.get('OpenAI_URL', 'http://localhost:1234')
+        self.api_key = self.config.get('OpenAI_api_key', '')
         self.timeout = self.config.get('OpenAI_timeout', 30)
         self.max_retries = self.config.get('OpenAI_max_retries', 3)
         self.retry_delay = self.config.get('OpenAI_retry_delay', 1.0)
         
     def _make_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
-        """发送HTTP请求到LM Studio服务器"""
+        """发送HTTP请求到API服务器"""
         url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        
+        # 构建请求头
+        headers = {'Content-Type': 'application/json'}
+        if self.api_key:
+            headers['Authorization'] = f'Bearer {self.api_key}'
         
         for attempt in range(self.max_retries + 1):
             try:
                 response = requests.post(
                     url,
                     json=data,
-                    headers={'Content-Type': 'application/json'},
+                    headers=headers,
                     timeout=self.timeout
                 )
                 response.raise_for_status()

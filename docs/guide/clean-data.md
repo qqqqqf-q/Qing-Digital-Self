@@ -31,30 +31,37 @@ python cli.py data clean raw
 ```
 ---
 ## 清洗数据(llm清洗)
-# Develop版本可能暂时不适配此功能
-# 请优先使用raw版本或等待更新新清洗方法
+> Develop版本正在改进此功能  
+
 > 需要配置一个OpenAI兼容的API  
 > 比如:LM Studio 或者 vLLM(速度更快,但搭建更麻烦,需要Linux环境)  
 
 > 这个部分同样建议在windows上优化完再上传至GPU服务器  
 > 不确定在Linux上有没有兼容性问题
+
+* 前往`setting.jsonc`文件中修改`clean_set_args`组的`openai_api`字段
+* 设置`api_base` `api_key` `model_name`等字段
+
+### run!
+```bash
+python cli.py data clean llm
+```
+> 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
+
+# 以下为不使用云端llm服务清洗使用
+
 ## LM Studio搭建教程
 * 1.前往[LM Studio](https://lmstudio.ai/)下载LM Studio
 * 2.安装LM Studio
 * 3.打开LM Studio,点击左侧`搜索`->`Model Search`
 * 4.搜索 `qwen2.5-7b-instruct`->`Complete Download`  
 * 5.选择合适你的量化版本**建议至少Q4,最好Q6-Q8,随你的设备情况而定,不知道的可以问AI**
-* 记住你的**模型名称**,填写到`.env`文件的`Openai_model`中
+* 记住你的**模型名称**,填写到`setting.jsonc`文件的`model_name`中
 * 如果不知道你的模型名称可以运行test_openai.py,会输出所有的模型名称
 * 6.安装好后,在左侧`开发者/Developer`点击`Status:Stopped`右边的按钮
 * 如果下面log显示端口被占用请点击`seetings`换个`server port`
-* 记住这个`server port`,将你的配置填写至`.env`文件中
+* 记住这个`server port`,将你的配置填写至`setting.jsonc`文件中
 
-### run!
-```bash
-python generate_training_data_llm.py
-```
-> 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 
 ---
 
@@ -68,7 +75,8 @@ python generate_training_data_llm.py
 
 > 不过并发效率的提升是真的
 
-> 但是!上下文很短,如果一天有超过500条消息就处理不过来了
+> 但是!上下文较短  
+> 不过现在应该遇不到那么长的上下文了
 
 > 3080实测4b_q6处理,最终jsonl的速率大约是**300kb/minute**
 * 跟着走就能搭建  
@@ -95,9 +103,3 @@ python3 -m vllm.entrypoints.openai.api_server --model /home/vllm/qwen3-4b-int8 -
 ```
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 
-
-### dev注
-> 目前尚未实现新的llm处理  
-> `python cli.py data clean llm`命令可用但是等同于raw  
-> 另外`python cli.py data extract`命令现在只支持QQ Parser,没有对多parser多数据源进行优化  
-> 可以添加`qq/tg/wx`等`metamodel`来支持更多parser

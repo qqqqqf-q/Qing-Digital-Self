@@ -7,7 +7,7 @@
   <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
 <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
 <img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge">
-<img src="https://img.shields.io/badge/Version-v0.1.4Dev-9370DB?style=for-the-badge">
+<img src="https://img.shields.io/badge/Version-v0.1.5Dev-9370DB?style=for-the-badge">
 <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2">
 
 </p>
@@ -51,7 +51,7 @@ Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
 
 
 ## 项目版本
-# V 0.1.4 Develop
+# V 0.1.5 Develop
 
 # 项目状态
 * 由于0.1.4版本对于代码进行了许多重构
@@ -61,9 +61,8 @@ Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
   
 # 开发问题
 * cli的train,data convert都存在问题,暂时还是只能用老版本调用
-* 新的llm清洗功能正在开发(需要包括llm打分,llm输出可用段等内容)
-* 支持更多Parser和教程(包括Telegram,Wechat等)
 * 微调脚本需要重构(正在思考是继续Qlora+Unsloth还是转向Llama Factory)
 * 文档部分由于重构了项目还有一些没有修改的
 * 已经被重构的部分没有增加双语支持
 * todo1.增加serverapi为webui做准备
+* 代码未优化

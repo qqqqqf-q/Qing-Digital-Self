@@ -359,7 +359,9 @@ class DataCommand(BaseCommand):
             
             # 根据清洗方法执行
             if method == 'llm':
-                result = self._clean_data_llm(input_path, output_path, batch_size, workers)
+                # 获取LLM清洗策略参数
+                parser = getattr(args, 'parser', None) or self.config.get('llm_parser', 'scoring')
+                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser)
             else:  # raw
                 result = self._clean_data_raw(input_path, output_path)
             
@@ -373,15 +375,44 @@ class DataCommand(BaseCommand):
         except Exception as e:
             raise DataProcessingError(f"数据清洗失败: {e}")
     
-    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int) -> int:
+    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring') -> int:
         """使用LLM清洗数据"""
         try:
-            # LLM清洗功能暂时不可用，调用raw方法
-            self.logger.warning("LLM清洗功能暂未实现，将使用raw方法进行清洗")
-            return self._clean_data_raw(input_path, output_path)
+            from process_data.generate_chatml_llm import LLMDataProcessor
             
+            self.logger.info(f"开始LLM清洗，策略: {parser}")
+            
+            # 获取配置参数
+            accept_score = self.config.get('accept_score', 2)
+            
+            # 创建LLM数据处理器
+            processor = LLMDataProcessor(
+                parser=parser,
+                accept_score=accept_score,
+                batch_size=batch_size
+            )
+            
+            # 处理文件
+            result = processor.process_file(input_path, output_path)
+            
+            if result == 0:
+                self.logger.info(f"LLM清洗完成: {output_path}")
+            else:
+                self.logger.error("LLM清洗失败")
+                # 失败时回退到raw方法
+                self.logger.warning("回退到raw清洗方法")
+                return self._clean_data_raw(input_path, output_path)
+            
+            return result
+            
+        except ImportError as e:
+            self.logger.error(f"无法导入LLM清洗模块: {e}")
+            self.logger.warning("回退到raw清洗方法")
+            return self._clean_data_raw(input_path, output_path)
         except Exception as e:
-            raise DataProcessingError(f"LLM清洗失败: {e}")
+            self.logger.error(f"LLM清洗失败: {e}")
+            self.logger.warning("回退到raw清洗方法")
+            return self._clean_data_raw(input_path, output_path)
     
     def _clean_data_raw(self, input_path: str, output_path: str) -> int:
         """使用原始算法清洗数据"""
