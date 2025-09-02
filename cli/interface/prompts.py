@@ -21,27 +21,48 @@ logger = get_logger('PromptsInterface')
 
 class ProgressBar:
     """进度条类"""
-    
+
     def __init__(self, total: int, width: int = 50, desc: str = "进度"):
         self.total = total
         self.width = width
         self.desc = desc
         self.current = 0
         self.start_time = time.time()
+        self.last_time = self.start_time
+        self._rate: Optional[float] = None
         self._lock = threading.Lock()
-    
+
     def update(self, n: int = 1) -> None:
         """更新进度"""
         with self._lock:
+            now = time.time()
+            self._update_rate(now, n)
             self.current = min(self.current + n, self.total)
+            self.last_time = now
             self._display()
-    
+
     def set(self, value: int) -> None:
         """设置进度值"""
         with self._lock:
+            now = time.time()
+            n = min(max(value, 0), self.total) - self.current
+            if n > 0:
+                self._update_rate(now, n)
             self.current = min(max(value, 0), self.total)
+            self.last_time = now
             self._display()
-    
+
+    def _update_rate(self, now: float, n: int) -> None:
+        """更新速度"""
+        dt = now - self.last_time
+        if dt <= 0:
+            return
+        rate = n / dt
+        if self._rate is None:
+            self._rate = rate
+        else:
+            self._rate = 0.9 * self._rate + 0.1 * rate
+
     def _display(self) -> None:
         """显示进度条"""
         if self.total <= 0:
@@ -55,11 +76,11 @@ class ProgressBar:
         
         # 计算预估时间
         elapsed = time.time() - self.start_time
-        if self.current > 0:
-            eta = elapsed * (self.total - self.current) / self.current
-            eta_str = f"ETA: {self._format_time(eta)}"
+        if self._rate and self.current < self.total:
+            eta = (self.total - self.current) / self._rate
+            eta_str = f"剩余: {self._format_time(eta)}"
         else:
-            eta_str = "ETA: --:--"
+            eta_str = f"耗时: {self._format_time(elapsed)}"
         
         # 显示进度条
         sys.stdout.write(f'\r{self.desc}: [{bar}] {percentage:.1f}% ({self.current}/{self.total}) {eta_str}')
