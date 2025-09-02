@@ -460,6 +460,20 @@ class LLMDataProcessor:
             data['images'] = qa.images
         fp.write(json.dumps(data, ensure_ascii=False) + '\n')
 
+    def _get_last_scored_id(self, scored_csv: str) -> Optional[str]:
+        """读取已打分文件最后一条记录的id"""
+        try:
+            with open(scored_csv, 'r', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                last = None
+                for row in reader:
+                    last = row
+                if last:
+                    return str(last.get('id'))
+        except Exception as e:
+            logger.warning(f"读取scored_csv失败: {e}")
+        return None
+
     def _process_with_scoring(self, input_path: str, output_path: str, scored_csv: Optional[str] = None, **kwargs) -> int:
         """
         使用打分策略处理
@@ -474,25 +488,40 @@ class LLMDataProcessor:
             处理结果状态码
         """
         try:
+            resume = kwargs.get('resume', False)
             qa_pairs = self._load_qa_pairs(input_path)
 
             if not qa_pairs:
                 logger.warning("没有找到有效的问答对")
                 return 1
 
-            # 备份已有输出文件
-            self._backup_file(output_path)
-            if scored_csv:
-                self._backup_file(scored_csv)
+            start_idx = 0
+            last_id = None
+            if resume and scored_csv and os.path.exists(scored_csv):
+                last_id = self._get_last_scored_id(scored_csv)
+                if last_id:
+                    for i, qa in enumerate(qa_pairs):
+                        if str(qa.id) == last_id:
+                            start_idx = i + 1
+                            break
+                    qa_pairs = qa_pairs[start_idx:]
+                    logger.info(f"从ID {last_id} 继续处理")
 
-            # 打开输出文件
-            out_fp = open(output_path, 'w', encoding='utf-8')
+            if not resume:
+                self._backup_file(output_path)
+                if scored_csv:
+                    self._backup_file(scored_csv)
+
+            out_mode = 'a' if resume else 'w'
+            out_fp = open(output_path, out_mode, encoding='utf-8')
             csv_fp = None
             csv_writer = None
             if scored_csv:
-                csv_fp = open(scored_csv, 'w', newline='', encoding='utf-8')
+                csv_mode = 'a' if resume else 'w'
+                csv_fp = open(scored_csv, csv_mode, newline='', encoding='utf-8')
                 csv_writer = csv.DictWriter(csv_fp, fieldnames=['id', 'Q', 'A', 'score'])
-                csv_writer.writeheader()
+                if csv_fp.tell() == 0:
+                    csv_writer.writeheader()
 
             total = len(qa_pairs)
             accepted = 0

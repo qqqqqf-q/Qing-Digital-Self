@@ -346,6 +346,7 @@ class DataCommand(BaseCommand):
             output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
             batch_size = getattr(args, 'batch_size', None) or self.config.get('clean_batch_size', 10)
             workers = getattr(args, 'workers', None) or self.config.get('clean_workers', 4)
+            resume = getattr(args, 'resume', False)
             
             self.logger.info(f"输入路径: {input_path}")
             self.logger.info(f"输出路径: {output_path}")
@@ -362,7 +363,7 @@ class DataCommand(BaseCommand):
                 # 获取LLM清洗策略参数
                 parser = getattr(args, 'parser', None) or self.config.get('llm_parser', 'scoring')
                 accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
-                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser, accept_score)
+                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser, accept_score, resume)
             else:  # raw
                 result = self._clean_data_raw(input_path, output_path)
             
@@ -376,7 +377,7 @@ class DataCommand(BaseCommand):
         except Exception as e:
             raise DataProcessingError(f"数据清洗失败: {e}")
     
-    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring', accept_score: int = 2) -> int:
+    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring', accept_score: int = 2, resume: bool = False) -> int:
         """使用LLM清洗数据"""
         try:
             from process_data.generate_chatml_llm import LLMDataProcessor
@@ -386,6 +387,8 @@ class DataCommand(BaseCommand):
                 self.logger.info(f"分数阈值: {accept_score}")
                 self.logger.info(f"批处理大小: {batch_size}")
                 self.logger.info(f"工作线程数: {workers}")
+            if resume:
+                self.logger.info("启用断点继续")
             
             # 创建LLM数据处理器
             processor = LLMDataProcessor(
@@ -397,7 +400,7 @@ class DataCommand(BaseCommand):
 
             # 处理文件
             scored_csv = os.path.splitext(output_path)[0] + "_scored.csv"
-            result = processor.process_file(input_path, output_path, scored_csv=scored_csv)
+            result = processor.process_file(input_path, output_path, scored_csv=scored_csv, resume=resume)
 
             if result == 0:
                 self.logger.info(f"LLM清洗完成: {output_path}")
