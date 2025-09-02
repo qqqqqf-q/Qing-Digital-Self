@@ -11,6 +11,9 @@ import logging
 import argparse
 import re
 import sys
+import shutil
+import csv
+from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 from pathlib import Path
@@ -72,54 +75,56 @@ class LLMScoringStrategy:
         self.batch_size = batch_size
         self.workers = workers
         
-    def judge(self, qa_pairs: List[QaPair]) -> None:
+    def judge(self, qa_pairs: List[QaPair], on_batch_scored=None) -> None:
         """
         对问答对进行LLM打分
-        
+
         Args:
             qa_pairs: 问答对列表，会直接修改其score属性
+            on_batch_scored: 每个批次打分完成后的回调函数
         """
         logger.info(f"开始LLM打分，共{len(qa_pairs)}个问答对")
-        
+
         # 构建打分提示词
         scoring_prompt = self._build_scoring_prompt()
-        
+
         # 批量处理配置
         clean_set_args = config.get('clean_set_args', {})
         openai_api = clean_set_args.get('openai_api', {})
         batch_size = self.batch_size if self.batch_size is not None else openai_api.get('clean_batch_size', 10)
         workers = self.workers if self.workers is not None else openai_api.get('clean_workers', 4)
-        
+
         logger.info(f"实际使用批处理大小: {batch_size}")
         logger.info(f"实际使用工作线程数: {workers}")
-        
+
         # 分批处理
         batches = []
         for i in range(0, len(qa_pairs), batch_size):
             batches.append(qa_pairs[i:i + batch_size])
-        
+
         # 多线程处理批次
         with ThreadPoolExecutor(max_workers=workers) as executor:
             # 提交所有任务
             future_to_batch = {
-                executor.submit(self._score_batch, batch, scoring_prompt): batch 
+                executor.submit(self._score_batch, batch, scoring_prompt): batch
                 for batch in batches
             }
-            
+
             # 使用tqdm显示进度
             with tqdm(total=len(batches), desc="LLM打分进度") as pbar:
                 for future in as_completed(future_to_batch):
+                    batch = future_to_batch[future]
                     try:
                         future.result()  # 获取结果，如果有异常会抛出
                     except Exception as e:
-                        batch = future_to_batch[future]
                         logger.error(f"批次处理失败: {e}")
                         # 给失败的批次默认分数
                         for qa in batch:
                             if qa.score is None:
                                 qa.score = 0
-                    finally:
-                        pbar.update(1)
+                    if on_batch_scored:
+                        on_batch_scored(batch)
+                    pbar.update(1)
     
     def _build_scoring_prompt(self) -> str:
         """构建LLM打分提示词"""
@@ -435,38 +440,98 @@ class LLMDataProcessor:
             logger.error(f"文件处理失败: {e}")
             return 1
     
-    def _process_with_scoring(self, input_path: str, output_path: str, **kwargs) -> int:
+    def _backup_file(self, path: str) -> None:
+        """备份已有文件"""
+        if path and os.path.exists(path):
+            backup_path = f"{path}.{datetime.now().strftime('%Y%m%d%H%M%S')}.bak"
+            shutil.copy(path, backup_path)
+            logger.info(f"已备份文件: {backup_path}")
+
+    def _append_qa_pair(self, fp, qa: QaPair) -> None:
+        """追加单个问答对到JSONL文件"""
+        messages = []
+        system_prompt = getattr(self, 'system_prompt', None)
+        if system_prompt and system_prompt.strip() and system_prompt != "*":
+            messages.append({"role": "system", "content": system_prompt})
+        processed_messages = self._process_messages(qa.messages)
+        messages.extend({"role": msg.role, "content": msg.content} for msg in processed_messages)
+        data = {'messages': messages}
+        if qa.images:
+            data['images'] = qa.images
+        fp.write(json.dumps(data, ensure_ascii=False) + '\n')
+
+    def _process_with_scoring(self, input_path: str, output_path: str, scored_csv: Optional[str] = None, **kwargs) -> int:
         """
         使用打分策略处理
-        
+
         Args:
             input_path: 输入文件路径
             output_path: 输出文件路径
+            scored_csv: 完整打分结果CSV路径
             **kwargs: 其他参数
-            
+
         Returns:
             处理结果状态码
         """
         try:
-            # 读取输入数据
             qa_pairs = self._load_qa_pairs(input_path)
-            
+
             if not qa_pairs:
                 logger.warning("没有找到有效的问答对")
                 return 1
-            
-            # LLM打分
-            self.strategy.judge(qa_pairs)
-            
-            # 根据分数过滤
-            filtered_pairs = self.strategy.filter_by_score(qa_pairs)
-            
-            # 保存结果
-            self._save_qa_pairs(filtered_pairs, output_path)
-            
+
+            # 备份已有输出文件
+            self._backup_file(output_path)
+            if scored_csv:
+                self._backup_file(scored_csv)
+
+            # 打开输出文件
+            out_fp = open(output_path, 'w', encoding='utf-8')
+            csv_fp = None
+            csv_writer = None
+            if scored_csv:
+                csv_fp = open(scored_csv, 'w', newline='', encoding='utf-8')
+                csv_writer = csv.DictWriter(csv_fp, fieldnames=['id', 'Q', 'A', 'score'])
+                csv_writer.writeheader()
+
+            total = len(qa_pairs)
+            accepted = 0
+
+            def handle_batch(batch: List[QaPair]):
+                nonlocal accepted
+                for qa in batch:
+                    user = next((m.content for m in qa.messages if m.role == 'user'), '')
+                    assistant = next((m.content for m in qa.messages if m.role == 'assistant'), '')
+                    if csv_writer:
+                        csv_writer.writerow({'id': qa.id, 'Q': user, 'A': assistant, 'score': qa.score})
+                    if qa.score is not None and qa.score >= self.strategy.accept_score:
+                        self._append_qa_pair(out_fp, qa)
+                        accepted += 1
+                out_fp.flush()
+                if csv_fp:
+                    csv_fp.flush()
+
+            try:
+                self.strategy.judge(qa_pairs, on_batch_scored=handle_batch)
+            except KeyboardInterrupt:
+                logger.warning("检测到中断，已保存当前进度")
+            finally:
+                out_fp.close()
+                if csv_fp:
+                    csv_fp.close()
+
+            # 分数统计
+            scores = [qa.score for qa in qa_pairs if qa.score is not None]
+            if scores:
+                score_series = pd.Series(scores)
+                score_counts = score_series.value_counts().sort_index()
+                logger.info(f"分数分布: {dict(score_counts)}")
+            logger.info(f"LLM打分过滤完成: {accepted}/{total} 个问答对通过筛选")
             logger.info(f"打分策略处理完成: {output_path}")
+            if scored_csv:
+                logger.info(f"完整打分结果已保存: {scored_csv}")
             return 0
-            
+
         except Exception as e:
             logger.error(f"打分策略处理失败: {e}")
             return 1
