@@ -239,6 +239,11 @@ class LLMScoringStrategy:
                 for score_data in scores:
                     qa_id = score_data.get('id')
                     score = score_data.get('score', 0)
+                    # 确保分数是整数类型
+                    try:
+                        score = int(score)
+                    except (ValueError, TypeError):
+                        score = 0
                     for qa in batch:
                         if qa.id == qa_id:
                             qa.score = score
@@ -257,6 +262,11 @@ class LLMScoringStrategy:
                         score_data = json.loads(line)
                         qa_id = score_data.get('id')
                         score = score_data.get('score', 0)
+                        # 确保分数是整数类型
+                        try:
+                            score = int(score)
+                        except (ValueError, TypeError):
+                            score = 0
                         for qa in batch:
                             if qa.id == qa_id:
                                 qa.score = score
@@ -282,7 +292,19 @@ class LLMScoringStrategy:
         Returns:
             过滤后的问答对列表
         """
-        filtered = [qa for qa in qa_pairs if qa.score and qa.score >= self.accept_score]
+        filtered = []
+        for qa in qa_pairs:
+            if qa.score is not None:
+                # 确保分数是整数类型，以避免类型比较错误
+                try:
+                    score = int(qa.score)
+                    qa.score = score  # 更新为整数类型
+                    if score >= self.accept_score:
+                        filtered.append(qa)
+                except (ValueError, TypeError):
+                    # 无法转换为整数的分数设为0
+                    qa.score = 0
+                    logger.warning(f"无效分数值已重置为0: {qa.score} (原值: {repr(qa.score)})")
         
         logger.info(f"LLM打分过滤完成: {len(filtered)}/{len(qa_pairs)} 个问答对通过筛选")
         

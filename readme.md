@@ -66,3 +66,9 @@ Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
 * 已经被重构的部分没有增加双语支持
 * todo1.增加serverapi为webui做准备
 * 代码未优化
+
+### llm clean todos
+* ctrlc自动保存
+* 自动backup
+* 实时写入
+* 再写一份ai已经打完分的完整csv
