@@ -73,16 +73,35 @@ class OpenAIClient:
                 response.raise_for_status()
                 return response.json()
             except requests.exceptions.RequestException as e:
+                # 输出详细的错误信息和请求数据
+                error_details = {
+                    "url": url,
+                    "headers": headers,
+                    "payload": data,
+                    "error": str(e),
+                    "attempt": attempt + 1,
+                    "max_retries": self.max_retries + 1
+                }
+                
+                # 如果有响应，输出响应详情
+                response_details = ""
+                if hasattr(e, 'response') and e.response is not None:
+                    try:
+                        response_text = e.response.text
+                        response_details = f"\n响应状态码: {e.response.status_code}\n响应内容: {response_text}"
+                    except:
+                        response_details = f"\n响应状态码: {e.response.status_code}\n响应内容: 无法读取"
+                
                 if attempt < self.max_retries:
                     logger.warning(
-                        zhcn=f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}",
-                        en=f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                        zhcn=f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}\n详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
+                        en=f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}\nDetails: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
                     )
                     time.sleep(self.retry_delay * (2 ** attempt))  # 指数退避
                 else:
                     logger.error(
-                        zhcn=f"所有重试都失败: {e}",
-                        en=f"All retries failed: {e}"
+                        zhcn=f"所有重试都失败: {e}\n详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
+                        en=f"All retries failed: {e}\nDetails: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
                     )
                     raise
     
@@ -114,6 +133,11 @@ class OpenAIClient:
             payload["model"] = model
         if max_tokens:
             payload["max_tokens"] = max_tokens
+            
+        # 添加 service_tier 参数支持 Flex 模式半价计费
+        service_tier = self.config.get('OpenAI_service_tier')
+        if service_tier and service_tier != "default":
+            payload["service_tier"] = service_tier
             
         return self._make_request("v1/chat/completions", payload)
     
@@ -376,7 +400,7 @@ class LLMDataCleaner:
             response = self.client.chat_completion(
                 messages=messages_llm,
                 model=self.model,
-                temperature=self.config.get('OpenAI_temperature', 0.15),
+                temperature=self.config.get('OpenAI_temperature', 0.1),
                 max_tokens=self.config.get('OpenAI_max_tokens', 19200)
             )
             

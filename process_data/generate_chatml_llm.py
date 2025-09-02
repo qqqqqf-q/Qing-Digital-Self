@@ -206,8 +206,8 @@ class LLMScoringStrategy:
                     {"role": "user", "content": f"请评估以下问答对：\n{qa_list_json}"}
                 ],
                 model=self.model,
-                temperature=0,
-                max_tokens=2000
+                temperature=config.get("OpenAI_temperature", 0.7),
+                max_tokens=config.get("OpenAI_max_tokens", 10000)
             )
             
             # 解析响应

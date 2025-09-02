@@ -45,6 +45,8 @@
                 "api_base": "http://127.0.0.1:1236",
                 "api_key": "sk-1234567890abcdef1234567890abcdef",
                 "model_name": "qwen3-8b-fp6",
+                "service_tier": "default",  //或改为flex或batch享受一些平台的优惠
+                "temperature": 1.0,
                 "clean_batch_size": 10,
                 "clean_workers": 4,
                 "timeout": 20

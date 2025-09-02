@@ -188,13 +188,14 @@ class Config:
             "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", "http://127.0.0.1:1236"),
             "OpenAI_api_key": self._get_nested_value("data_args.clean_set_args.openai_api.api_key", "sk-1234567890abcdef1234567890abcdef"),
             "OpenAI_Model": self._get_nested_value("data_args.clean_set_args.openai_api.model_name", "qwen3-8b-fp6"),
+            "OpenAI_service_tier": self._get_nested_value("data_args.clean_set_args.openai_api.service_tier", "default"),
             "clean_batch_size": self._get_nested_value("data_args.clean_set_args.openai_api.clean_batch_size", 10),
             "clean_workers": self._get_nested_value("data_args.clean_set_args.openai_api.clean_workers", 4),
             "OpenAI_timeout": self._get_nested_value("data_args.clean_set_args.openai_api.timeout", 20),
             "OpenAI_max_retries": 3,
             "OpenAI_retry_delay": 1.0,
-            "OpenAI_temperature": 0.1,
-            "OpenAI_max_tokens": 10000,
+            "OpenAI_temperature": self._get_nested_value("data_args.clean_set_args.openai_api.temperature", 1.0),
+            "OpenAI_max_tokens": 32768,
             
             # 训练配置
             "use_qlora": self._get_nested_value("data_args.train_sft_args.use_qlora", True),
