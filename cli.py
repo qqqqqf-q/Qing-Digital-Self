@@ -176,6 +176,7 @@ def create_parser() -> argparse.ArgumentParser:
                                help='可接受的最低分数阈值(1-5分，仅用于scoring策略，默认2分)')
     data_clean_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')
     data_clean_llm.add_argument('--workers', type=int, help='工作进程数（默认从配置读取）')
+    data_clean_llm.add_argument('--resume', action='store_true', help='从上次中断处继续')
     
     # data convert
     data_convert = data_subparsers.add_parser('convert', help='转换数据格式')
