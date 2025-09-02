@@ -42,7 +42,7 @@
         "clean_set_args": {
             "clean_method": "llm",
             "openai_api": {
-                "api_base": "http://127.0.0.1:1236",
+                "api_base": "http://127.0.0.1:1236/v1/chat/completions",
                 "api_key": "sk-1234567890abcdef1234567890abcdef",
                 "model_name": "qwen3-8b-fp6",
                 "service_tier": "default",  //或改为flex或batch享受一些平台的优惠

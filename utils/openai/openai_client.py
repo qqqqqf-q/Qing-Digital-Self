@@ -55,7 +55,11 @@ class OpenAIClient:
         
     def _make_request(self, endpoint: str, data: Dict[str, Any]) -> Dict[str, Any]:
         """发送HTTP请求到API服务器"""
-        url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+        # 如果 endpoint 为空，直接使用 base_url（完整的 API 地址）
+        if not endpoint:
+            url = self.base_url
+        else:
+            url = f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
         
         # 构建请求头
         headers = {'Content-Type': 'application/json'}
@@ -139,12 +143,12 @@ class OpenAIClient:
         if service_tier and service_tier != "default":
             payload["service_tier"] = service_tier
             
-        return self._make_request("v1/chat/completions", payload)
+        return self._make_request("", payload)
     
     def list_models(self) -> List[str]:
         """获取可用模型列表"""
         try:
-            response = requests.get(f"{self.base_url}/v1/models", timeout=self.timeout)
+            response = requests.get(f"{self.base_url.replace('/chat/completions', '/models')}", timeout=self.timeout)
             response.raise_for_status()
             data = response.json()
             return [model["id"] for model in data.get("data", [])]
@@ -158,7 +162,7 @@ class OpenAIClient:
     def health_check(self) -> bool:
         """检查LM Studio服务器是否健康"""
         try:
-            response = requests.get(f"{self.base_url}/health", timeout=5)
+            response = requests.get(f"{self.base_url.replace('/chat/completions', '/health')}", timeout=5)
             return response.status_code == 200
         except:
             return False
