@@ -9,7 +9,7 @@ import os
 import json
 import logging
 import argparse
-import os
+import re
 import sys
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -17,7 +17,6 @@ from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from tqdm import tqdm
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -56,7 +55,6 @@ class QaPairScore:
 
 
 class LLMScoringStrategy:
-    """WeClone风格的LLM打分策略"""
     
     def __init__(self, client: Optional[OpenAIClient] = None, accept_score: int = 2, batch_size: int = None, workers: int = None):
         """
@@ -624,8 +622,8 @@ class LLMDataProcessor:
                 if not content:
                     continue
                 
-                # 判断角色：is_sender=1表示发送者（用户），is_sender=0表示接收者（助手）
-                role = 'user' if is_sender == 1 else 'assistant'
+                # 判断角色：is_sender=1表示发送者（助手），is_sender=0表示接收者（用户）
+                role = 'assistant' if is_sender == 1 else 'user'
                 
                 current_conversation.append(Message(role=role, content=content))
                 
@@ -697,7 +695,7 @@ class LLMDataProcessor:
     def _save_qa_pairs(self, qa_pairs: List[QaPair], output_path: str) -> None:
         """
         保存问答对数据
-        
+
         Args:
             qa_pairs: 问答对列表
             output_path: 输出文件路径
@@ -713,10 +711,13 @@ class LLMDataProcessor:
                     if system_prompt and system_prompt.strip() and system_prompt != "*":
                         messages.append({"role": "system", "content": system_prompt})
                     
-                    # 添加对话消息
+                    # 合并连续的user消息并处理空格符
+                    processed_messages = self._process_messages(qa.messages)
+                    
+                    # 添加处理后的对话消息
                     messages.extend([
                         {'role': msg.role, 'content': msg.content}
-                        for msg in qa.messages
+                        for msg in processed_messages
                     ])
                     
                     data = {
@@ -724,8 +725,7 @@ class LLMDataProcessor:
                     }
                     if qa.images:
                         data['images'] = qa.images
-                    if qa.score is not None:
-                        data['score'] = qa.score
+                    # 移除score字段，不保存到输出
                     
                     f.write(json.dumps(data, ensure_ascii=False) + '\n')
             
@@ -735,10 +735,70 @@ class LLMDataProcessor:
             logger.error(f"保存问答对失败: {e}")
             raise
     
+    def _process_messages(self, messages: List[Message]) -> List[Message]:
+        """
+        处理消息：合并连续的user消息并替换空格符为\n
+        
+        Args:
+            messages: 原始消息列表
+            
+        Returns:
+            处理后的消息列表
+        """
+        if not messages:
+            return []
+        
+        processed_messages = []
+        current_user_content = []
+        
+        for msg in messages:
+            if msg.role == "user":
+                # 收集连续的user消息内容
+                cleaned_content = self._replace_spaces_with_newlines(msg.content)
+                current_user_content.append(cleaned_content)
+            else:
+                # 处理之前收集的user消息
+                if current_user_content:
+                    combined_content = "\n".join(current_user_content)
+                    processed_messages.append(Message(role="user", content=combined_content))
+                    current_user_content = []
+                
+                # 处理assistant消息
+                cleaned_content = self._replace_spaces_with_newlines(msg.content)
+                processed_messages.append(Message(role=msg.role, content=cleaned_content))
+        
+        # 处理最后剩余的user消息
+        if current_user_content:
+            combined_content = "\n".join(current_user_content)
+            processed_messages.append(Message(role="user", content=combined_content))
+        
+        return processed_messages
+    
+    def _replace_spaces_with_newlines(self, content: str) -> str:
+        """
+        将句子中的空格符替换为\n
+        
+        Args:
+            content: 原始内容
+            
+        Returns:
+            处理后的内容
+        """
+        if not content:
+            return content
+        
+        # 将连续的空格替换为单个换行符
+        # 保留标点符号后的空格，避免破坏句子结构
+        content = re.sub(r'[。！？；，、：] +', lambda m: m.group(0)[0] + '\n', content)
+        # 处理普通空格
+        content = re.sub(r' +', '\n', content)
+        
+        return content.strip()
+    
     def _save_conversations(self, conversations: List[Dict[str, Any]], output_path: str) -> None:
         """
         保存对话数据
-        
+
         Args:
             conversations: 对话列表
             output_path: 输出文件路径
@@ -746,7 +806,22 @@ class LLMDataProcessor:
         try:
             with open(output_path, 'w', encoding='utf-8') as f:
                 for conv in conversations:
-                    f.write(json.dumps(conv, ensure_ascii=False) + '\n')
+                    # 处理对话中的消息
+                    if 'messages' in conv:
+                        messages = [Message(role=msg.get('role', 'user'), content=msg.get('content', ''))
+                                   for msg in conv['messages']]
+                        processed_messages = self._process_messages(messages)
+                        
+                        # 转换为字典格式
+                        conv_data = {
+                            'messages': [
+                                {'role': msg.role, 'content': msg.content}
+                                for msg in processed_messages
+                            ]
+                        }
+                        f.write(json.dumps(conv_data, ensure_ascii=False) + '\n')
+                    else:
+                        f.write(json.dumps(conv, ensure_ascii=False) + '\n')
             
             logger.info(f"保存了 {len(conversations)} 个对话到 {output_path}")
             
