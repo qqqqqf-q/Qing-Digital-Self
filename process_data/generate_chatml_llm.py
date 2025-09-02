@@ -3,9 +3,6 @@
 """
 LLM数据清洗模块
 
-基于WeClone项目的LLM数据清洗功能，实现两种处理策略：
-1. WeClone风格的LLM打分策略
-2. generate_training_data风格的可用句段策略
 """
 
 import os
@@ -61,17 +58,21 @@ class QaPairScore:
 class LLMScoringStrategy:
     """WeClone风格的LLM打分策略"""
     
-    def __init__(self, client: Optional[OpenAIClient] = None, accept_score: int = 2):
+    def __init__(self, client: Optional[OpenAIClient] = None, accept_score: int = 2, batch_size: int = None, workers: int = None):
         """
         初始化LLM打分策略
         
         Args:
             client: OpenAI客户端实例
             accept_score: 可接受的最低分数阈值
+            batch_size: 批处理大小
+            workers: 工作线程数
         """
         self.client = client or OpenAIClient()
         self.accept_score = accept_score
         self.model = config.get('OpenAI_Model', 'default')
+        self.batch_size = batch_size
+        self.workers = workers
         
     def judge(self, qa_pairs: List[QaPair]) -> None:
         """
@@ -88,8 +89,11 @@ class LLMScoringStrategy:
         # 批量处理配置
         clean_set_args = config.get('clean_set_args', {})
         openai_api = clean_set_args.get('openai_api', {})
-        batch_size = openai_api.get('clean_batch_size', 10)
-        workers = openai_api.get('clean_workers', 4)
+        batch_size = self.batch_size if self.batch_size is not None else openai_api.get('clean_batch_size', 10)
+        workers = self.workers if self.workers is not None else openai_api.get('clean_workers', 4)
+        
+        logger.info(f"实际使用批处理大小: {batch_size}")
+        logger.info(f"实际使用工作线程数: {workers}")
         
         # 分批处理
         batches = []
@@ -375,7 +379,9 @@ class LLMDataProcessor:
         
         if parser == 'scoring':
             accept_score = kwargs.get('accept_score', config.get('accept_score', 2))
-            self.strategy = LLMScoringStrategy(self.client, accept_score)
+            batch_size = kwargs.get('batch_size', None)
+            workers = kwargs.get('workers', None)
+            self.strategy = LLMScoringStrategy(self.client, accept_score, batch_size, workers)
         elif parser == 'segment':
             self.strategy = SegmentStrategy(self.client)
         else:

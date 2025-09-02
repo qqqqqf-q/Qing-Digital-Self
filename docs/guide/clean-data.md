@@ -45,7 +45,25 @@ python cli.py data clean raw
 ### run!
 ```bash
 python cli.py data clean llm
+
+# 打分策略
+python cli.py data clean llm --parser scoring
+
+# 设置分数阈值
+python cli.py data clean llm --parser scoring --accept-score 4
+
+# 使用句段策略(没写完)
+python cli.py data clean llm --parser segment
+
+# 其他参数
+--input - 输入CSV目录路径（默认从配置读取）
+--output - 输出文件路径（默认从配置读取）
+--batch-size - 批处理大小（默认从配置读取）
+--workers - 工作进程数（默认从配置读取）
 ```
+> 可以调大`betch_size`来减少api调用次数以减少tpm/rpm限制  
+> 不过会增大token  
+
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 
 # 以下为不使用云端llm服务清洗使用

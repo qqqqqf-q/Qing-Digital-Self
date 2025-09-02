@@ -182,6 +182,7 @@ class Config:
             # 清理配置
             "clean_method": self._get_nested_value("data_args.clean_set_args.clean_method", "llm"),
             "use_llm_clean": self._get_nested_value("data_args.clean_set_args.clean_method", "llm") == "llm",
+            "accept_score": self._get_nested_value("data_args.clean_set_args.accept_score", 2),
             
             # OpenAI API配置
             "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", "http://127.0.0.1:1236"),

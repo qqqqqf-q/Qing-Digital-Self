@@ -361,7 +361,8 @@ class DataCommand(BaseCommand):
             if method == 'llm':
                 # 获取LLM清洗策略参数
                 parser = getattr(args, 'parser', None) or self.config.get('llm_parser', 'scoring')
-                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser)
+                accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
+                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser, accept_score)
             else:  # raw
                 result = self._clean_data_raw(input_path, output_path)
             
@@ -375,21 +376,23 @@ class DataCommand(BaseCommand):
         except Exception as e:
             raise DataProcessingError(f"数据清洗失败: {e}")
     
-    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring') -> int:
+    def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring', accept_score: int = 2) -> int:
         """使用LLM清洗数据"""
         try:
             from process_data.generate_chatml_llm import LLMDataProcessor
             
             self.logger.info(f"开始LLM清洗，策略: {parser}")
-            
-            # 获取配置参数
-            accept_score = self.config.get('accept_score', 2)
+            if parser == 'scoring':
+                self.logger.info(f"分数阈值: {accept_score}")
+                self.logger.info(f"批处理大小: {batch_size}")
+                self.logger.info(f"工作线程数: {workers}")
             
             # 创建LLM数据处理器
             processor = LLMDataProcessor(
                 parser=parser,
                 accept_score=accept_score,
-                batch_size=batch_size
+                batch_size=batch_size,
+                workers=workers
             )
             
             # 处理文件
@@ -418,8 +421,7 @@ class DataCommand(BaseCommand):
         """使用原始算法清洗数据"""
         try:
             # 直接导入并调用ChatMLGenerator，避免子进程编码问题
-            sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'process_data'))
-            from generate_chatml_raw import ChatMLGenerator
+            from process_data.generate_chatml_raw import ChatMLGenerator
             
             self.logger.info(f"开始原始算法清洗")
             self.logger.info(f"输入路径: {input_path}")
@@ -464,34 +466,21 @@ class DataCommand(BaseCommand):
     def _execute_format_conversion(self, input_path: str, output_path: str, target_format: str) -> int:
         """执行格式转换"""
         try:
-            # 导入转换器
-            from process_data.generate_chatml import ChatMLGenerator
-            
-            generator = ChatMLGenerator()
-            
-            # 根据目标格式执行转换
+            # 目前只支持chatml格式转换，其他格式暂不支持
             if target_format == 'chatml':
-                result = generator.convert_to_chatml(input_path, output_path)
-            elif target_format == 'alpaca':
-                result = generator.convert_to_alpaca(input_path, output_path)
-            elif target_format == 'sharegpt':
-                result = generator.convert_to_sharegpt(input_path, output_path)
+                # 使用ChatMLGenerator进行chatml格式转换
+                from process_data.generate_chatml_raw import ChatMLGenerator
+                
+                self.logger.info(f"使用ChatMLGenerator进行{target_format}格式转换")
+                generator = ChatMLGenerator(input_path=input_path, output_path=output_path)
+                generator.run()
+                return 0
             else:
-                raise ValidationError(f"不支持的格式: {target_format}")
+                # 其他格式暂不支持，返回错误
+                self.logger.error(f"暂不支持 {target_format} 格式转换")
+                self.logger.info("目前只支持 chatml 格式转换")
+                raise ValidationError(f"暂不支持的格式: {target_format}，目前只支持 chatml 格式")
             
-            return 0 if result else 1
-            
-        except ImportError:
-            # 降级到脚本调用
-            cmd = [
-                sys.executable,
-                'process_data/generate_chatml.py',
-                '--input', input_path,
-                '--output', output_path,
-                '--format', target_format
-            ]
-            
-            return self._execute_subprocess(cmd, f"{target_format}格式转换")
         except Exception as e:
             raise DataProcessingError(f"格式转换执行失败: {e}")
     
