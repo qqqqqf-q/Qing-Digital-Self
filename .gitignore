@@ -218,3 +218,5 @@ checkpoints
 dataset/original/*
 model/
 GEMINI.MD
+dataset/sft_scored.csv
+dataset/sft.jsonl.*.bak
