@@ -56,6 +56,19 @@ python generate_training_data_llm.py
 ```
 > If you encounter 400 error, it's most likely because the message is too large and was rejected by the model framework
 
+## Command Options
+
+```bash
+python cli.py data clean llm
+
+# Other parameters
+--input   Input CSV directory (default from config)
+--output  Output file path (default from config)
+--batch-size  Batch size (default from config)
+--workers Work processes (default from config)
+--resume  Continue from last scored ID
+```
+
 ---
 
 ## vLLM Setup

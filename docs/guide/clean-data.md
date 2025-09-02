@@ -60,8 +60,9 @@ python cli.py data clean llm --parser segment
 --output - 输出文件路径（默认从配置读取）
 --batch-size - 批处理大小（默认从配置读取）
 --workers - 工作进程数（默认从配置读取）
+--resume - 从上一次的评分结果继续处理
 ```
-> 可以调大`betch_size`来减少api调用次数以减少tpm/rpm限制  
+> 可以调大`betch_size`来减少api调用次数以减少tpm/rpm限制
 > 不过会增大token  
 
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
