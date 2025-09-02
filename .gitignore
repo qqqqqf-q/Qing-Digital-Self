@@ -220,3 +220,4 @@ model/
 GEMINI.MD
 dataset/sft_scored.csv
 dataset/sft.jsonl.*.bak
+dataset/sft_scored.csv.*.bak
