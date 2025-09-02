@@ -737,7 +737,7 @@ class LLMDataProcessor:
     
     def _process_messages(self, messages: List[Message]) -> List[Message]:
         """
-        处理消息：合并连续的user消息并替换空格符为\n
+        处理消息：合并连续的相同角色消息并替换空格符为\n
         
         Args:
             messages: 原始消息列表
@@ -749,28 +749,29 @@ class LLMDataProcessor:
             return []
         
         processed_messages = []
-        current_user_content = []
+        current_role_content = []
+        current_role = None
         
         for msg in messages:
-            if msg.role == "user":
-                # 收集连续的user消息内容
-                cleaned_content = self._replace_spaces_with_newlines(msg.content)
-                current_user_content.append(cleaned_content)
+            cleaned_content = self._replace_spaces_with_newlines(msg.content)
+            
+            if msg.role == current_role:
+                # 收集连续的相同角色消息内容
+                current_role_content.append(cleaned_content)
             else:
-                # 处理之前收集的user消息
-                if current_user_content:
-                    combined_content = "\n".join(current_user_content)
-                    processed_messages.append(Message(role="user", content=combined_content))
-                    current_user_content = []
+                # 处理之前收集的相同角色消息
+                if current_role_content and current_role:
+                    combined_content = "\n".join(current_role_content)
+                    processed_messages.append(Message(role=current_role, content=combined_content))
                 
-                # 处理assistant消息
-                cleaned_content = self._replace_spaces_with_newlines(msg.content)
-                processed_messages.append(Message(role=msg.role, content=cleaned_content))
+                # 开始收集新角色的消息
+                current_role = msg.role
+                current_role_content = [cleaned_content]
         
-        # 处理最后剩余的user消息
-        if current_user_content:
-            combined_content = "\n".join(current_user_content)
-            processed_messages.append(Message(role="user", content=combined_content))
+        # 处理最后剩余的相同角色消息
+        if current_role_content and current_role:
+            combined_content = "\n".join(current_role_content)
+            processed_messages.append(Message(role=current_role, content=combined_content))
         
         return processed_messages
     
