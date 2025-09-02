@@ -394,12 +394,14 @@ class DataCommand(BaseCommand):
                 batch_size=batch_size,
                 workers=workers
             )
-            
+
             # 处理文件
-            result = processor.process_file(input_path, output_path)
-            
+            scored_csv = os.path.splitext(output_path)[0] + "_scored.csv"
+            result = processor.process_file(input_path, output_path, scored_csv=scored_csv)
+
             if result == 0:
                 self.logger.info(f"LLM清洗完成: {output_path}")
+                self.logger.info(f"完整打分结果: {scored_csv}")
             else:
                 self.logger.error("LLM清洗失败")
                 # 失败时回退到raw方法
