@@ -57,7 +57,7 @@
 * 将前往`baktool`的文件夹,进入`workspace-[随机名文件夹]-DecDB`
 * 找到所有`MSG*.db`的文件,例如`MSG1.db`,全部移动至`dataset/original/wechat`文件夹内
 <img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP">
-## (可选) 从视频/音频文件中获取聊天数据'
+## (可选) 从视频/音频文件中获取聊天数据
 
 *  从双音轨的视频/音频中提取(需要有音轨分离的文件)
 
