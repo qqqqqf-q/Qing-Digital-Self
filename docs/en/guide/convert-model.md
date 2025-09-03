@@ -7,7 +7,7 @@ git clone https://github.com/ggerganov/llama.cpp --depth 1
 cd llama.cpp
 mkdir build && cd build
 cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON
-cmake --build . --config Release
+cmake --build . --config Release -j
 
 cd ..
 python3 -m venv venv

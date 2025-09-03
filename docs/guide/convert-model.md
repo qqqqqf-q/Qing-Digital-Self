@@ -7,7 +7,7 @@ git clone https://github.com/ggerganov/llama.cpp --depth 1
 cd llama.cpp
 mkdir build && cd build
 cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON
-cmake --build . --config Release
+cmake --build . --config Release -j
 
 cd ..
 python3 -m venv venv
@@ -22,7 +22,7 @@ pip install -r "./requirements/requirements-convert_hf_to_gguf.txt"
 ### 命令格式：
 
 ```bash
-python3 ./convert_hf_to_gguf.py <HF模型路径> --outfile  <输出GGUF路径> --outtype <精度类型>
+python3 ./convert_hf_to_gguf.py <HF模型路径> --outfile <输出GGUF路径> --outtype <精度类型>
 ```
 
 * `<HF模型路径>`：HuggingFace 格式模型目录（通常为微调或下载后的路径）
