@@ -102,29 +102,61 @@ class LLMScoringStrategy:
         for i in range(0, len(qa_pairs), batch_size):
             batches.append(qa_pairs[i:i + batch_size])
 
-        # 多线程处理批次
-        with ThreadPoolExecutor(max_workers=workers) as executor:
+        # 多线程处理批次（可被Ctrl+C安全中断）
+        executor = ThreadPoolExecutor(max_workers=workers)
+        try:
             # 提交所有任务
             future_to_batch = {
                 executor.submit(self._score_batch, batch, scoring_prompt): batch
                 for batch in batches
             }
 
-            # 使用tqdm显示进度
+            # 迭代处理完成的任务，同时允许KeyboardInterrupt打断
+            remaining = set(future_to_batch.keys())
             with tqdm(total=len(batches), desc="LLM打分进度") as pbar:
-                for future in as_completed(future_to_batch):
-                    batch = future_to_batch[future]
+                while remaining:
+                    # 采用短超时的等待，便于主线程响应Ctrl+C
                     try:
-                        future.result()  # 获取结果，如果有异常会抛出
-                    except Exception as e:
-                        logger.error(f"批次处理失败: {e}")
-                        # 给失败的批次默认分数
-                        for qa in batch:
-                            if qa.score is None:
-                                qa.score = 0
-                    if on_batch_scored:
-                        on_batch_scored(batch)
-                    pbar.update(1)
+                        done, not_done = self._wait_futures(remaining, timeout=0.2)
+                    except KeyboardInterrupt:
+                        # 主动快速关闭，不等待未完成任务
+                        logger.warning("检测到中断，正在取消未开始的任务并快速退出...")
+                        try:
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        except Exception:
+                            pass
+                        raise
+
+                    for future in list(done):
+                        batch = future_to_batch.get(future)
+                        try:
+                            future.result()
+                        except Exception as e:
+                            logger.error(f"批次处理失败: {e}")
+                            if batch:
+                                for qa in batch:
+                                    if qa.score is None:
+                                        qa.score = 0
+                        if on_batch_scored and batch:
+                            on_batch_scored(batch)
+                        pbar.update(1)
+                        remaining.discard(future)
+        finally:
+            # 避免在__exit__里阻塞等待所有线程结束
+            try:
+                executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _wait_futures(futures_set, timeout: float):
+        """等待一小段时间以检查已完成的future，支持快速响应Ctrl+C。"""
+        from concurrent.futures import wait, FIRST_COMPLETED
+        if not futures_set:
+            return set(), set()
+        done, not_done = wait(futures_set, timeout=timeout, return_when=FIRST_COMPLETED)
+        # 如果在timeout内没有完成的任务，返回空done集合，保持循环可响应
+        return done, (futures_set - done)
     
     def _build_scoring_prompt(self) -> str:
         """构建LLM打分提示词"""
