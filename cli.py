@@ -315,7 +315,51 @@ def create_parser() -> argparse.ArgumentParser:
     # model info
     model_info = model_subparsers.add_parser('info', help='查看模型信息')
     model_info.add_argument('model_path', nargs='?', help='模型路径（可选，不指定则显示所有模型信息）')
-    
+
+    # 训练命令
+    train_parser = subparsers.add_parser(
+        'train',
+        help='模型训练',
+        description='启动训练、查看状态、停止训练，或启动 WebUI'
+    )
+    train_subparsers = train_parser.add_subparsers(dest='train_action')
+
+    # train start（传统脚本训练）
+    train_start = train_subparsers.add_parser('start', help='开始训练')
+    train_start.add_argument('--model-path', help='基础模型路径')
+    train_start.add_argument('--data-path', help='训练数据路径')
+    train_start.add_argument('--output-dir', help='输出目录')
+    train_start.add_argument('--lora-r', type=int, default=16, help='LoRA rank')
+    train_start.add_argument('--lora-alpha', type=int, default=32, help='LoRA alpha')
+    train_start.add_argument('--batch-size', type=int, default=1, help='批大小')
+    train_start.add_argument('--max-steps', type=int, default=1000, help='最大训练步数')
+    train_start.add_argument('--resume', help='恢复训练的检查点路径')
+
+    # train status
+    train_status = train_subparsers.add_parser('status', help='训练状态')
+    train_status.add_argument('--follow', action='store_true', help='实时跟踪')
+    train_status.add_argument('--output-dir', help='训练输出目录')
+
+    # train stop
+    train_stop = train_subparsers.add_parser('stop', help='停止训练')
+    train_stop.add_argument('--force', action='store_true', help='强制停止')
+
+    # train merge
+    train_merge = train_subparsers.add_parser('merge', help='合并LoRA权重')
+    train_merge.add_argument('--base-model', required=True, help='基础模型路径')
+    train_merge.add_argument('--lora-path', required=True, help='LoRA权重路径')
+    train_merge.add_argument('--output', required=True, help='输出路径')
+
+    # train webui start（LLaMA Factory WebUI）
+    train_webui = train_subparsers.add_parser('webui', help='LLaMA Factory WebUI')
+    train_webui_sub = train_webui.add_subparsers(dest='webui_action')
+    train_webui_start = train_webui_sub.add_parser('start', help='启动 WebUI')
+    train_webui_start.add_argument('--host', default='0.0.0.0', help='监听地址')
+    train_webui_start.add_argument('--port', type=int, default=7860, help='监听端口')
+    train_webui_start.add_argument('--no-browser', action='store_true', help='不自动打开浏览器（上游限制，可能无效）')
+    train_webui_start.add_argument('--share', action='store_true', help='开启公网分享 (Gradio)')
+    train_webui_start.add_argument('--workdir', default=None, help='工作目录（可选）')
+
     return parser
 
 

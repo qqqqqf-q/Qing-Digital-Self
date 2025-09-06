@@ -10,7 +10,7 @@ import time
 import platform
 import psutil
 from pathlib import Path
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional, Union, List, Tuple
 from datetime import datetime, timedelta
 
 from .exceptions import ValidationError, FileOperationError
@@ -334,7 +334,7 @@ def truncate_string(text: str, max_length: int, suffix: str = "...") -> str:
     return text[:max_length - len(suffix)] + suffix
 
 
-def parse_time_range(time_range_str: str) -> tuple[datetime, datetime]:
+def parse_time_range(time_range_str: str) -> Tuple[datetime, datetime]:
     """
     解析时间范围字符串
     
