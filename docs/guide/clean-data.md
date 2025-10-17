@@ -65,6 +65,7 @@ python cli.py data clean llm --parser scoring
 
 # 设置分数阈值
 python cli.py data clean llm --parser scoring --accept-score 4
+--accept-score 为{1-5}的数字
 
 # 使用句段策略(没写完)
 python cli.py data clean llm --parser segment
@@ -74,6 +75,11 @@ python cli.py data clean llm --parser segment
 --output - 输出文件路径（默认从配置读取）
 --batch-size - 批处理大小（默认从配置读取）
 --workers - 工作进程数（默认从配置读取）
+
+# 从已经打分好的scored文件中重新输出数据集(sft.jsonl)
+python cli.py data clean rellm --accept-score 4
+--accept-score 为{1-5}的数字
+
 ```
 > 可以调大`betch_size`来减少api调用次数以缓解速率限制  
 > 不过每次消耗的token会多点  

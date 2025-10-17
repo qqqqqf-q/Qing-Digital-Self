@@ -177,6 +177,26 @@ def create_parser() -> argparse.ArgumentParser:
     data_clean_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')
     data_clean_llm.add_argument('--workers', type=int, help='工作进程数（默认从配置读取）')
     
+    # data clean estimate
+    data_clean_estimate = data_clean_subparsers.add_parser('estimate', help='估算清洗资源消耗')
+    data_clean_estimate_subparsers = data_clean_estimate.add_subparsers(dest='estimate_method', help='估算策略')
+    
+    data_clean_estimate_llm = data_clean_estimate_subparsers.add_parser('llm', help='估算LLM清洗字符量')
+    data_clean_estimate_llm.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
+    data_clean_estimate_llm.add_argument('--parser', choices=['scoring'], default='scoring', help='处理策略')
+    data_clean_estimate_llm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
+                                         help='可接受的最低分数阈值(仅用于scoring策略)')
+    data_clean_estimate_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')
+    data_clean_estimate_llm.add_argument('--workers', type=int, help='工作进程数（默认从配置读取）')
+    
+    # data clean rellm
+    data_clean_rellm = data_clean_subparsers.add_parser('rellm', help='基于已有打分结果重新筛选数据')
+    data_clean_rellm.add_argument('--input', help='原始数据输入路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--scored', help='打分结果CSV路径（默认: 输出路径对应的_scored.csv）')
+    data_clean_rellm.add_argument('--output', help='输出文件路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
+                                  help='重新筛选可接受的最低分数阈值(1-5分，默认2分)')
+    
     # data convert
     data_convert = data_subparsers.add_parser('convert', help='转换数据格式')
     data_convert.add_argument('--input', required=True, help='输入文件路径')
