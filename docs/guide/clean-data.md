@@ -53,8 +53,9 @@ python cli.py data clean raw
 > 这个部分同样建议在windows上优化完再上传至GPU服务器  
 > 不确定在Linux上有没有兼容性问题
 
-* 前往`setting.jsonc`文件中修改`clean_set_args`组的`openai_api`字段
-* 设置`api_base` `api_key` `model_name`等字段
+* 前往`setting.jsonc`文件中修改`clean_set_args`组的`openai_api`字段  
+* 设置`api_base` `api_key` `model_name`等字段  
+* 可设置`thinking`字段来开关模型的think功能
 
 ### run!
 ```bash

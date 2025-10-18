@@ -145,7 +145,24 @@ class OpenAIClient:
             payload["model"] = model
         if max_tokens:
             payload["max_tokens"] = max_tokens
-            
+
+        thinking_mode = (self.config.get('OpenAI_thinking_mode') or 'none').lower()
+        if thinking_mode != "none":
+            mode_map = {
+                "enable": "enabled",
+                "enabled": "enabled",
+                "disable": "disabled",
+                "disabled": "disabled"
+            }
+            thinking_type = mode_map.get(thinking_mode)
+            if thinking_type:
+                payload["thinking"] = {"type": thinking_type}
+            else:
+                logger.warning(
+                    zhcn=f"未识别的thinking模式: {thinking_mode}，已跳过",
+                    en=f"Unrecognized thinking mode: {thinking_mode}, skipped"
+                )
+
         # 添加 service_tier 参数支持 Flex 模式半价计费
         service_tier = self.config.get('OpenAI_service_tier')
         if service_tier and service_tier != "default":
