@@ -4,9 +4,8 @@
 
 ## This project is a personal digital twin built by fine-tuning a large language model on your own chat history. The goal is to recreate your unique style of expression and conversational behavior with high fidelity.
 <p align="center">
-  <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
-<img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
-<img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge">
+ <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
+<img src="https://img.shields.io/badge/Status-Develop-ff69b4?style=for-the-badge">
 <img src="https://img.shields.io/badge/Version-v0.1.5Dev-9370DB?style=for-the-badge">
 <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2">
 

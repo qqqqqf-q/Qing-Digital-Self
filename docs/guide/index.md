@@ -3,14 +3,12 @@
 ## 这是一个数字分身项目，核心思想是**利用C2C 聊天记录作为数据集，对大模型进行微调**，让模型尽可能还原你独有的表达风格和聊天方式。
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Downloads-1-00bfff?style=for-the-badge">
-<img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
-<img src="https://img.shields.io/badge/Status-MVP-ff69b4?style=for-the-badge">
-<img src="https://img.shields.io/badge/Version-v0.1.6Dev-9370DB?style=for-the-badge">
+ <img src="https://img.shields.io/github/stars/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=ff69b4">
+<img src="https://img.shields.io/badge/Status-Develop-ff69b4?style=for-the-badge">
+<img src="https://img.shields.io/badge/Version-v0.1.5Dev-9370DB?style=for-the-badge">
 <img src="https://img.shields.io/github/license/qqqqqf-q/Qing-Digital-Self?style=for-the-badge&color=8A2BE2">
 
 </p>
-
 ## 项目包含了**完整的教程**，包括：
 
 * QQ/WX/TG的数据提取
