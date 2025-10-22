@@ -71,7 +71,7 @@
             "fp16": true,
             "logging_steps": 10,
             "save_steps": 100,
-            "load_precision": "int8",
+            "load_precision": "int4",
             "max_workers": 6,
             "use_unsloth": true
         },

@@ -224,3 +224,10 @@ dataset/sft_scored.csv.*.bak
 cache
 config
 saves
+.gradio
+docs/.npmrc
+/*.jsonl
+dataset/*.jsonl
+savemodel
+train.sh
+swanlog

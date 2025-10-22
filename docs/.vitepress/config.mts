@@ -28,8 +28,7 @@ export default defineConfig({
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
               { text: '4. 微调模型', link: '/guide/finetune-llama-factory' },
-              { text: '4. (请跳过)微调模型(Old)', link: '/guide/fine-tune-model' },
-              { text: '5. (建议跳过)微调后直接运行全量模型', link: '/guide/run-full-model' },
+              { text: '5. 微调后直接运行全量模型', link: '/guide/run-full-model' },
               { text: '6. 转换GUFF和量化模型', link: '/guide/convert-model' },
               { text: '7. 运行模型', link: '/guide/run-model' },
 

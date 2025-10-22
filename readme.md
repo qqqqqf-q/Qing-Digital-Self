@@ -27,42 +27,43 @@
 
 ## 项目包含了**完整的教程**，包括：
 
-* QQ 数据库的解密与处理
+* QQ/WX/TG的数据提取
 * 聊天数据清洗与转换
-* QLora 微调流程
+* LlamaFactory 微调流程
 * 微调模型的测试与使用
-* 使用unsloth加速训练!
+
 
 我知道类似的项目其实已经有不少了，但也许我的教程、流程、代码实现能给你一些不一样的帮助或启发。如果对你有用，欢迎点个 star，我会很开心的！
 
-目前这个项目还有很多不足：
-
-* 暂时不知道有什么不足
 * (如果有问题欢迎开Issues)
 * 但已经可以在 4090 24G 显卡上用 fp8 精度微调 Qwen3-8B（亲测可用）
+* 并且可以使用ROCm!(使用6800xt+ROCm7.0.2+Ubuntu24.02测试)  
+---
 **"部分代码参考自 Weclone"** 
 **如果你也想打造属于自己的数字分身，那也来试试吧!**
 
-——
-X: [@qqqqqf5](https://twitter.com/qqqqqf5)
-Email: qingf622@outlook.com
+
+X: [@qqqqqf5](https://twitter.com/qqqqqf5)  
+Email: qingf622@outlook.com  
 Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
 ---
 
 
-## 项目版本
-# V 0.1.5 Develop
 
-# 项目状态
+
+## 项目版本
+# V 0.1.6 Develop
+
+## 项目状态
 * 由于0.1.4版本对于代码进行了许多重构
+* 转向`Llama Factory`
 * 所以可能有更多的Bug
 * 欢迎各位开发者来提Issues,PR
 * 贡献这个小项目
   
 # 开发问题
 * cli的train,data convert都存在问题,暂时还是只能用老版本调用
-* 微调脚本需要重构(正在思考是继续Qlora+Unsloth还是转向Llama Factory)
-* 文档部分由于重构了项目还有一些没有修改的
 * 已经被重构的部分没有增加双语支持
+* 删掉原来的`run_finetune`和`finetune`脚本
 * todo1.增加serverapi为webui做准备
 * 代码未优化

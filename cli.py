@@ -218,40 +218,6 @@ def create_parser() -> argparse.ArgumentParser:
     data_stats = data_subparsers.add_parser('stats', help='显示数据统计')
     data_stats.add_argument('--input', required=True, help='输入文件路径')
     
-    # 模型训练命令
-    train_parser = subparsers.add_parser(
-        'train',
-        help='模型训练',
-        description='QLoRA微调和模型管理'
-    )
-    train_subparsers = train_parser.add_subparsers(dest='train_action')
-    
-    # train start
-    train_start = train_subparsers.add_parser('start', help='开始训练')
-    train_start.add_argument('--model-path', help='基础模型路径')
-    train_start.add_argument('--data-path', help='训练数据路径')
-    train_start.add_argument('--output-dir', help='输出目录')
-    train_start.add_argument('--lora-r', type=int, default=16, help='LoRA rank')
-    train_start.add_argument('--lora-alpha', type=int, default=32, help='LoRA alpha')
-    train_start.add_argument('--batch-size', type=int, default=1, help='批处理大小')
-    train_start.add_argument('--max-steps', type=int, default=1000, help='最大训练步数')
-    train_start.add_argument('--resume', help='恢复训练检查点路径')
-    
-    # train status
-    train_status = train_subparsers.add_parser('status', help='训练状态')
-    train_status.add_argument('--follow', action='store_true', help='实时跟踪')
-    train_status.add_argument('--output-dir', help='训练输出目录')
-    
-    # train stop
-    train_stop = train_subparsers.add_parser('stop', help='停止训练')
-    train_stop.add_argument('--force', action='store_true', help='强制停止')
-    
-    # train merge
-    train_merge = train_subparsers.add_parser('merge', help='合并LoRA权重')
-    train_merge.add_argument('--base-model', required=True, help='基础模型路径')
-    train_merge.add_argument('--lora-path', required=True, help='LoRA权重路径')
-    train_merge.add_argument('--output', required=True, help='输出路径')
-    
     # 模型推理命令
     infer_parser = subparsers.add_parser(
         'infer',
@@ -405,6 +371,7 @@ def handle_global_args(args: argparse.Namespace) -> None:
 
 def main() -> int:
     """主函数"""
+    args: Optional[argparse.Namespace] = None
     try:
         # 创建命令行解析器
         parser = create_parser()
@@ -444,7 +411,7 @@ def main() -> int:
     except Exception as e:
         logger = get_logger()
         logger.error(f"未预期的错误: {e}")
-        if hasattr(args, 'verbose') and args.verbose:
+        if args and getattr(args, 'verbose', False):
             import traceback
             logger.error(traceback.format_exc())
         return 1
