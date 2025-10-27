@@ -188,6 +188,24 @@ class QingCLI:
                 self._print_general_help()
                 return 0
             
+            # 特殊路由：train webui start 直接在此分派
+            if getattr(args, 'command', None) == 'train' and getattr(args, 'train_action', None) == 'webui':
+                webui_action = getattr(args, 'webui_action', None)
+                if webui_action == 'start':
+                    try:
+                        from finetune.llama_factory.launcher import WebUILaunchConfig, launch_webui
+                        cfg = WebUILaunchConfig(
+                            host=getattr(args, 'host', '0.0.0.0'),
+                            port=int(getattr(args, 'port', 7860) or 7860),
+                            share=bool(getattr(args, 'share', False)),
+                            open_browser=not bool(getattr(args, 'no_browser', False)),
+                            working_dir=getattr(args, 'workdir', None),
+                        )
+                        return launch_webui(cfg)
+                    except Exception as e:
+                        self.logger.error(f"WebUI 启动失败: {e}")
+                        return 1
+
             # 获取命令
             command = self.get_command(args.command)
             if command is None:

@@ -8,11 +8,17 @@
 import os
 import json
 import sys
+import csv
+import re
+import shutil
 import argparse
-from typing import Dict, Any, List, Optional, Tuple
+from datetime import datetime
+from typing import Dict, Any, List, Optional, Tuple, Set
 from pathlib import Path
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from collections import defaultdict
+from dataclasses import dataclass
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
@@ -28,6 +34,21 @@ from ..core.helpers import (
 )
 from ..interface.validators import validate_path, validate_positive_int
 from utils.config.config import get_config
+
+
+@dataclass
+class _EstimateMessage:
+    """估算阶段使用的轻量消息结构"""
+    role: str
+    content: str
+
+
+@dataclass
+class _EstimateQaPair:
+    """估算阶段使用的轻量问答结构"""
+    id: str
+    messages: List[_EstimateMessage]
+    images: Optional[List[str]] = None
 
 
 class DataCommand(BaseCommand):
@@ -94,12 +115,45 @@ class DataCommand(BaseCommand):
     
     def _validate_clean_args(self, args: argparse.Namespace) -> None:
         """验证数据清洗参数"""
+        method = getattr(args, 'clean_method', None)
+        
+        if method == 'estimate':
+            self._validate_clean_estimate_args(args)
+            return
+        
+        output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
+        
+        if method == 'rellm':
+            validate_path(output_path, must_exist=False, check_parent=True)
+            input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+            validate_path(input_path, must_exist=True)
+            scored_path = getattr(args, 'scored', None) or os.path.splitext(output_path)[0] + "_scored.csv"
+            validate_path(scored_path, must_exist=True)
+            accept_score = getattr(args, 'accept_score', None)
+            if accept_score is not None:
+                validate_positive_int(accept_score, "accept_score")
+            return
+        
         # 获取实际使用的路径（支持从配置读取）
         input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
-        output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
         
         validate_path(input_path, must_exist=True)
         validate_path(output_path, must_exist=False, check_parent=True)
+        
+        if hasattr(args, 'batch_size') and getattr(args, 'batch_size', None) is not None:
+            validate_positive_int(args.batch_size, "batch_size")
+        
+        if hasattr(args, 'workers') and getattr(args, 'workers', None) is not None:
+            validate_positive_int(args.workers, "workers")
+    
+    def _validate_clean_estimate_args(self, args: argparse.Namespace) -> None:
+        """验证清洗估算参数"""
+        estimate_method = getattr(args, 'estimate_method', None)
+        if estimate_method != 'llm':
+            raise ValidationError("估算目前仅支持 llm 策略")
+        
+        input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+        validate_path(input_path, must_exist=True)
         
         if hasattr(args, 'batch_size') and getattr(args, 'batch_size', None) is not None:
             validate_positive_int(args.batch_size, "batch_size")
@@ -341,30 +395,48 @@ class DataCommand(BaseCommand):
                 
             self.logger.info(f"开始清洗训练数据，使用方法: {method}")
             
-            # 获取参数，支持从配置文件读取默认值
-            input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
-            output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
-            batch_size = getattr(args, 'batch_size', None) or self.config.get('clean_batch_size', 10)
-            workers = getattr(args, 'workers', None) or self.config.get('clean_workers', 4)
+            if method == 'estimate':
+                return self._clean_data_estimate(args)
             
-            self.logger.info(f"输入路径: {input_path}")
+            # 获取输出路径，支持从配置文件读取默认值
+            output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
+            
             self.logger.info(f"输出路径: {output_path}")
             
             # 确保输出目录存在
             ensure_directory(os.path.dirname(output_path))
             
-            # 检查输入路径
-            if not os.path.exists(input_path):
-                raise FileOperationError("输入路径不存在", input_path)
-            
             # 根据清洗方法执行
-            if method == 'llm':
-                # 获取LLM清洗策略参数
-                parser = getattr(args, 'parser', None) or self.config.get('llm_parser', 'scoring')
+            if method == 'rellm':
                 accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
-                result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser, accept_score)
-            else:  # raw
-                result = self._clean_data_raw(input_path, output_path)
+                input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+                scored_path = getattr(args, 'scored', None) or os.path.splitext(output_path)[0] + "_scored.csv"
+                self.logger.info(f"输入路径: {input_path}")
+                self.logger.info(f"打分结果路径: {scored_path}")
+                self.logger.info(f"目标分数阈值: {accept_score}")
+                if not os.path.exists(scored_path):
+                    raise FileOperationError("打分结果文件不存在", scored_path)
+                result = self._clean_data_rellm(scored_path, input_path, output_path, accept_score)
+            else:
+                # 获取输入路径及并发参数
+                input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+                self.logger.info(f"输入路径: {input_path}")
+                
+                # 检查输入路径
+                if not os.path.exists(input_path):
+                    raise FileOperationError("输入路径不存在", input_path)
+                
+                if method == 'llm':
+                    # 获取LLM清洗策略参数
+                    batch_size = getattr(args, 'batch_size', None) or self.config.get('clean_batch_size', 10)
+                    workers = getattr(args, 'workers', None) or self.config.get('clean_workers', 4)
+                    self.logger.info(f"批处理大小: {batch_size}")
+                    self.logger.info(f"工作线程数: {workers}")
+                    parser = getattr(args, 'parser', None) or self.config.get('llm_parser', 'scoring')
+                    accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
+                    result = self._clean_data_llm(input_path, output_path, batch_size, workers, parser, accept_score)
+                else:  # raw
+                    result = self._clean_data_raw(input_path, output_path)
             
             if result == 0:
                 if os.path.exists(output_path):
@@ -375,7 +447,36 @@ class DataCommand(BaseCommand):
             
         except Exception as e:
             raise DataProcessingError(f"数据清洗失败: {e}")
-    
+
+    def _clean_data_estimate(self, args: argparse.Namespace) -> int:
+        """估算LLM清洗资源开销"""
+        try:
+            estimate_method = getattr(args, 'estimate_method', None)
+            if estimate_method != 'llm':
+                self.logger.error("当前仅支持 llm 估算策略")
+                return 1
+            
+            input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+            parser = getattr(args, 'parser', 'scoring')
+            batch_size = getattr(args, 'batch_size', None) or self.config.get('clean_batch_size', 10)
+            workers = getattr(args, 'workers', None) or self.config.get('clean_workers', 4)
+            accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
+            
+            self.logger.info(f"估算输入路径: {input_path}")
+            self.logger.info(f"估算处理策略: {parser}")
+            self.logger.info(f"估算批处理大小: {batch_size}")
+            self.logger.info(f"估算工作线程数(对齐配置使用): {workers}")
+            self.logger.info(f"估算分数阈值: {accept_score}")
+            
+            return self._estimate_llm_clean(
+                input_path=input_path,
+                batch_size=batch_size,
+                parser=parser,
+                accept_score=accept_score
+            )
+        except Exception as e:
+            raise DataProcessingError(f"清洗资源估算失败: {e}")
+
     def _clean_data_llm(self, input_path: str, output_path: str, batch_size: int, workers: int, parser: str = 'scoring', accept_score: int = 2) -> int:
         """使用LLM清洗数据"""
         try:
@@ -418,6 +519,499 @@ class DataCommand(BaseCommand):
             self.logger.error(f"LLM清洗失败: {e}")
             self.logger.warning("回退到raw清洗方法")
             return self._clean_data_raw(input_path, output_path)
+    
+    def _estimate_llm_clean(self, input_path: str, batch_size: int, parser: str, accept_score: int) -> int:
+        """估算LLM清洗时的字符传输量"""
+        try:
+            if parser != 'scoring':
+                raise ValidationError("估算暂时仅支持 scoring 策略")
+            
+            clean_set_args = self.config.get('clean_set_args', {})
+            if not isinstance(clean_set_args, dict):
+                clean_set_args = {}
+            openai_api = clean_set_args.get('openai_api', {})
+            if not isinstance(openai_api, dict):
+                openai_api = {}
+            configured_batch = openai_api.get('clean_batch_size')
+            fallback_batch = self.config.get('clean_batch_size', 10)
+            candidate_batch = batch_size or configured_batch or fallback_batch
+            try:
+                actual_batch_size = int(candidate_batch)
+            except (TypeError, ValueError):
+                actual_batch_size = fallback_batch
+            actual_batch_size = max(1, actual_batch_size)
+            
+            scoring_prompt = None
+            qa_pairs: List[Any] = []
+            
+            try:
+                from process_data.generate_chatml_llm import LLMDataProcessor  # type: ignore
+                processor = LLMDataProcessor(
+                    parser=parser,
+                    accept_score=accept_score,
+                    batch_size=actual_batch_size
+                )
+                qa_pairs = processor._load_qa_pairs(input_path)
+                scoring_prompt = processor.strategy._build_scoring_prompt()
+            except ImportError as import_error:
+                if 'pandas' not in str(import_error):
+                    raise DataProcessingError(f"无法加载LLM估算模块: {import_error}") from import_error
+                self.logger.warning("检测到缺少pandas，使用轻量估算逻辑")
+                scoring_prompt = self._fallback_scoring_prompt()
+                qa_pairs = self._load_qa_pairs_for_estimate(input_path)
+            except Exception as module_error:
+                raise DataProcessingError(f"初始化LLM估算模块失败: {module_error}") from module_error
+            
+            if not qa_pairs:
+                self.logger.warning("没有找到可估算的问答对")
+                print("未找到可估算的问答对")
+                return 0
+            
+            prompt_prefix = "请评估以下问答对：\n"
+            
+            total_input_english = 0
+            total_input_chinese = 0
+            total_output_english = 0
+            total_output_chinese = 0
+            skipped_with_images = 0
+            effective_pairs = 0
+            request_batches = 0
+            
+            for batch in self._iter_batches(qa_pairs, actual_batch_size):
+                qa_list = []
+                for qa in batch:
+                    if getattr(qa, 'images', None):
+                        skipped_with_images += 1
+                        continue
+                    
+                    user_msg = next((msg.content for msg in qa.messages if msg.role == 'user'), '')
+                    assistant_msg = next((msg.content for msg in qa.messages if msg.role == 'assistant'), '')
+                    qa_list.append({
+                        "id": qa.id,
+                        "Q": user_msg,
+                        "A": assistant_msg
+                    })
+                
+                if not qa_list:
+                    continue
+                
+                qa_list_json = json.dumps(qa_list, ensure_ascii=False)
+                eng_in, chi_in = self._count_char_types(scoring_prompt + prompt_prefix + qa_list_json)
+                total_input_english += eng_in
+                total_input_chinese += chi_in
+                
+                estimated_output = json.dumps(
+                    [{"id": item["id"], "score": 0} for item in qa_list],
+                    ensure_ascii=False
+                )
+                eng_out, chi_out = self._count_char_types(estimated_output)
+                total_output_english += eng_out
+                total_output_chinese += chi_out
+                
+                effective_pairs += len(qa_list)
+                request_batches += 1
+            
+            if request_batches == 0:
+                self.logger.warning("所有问答均包含图片或无有效内容，未产生估算请求")
+                print("所有问答均被跳过，未产生估算请求")
+                print("模型输入字符总数: 0")
+                print("模型输出字符总数: 0")
+                print("模型输入字符预估Token数(英0.3/中0.6): 0.00")
+                print("模型输出字符预估Token数(英0.3/中0.6): 0.00")
+                return 0
+            
+            total_input_chars = total_input_english + total_input_chinese
+            total_output_chars = total_output_english + total_output_chinese
+            input_tokens = self._estimate_tokens(total_input_english, total_input_chinese)
+            output_tokens = self._estimate_tokens(total_output_english, total_output_chinese)
+            
+            print(f"估算批次数: {request_batches}")
+            print(f"参与估算的问答数量: {effective_pairs}")
+            if skipped_with_images:
+                print(f"包含图片而跳过的问答数量: {skipped_with_images}")
+            print(f"模型输入字符总数: {total_input_chars}")
+            print(f"模型输出字符总数: {total_output_chars}")
+            print(f"模型输入字符预估Token数(英0.3/中0.6): {input_tokens:.2f}")
+            print(f"模型输出字符预估Token数(英0.3/中0.6): {output_tokens:.2f}")
+            
+            self.logger.info(
+                f"估算完成，批次数: {request_batches}, 输入字符: {total_input_chars}, 输出字符: {total_output_chars}\n"
+                f"输入token: {input_tokens:.2f}\n输出token: {output_tokens:.2f}"
+            )
+            return 0
+        
+        except ValidationError:
+            raise
+        except Exception as e:
+            raise DataProcessingError(f"LLM清洗字符估算失败: {e}")
+    
+    def _fallback_scoring_prompt(self) -> str:
+        """当无法导入LLM模块时使用的默认打分提示词"""
+        return """# 角色
+你是一个数据质量评估员。
+
+# 任务
+你的任务是评估下面提供的聊天记录的**逻辑性**、**相关性**以及**风格代表性**。目标是识别并过滤掉那些回答与问题**明显不匹配**、**逻辑严重混乱**的样本，筛选出具有人类聊天风格独特性与辨识度的样本。请根据以下核心评估点给出一个1到5的整数分数，并将该分数与原始 `id` 一起输出。
+
+**重要考量:**
+1.  **简短回答的有效性:** 请注意，诸如“好的”、“是的”、“收到”、“嗯”、“知道了”等简短的肯定、确认或应答，在合适的语境下是完全**有逻辑且相关的**。**不要仅仅因为回答简短就将其评为低分。** 只有当这类简短回答与【问题/上下文 Q】**明显不符**时，才应考虑低分。
+2.  **处理错别字和自我纠正:** 聊天记录中可能包含常见的打字错误（错别字）或用户先打错字随后又自行纠正的情况（例如，发送“我想去1楼”紧接着又发送“*2楼”进行更正）。在评估时，请**聚焦于用户想要表达的最终意图和信息的核心内容**，而**不应仅仅因为存在错别字或纠正过程就判定为低质量**。
+
+# 核心评估点 (请在心中衡量)
+1.  **相关性 (Relevance):** 【回答 A】是否直接回应或恰当地衔接了【问题/上下文 Q】？只有当两者**明显矛盾**或**完全不相关**时，才应给出低分。
+2.  **逻辑性 (Coherence):** 【回答 A】是否在语义与结构上自洽？当回答**逻辑混乱**或**与上下文冲突**时，才应给出低分。
+3. **风格代表性 (Style Representativeness):** 关注回答是否展现出自然的人类聊天风格，例如特定语气、情绪表达、俚语或口头禅等。风格代表性是获得5分的必要条件，但不是低分的主要依据。
+
+# 评分标准 (1-5分)
+*   **1分 (极差):** 聊天记录完全不相关，或逻辑严重混乱。
+*   **2分 (差):** 大部分问答相关性低，存在明显逻辑问题。
+*   **3分 (中等):** 相关性尚可但不突出，逻辑基本成立。
+*   **4分 (良好):** 问答高度相关，逻辑清晰。
+*   **5分 (优秀):** 满足4分标准，并展现明显的人类聊天风格特征。
+
+# 输出要求
+请严格按照以下 JSON 格式输出，每条记录仅包含原始 `id` 与评估的整数分数 `score`，不要包含任何额外说明：
+[
+  {
+    "id": "<这里填入第1条输入数据的id值>",
+    "score": <1-5的整数评分>
+  },
+  {
+    "id": "<这里填入第2条输入数据的id值>",
+    "score": <1-5的整数评分>
+  }
+  …
+]"""
+    
+    def _load_qa_pairs_for_estimate(self, input_path: str) -> List[_EstimateQaPair]:
+        """在缺少依赖时加载问答数据用于估算"""
+        qa_pairs: List[_EstimateQaPair] = []
+        
+        if os.path.isfile(input_path):
+            lower_name = input_path.lower()
+            if lower_name.endswith('.jsonl'):
+                qa_pairs.extend(self._load_qa_pairs_from_jsonl_for_estimate(input_path))
+            elif lower_name.endswith('.csv'):
+                qa_pairs.extend(self._load_qa_pairs_from_csv_for_estimate(input_path))
+            else:
+                raise DataProcessingError(f"不支持的估算输入格式: {input_path}")
+        elif os.path.isdir(input_path):
+            csv_files = self._collect_csv_files_for_estimate(input_path)
+            for csv_file in csv_files:
+                qa_pairs.extend(self._load_qa_pairs_from_csv_for_estimate(csv_file))
+            if not csv_files:
+                raise DataProcessingError("估算目录中未找到CSV文件")
+        else:
+            raise DataProcessingError(f"估算输入路径无效: {input_path}")
+        
+        return qa_pairs
+    
+    def _load_qa_pairs_from_jsonl_for_estimate(self, file_path: str) -> List[_EstimateQaPair]:
+        """备用JSONL加载逻辑"""
+        qa_pairs: List[_EstimateQaPair] = []
+        try:
+            with open(file_path, 'r', encoding='utf-8') as fp:
+                for idx, line in enumerate(fp, 1):
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    
+                    raw_messages = []
+                    if isinstance(data, dict):
+                        if 'messages' in data and isinstance(data['messages'], list):
+                            raw_messages = data['messages']
+                        elif 'conversations' in data and isinstance(data['conversations'], list):
+                            raw_messages = data['conversations']
+                    
+                    messages: List[_EstimateMessage] = []
+                    for msg in raw_messages:
+                        role = msg.get('role') or msg.get('from') or 'user'
+                        content = msg.get('content') or msg.get('value') or ''
+                        content = str(content).strip()
+                        if not content:
+                            continue
+                        messages.append(_EstimateMessage(role=role, content=content))
+                    
+                    if messages:
+                        qa_pairs.append(_EstimateQaPair(
+                            id=f"{os.path.basename(file_path)}_{idx}",
+                            messages=messages,
+                            images=data.get('images')
+                        ))
+        except OSError as exc:
+            raise DataProcessingError(f"读取JSONL失败: {exc}") from exc
+        
+        return qa_pairs
+    
+    def _load_qa_pairs_from_csv_for_estimate(self, csv_path: str) -> List[_EstimateQaPair]:
+        """备用CSV加载逻辑"""
+        qa_pairs: List[_EstimateQaPair] = []
+        try:
+            with open(csv_path, 'r', encoding='utf-8', newline='') as fp:
+                reader = csv.DictReader(fp)
+                if not reader.fieldnames:
+                    return qa_pairs
+                
+                conversations: List[List[_EstimateMessage]] = []
+                current: List[_EstimateMessage] = []
+                
+                for row in reader:
+                    if row is None:
+                        continue
+                    message_raw = row.get('msg') or row.get('message') or ''
+                    message = str(message_raw).strip()
+                    if not message:
+                        continue
+                    
+                    sender_flag = row.get('is_sender', 0)
+                    try:
+                        is_sender = int(float(sender_flag))
+                    except (TypeError, ValueError):
+                        is_sender = 0
+                    
+                    role = 'assistant' if is_sender == 1 else 'user'
+                    current.append(_EstimateMessage(role=role, content=message))
+                    
+                    if role == 'user' and len(current) > 1 and current[-2].role == 'assistant':
+                        if len(current) > 1:
+                            conversations.append(current[:-1])
+                        current = [current[-1]]
+                
+                if current:
+                    conversations.append(current)
+                
+                for index, conv in enumerate(conversations):
+                    if len(conv) < 2:
+                        continue
+                    roles = {item.role for item in conv}
+                    if not {'user', 'assistant'}.issubset(roles):
+                        continue
+                    qa_pairs.append(_EstimateQaPair(
+                        id=f"{os.path.basename(csv_path)}_{index}",
+                        messages=conv
+                    ))
+        
+        except OSError as exc:
+            raise DataProcessingError(f"读取CSV失败: {exc}") from exc
+        
+        return qa_pairs
+    
+    @staticmethod
+    def _collect_csv_files_for_estimate(root_path: str) -> List[str]:
+        """收集目录下所有CSV文件"""
+        csv_files: List[str] = []
+        for dirpath, _, filenames in os.walk(root_path):
+            for filename in filenames:
+                if filename.lower().endswith('.csv'):
+                    csv_files.append(os.path.join(dirpath, filename))
+        return csv_files
+    
+    @staticmethod
+    def _count_char_types(text: str) -> Tuple[int, int]:
+        """统计文本中英文字符与中文字符数量"""
+        english = 0
+        chinese = 0
+        for ch in text:
+            if '\u4e00' <= ch <= '\u9fff':
+                chinese += 1
+            else:
+                english += 1
+        return english, chinese
+    
+    @staticmethod
+    def _iter_batches(items: List[Any], batch_size: int):
+        """生成固定大小的批次"""
+        size = max(1, batch_size or 1)
+        for start in range(0, len(items), size):
+            yield items[start:start + size]
+    
+    @staticmethod
+    def _estimate_tokens(english_chars: int, chinese_chars: int) -> float:
+        """根据经验系数估算token数量"""
+        english = max(0, english_chars or 0)
+        chinese = max(0, chinese_chars or 0)
+        return english * 0.3 + chinese * 0.6
+
+    def _clean_data_rellm(self, scored_path: str, input_path: str, output_path: str, accept_score: int) -> int:
+        """基于已有打分结果重新筛选数据"""
+        try:
+            if os.path.exists(output_path):
+                backup_path = f"{output_path}.{datetime.now().strftime('%Y%m%d%H%M%S')}.bak"
+                shutil.copy(output_path, backup_path)
+                self.logger.info(f"已备份现有输出文件: {backup_path}")
+            
+            accepted_scores: Dict[str, float] = {}
+            total_records = 0
+            
+            with open(scored_path, 'r', encoding='utf-8', newline='') as csv_file:
+                reader = csv.DictReader(csv_file)
+                fieldnames = {name.strip() for name in (reader.fieldnames or []) if name}
+                required_fields = {'id', 'score'}
+                missing_fields = required_fields - fieldnames
+                if missing_fields:
+                    raise DataProcessingError(f"打分结果缺少必要字段: {', '.join(sorted(missing_fields))}")
+                
+                for row in reader:
+                    total_records += 1
+                    score_raw = row.get('score')
+                    uid = str(row.get('id') or '').strip()
+                    if not uid:
+                        continue
+                    try:
+                        score_value = float(score_raw)
+                    except (TypeError, ValueError):
+                        self.logger.debug(f"跳过无法解析分数的记录: {row}")
+                        continue
+                    if score_value >= accept_score:
+                        accepted_scores[uid] = score_value
+            
+            if not accepted_scores:
+                self.logger.warning("没有记录满足当前分数阈值，未生成新数据")
+                return 0
+            
+            self.logger.info(f"打分文件共 {total_records} 条，满足阈值的记录 {len(accepted_scores)} 条")
+            
+            target_indices: Dict[str, Set[int]] = defaultdict(set)
+            for uid in accepted_scores.keys():
+                if '_' not in uid:
+                    continue
+                file_name, idx_str = uid.rsplit('_', 1)
+                try:
+                    target_indices[file_name].add(int(idx_str))
+                except ValueError:
+                    self.logger.debug(f"跳过无法解析编号的记录ID: {uid}")
+                    continue
+            
+            system_prompt = (self.config.get('system_prompt', '') or '').strip()
+            include_system = system_prompt and system_prompt != "*"
+            
+            def replace_spaces_with_newlines(content: str) -> str:
+                if not content:
+                    return ''
+                content = re.sub(r'[。！？；，、：] +', lambda m: m.group(0)[0] + '\n', content)
+                content = re.sub(r' +', '\n', content)
+                return content.strip()
+            
+            def process_messages(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+                processed: List[Dict[str, str]] = []
+                current_role = None
+                current_chunks: List[str] = []
+                
+                for msg in messages:
+                    content = replace_spaces_with_newlines(msg['content'])
+                    role = msg['role']
+                    if not content:
+                        continue
+                    if role == current_role:
+                        current_chunks.append(content)
+                    else:
+                        if current_chunks and current_role:
+                            processed.append({"role": current_role, "content": "\n".join(current_chunks)})
+                        current_role = role
+                        current_chunks = [content]
+                
+                if current_chunks and current_role:
+                    processed.append({"role": current_role, "content": "\n".join(current_chunks)})
+                
+                return processed
+            
+            selected = 0
+            found_ids: Set[str] = set()
+            
+            def handle_conversation(file_name: str, conv_index: int, messages: List[Dict[str, str]], writer) -> None:
+                nonlocal selected
+                if conv_index not in target_indices.get(file_name, set()):
+                    return
+                conv_id = f"{file_name}_{conv_index}"
+                score = accepted_scores.get(conv_id)
+                if score is None:
+                    return
+                found_ids.add(conv_id)
+                
+                processed_msgs = process_messages(messages)
+                if len(processed_msgs) < 2:
+                    return
+                
+                output_messages: List[Dict[str, str]] = []
+                if include_system:
+                    output_messages.append({"role": "system", "content": system_prompt})
+                output_messages.extend(processed_msgs)
+                
+                writer.write(json.dumps({"messages": output_messages}, ensure_ascii=False) + '\n')
+                selected += 1
+            
+            def iter_csv_files(path: str) -> List[str]:
+                if os.path.isfile(path) and path.lower().endswith('.csv'):
+                    return [path]
+                csv_files: List[str] = []
+                for root, _, files in os.walk(path):
+                    for file in files:
+                        if file.lower().endswith('.csv'):
+                            csv_files.append(os.path.join(root, file))
+                return csv_files
+            
+            def load_conversations_from_csv(csv_path: str, writer) -> None:
+                file_name = os.path.basename(csv_path)
+                indices_for_file = target_indices.get(file_name)
+                if not indices_for_file:
+                    return
+                conv_index = 0
+                conversation: List[Dict[str, str]] = []
+                
+                with open(csv_path, 'r', encoding='utf-8', newline='') as fp:
+                    reader = csv.DictReader(fp)
+                    if not reader.fieldnames or 'msg' not in reader.fieldnames:
+                        return
+                    
+                    for row in reader:
+                        msg = str(row.get('msg') or '').strip()
+                        if not msg:
+                            continue
+                        is_sender_raw = row.get('is_sender', 0)
+                        try:
+                            is_sender = int(float(is_sender_raw))
+                        except (TypeError, ValueError):
+                            is_sender = 0
+                        role = 'assistant' if is_sender == 1 else 'user'
+                        
+                        conversation.append({"role": role, "content": msg})
+                        
+                        if role == 'user' and len(conversation) > 1 and conversation[-2]['role'] == 'assistant':
+                            finished = conversation[:-1]
+                            if any(m['role'] == 'user' for m in finished) and any(m['role'] == 'assistant' for m in finished):
+                                handle_conversation(file_name, conv_index, finished, writer)
+                            conv_index += 1
+                            conversation = [conversation[-1]]
+                    
+                    if conversation and any(m['role'] == 'user' for m in conversation) and any(m['role'] == 'assistant' for m in conversation):
+                        handle_conversation(file_name, conv_index, conversation, writer)
+            
+            with open(output_path, 'w', encoding='utf-8') as out_fp:
+                csv_files = iter_csv_files(input_path)
+                if not csv_files:
+                    raise DataProcessingError("未在输入路径中找到任何CSV文件")
+                
+                for csv_file in csv_files:
+                    load_conversations_from_csv(csv_file, out_fp)
+            
+            if selected == 0:
+                self.logger.warning("没有问答对满足筛选条件或未找到匹配的原始记录")
+            
+            missing = sorted(set(accepted_scores.keys()) - found_ids)
+            if missing:
+                self.logger.warning(f"有 {len(missing)} 条满足分数阈值的记录未在原始数据中匹配到，示例: {missing[:5]}")
+            
+            self.logger.info(f"重新筛选完成: {selected}/{len(accepted_scores)} 条记录写入 (阈值 {accept_score})")
+            return 0
+        
+        except DataProcessingError:
+            raise
+        except Exception as e:
+            raise DataProcessingError(f"重新筛选打分数据失败: {e}") from e
     
     def _clean_data_raw(self, input_path: str, output_path: str) -> int:
         """使用原始算法清洗数据"""

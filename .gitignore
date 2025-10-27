@@ -221,3 +221,13 @@ GEMINI.MD
 dataset/sft_scored.csv
 dataset/sft.jsonl.*.bak
 dataset/sft_scored.csv.*.bak
+cache
+config
+saves
+.gradio
+docs/.npmrc
+/*.jsonl
+dataset/*.jsonl
+savemodel
+train.sh
+swanlog

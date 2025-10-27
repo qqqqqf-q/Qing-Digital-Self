@@ -188,6 +188,7 @@ class Config:
             "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", "http://127.0.0.1:1236"),
             "OpenAI_api_key": self._get_nested_value("data_args.clean_set_args.openai_api.api_key", "sk-1234567890abcdef1234567890abcdef"),
             "OpenAI_Model": self._get_nested_value("data_args.clean_set_args.openai_api.model_name", "qwen3-8b-fp6"),
+            "OpenAI_thinking_mode": str(self._get_nested_value("data_args.clean_set_args.openai_api.thinking", "none") or "none").lower(),
             "OpenAI_service_tier": self._get_nested_value("data_args.clean_set_args.openai_api.service_tier", "default"),
             "clean_batch_size": self._get_nested_value("data_args.clean_set_args.openai_api.clean_batch_size", 10),
             "clean_workers": self._get_nested_value("data_args.clean_set_args.openai_api.clean_workers", 4),
@@ -233,6 +234,15 @@ class Config:
         valid_languages = ['zhcn', 'en']
         if self._config['language'] not in valid_languages:
             errors.append(f"无效的语言设置: {self._config['language']}，有效值: {valid_languages}")
+        
+        # 验证thinking模式
+        valid_thinking_modes = {'enable', 'disable', 'none'}
+        thinking_mode = str(self._config.get('OpenAI_thinking_mode', 'none') or 'none').lower()
+        if thinking_mode not in valid_thinking_modes:
+            errors.append(f"无效的thinking模式: {thinking_mode}，有效值: {sorted(valid_thinking_modes)}")
+        else:
+            # 规范化存储
+            self._config['OpenAI_thinking_mode'] = thinking_mode
         
         # 验证URL格式
         try:

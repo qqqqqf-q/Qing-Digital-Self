@@ -98,14 +98,22 @@ class OpenAIClient:
                 
                 if attempt < self.max_retries:
                     logger.warning(
-                        zhcn=f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}\n详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
-                        en=f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}\nDetails: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
+                        zhcn=f"请求失败 (尝试 {attempt + 1}/{self.max_retries + 1}): {e}",
+                        en=f"Request failed (attempt {attempt + 1}/{self.max_retries + 1}): {e}"
+                    )
+                    logger.debug(
+                        zhcn=f"请求失败详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
+                        en=f"Request failure details: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
                     )
                     time.sleep(self.retry_delay * (2 ** attempt))  # 指数退避
                 else:
                     logger.error(
-                        zhcn=f"所有重试都失败: {e}\n详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
-                        en=f"All retries failed: {e}\nDetails: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
+                        zhcn=f"所有重试都失败: {e}",
+                        en=f"All retries failed: {e}"
+                    )
+                    logger.debug(
+                        zhcn=f"最终失败详细信息: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}",
+                        en=f"Final failure details: {json.dumps(error_details, indent=2, ensure_ascii=False)}{response_details}"
                     )
                     raise
     
@@ -137,7 +145,24 @@ class OpenAIClient:
             payload["model"] = model
         if max_tokens:
             payload["max_tokens"] = max_tokens
-            
+
+        thinking_mode = (self.config.get('OpenAI_thinking_mode') or 'none').lower()
+        if thinking_mode != "none":
+            mode_map = {
+                "enable": "enabled",
+                "enabled": "enabled",
+                "disable": "disabled",
+                "disabled": "disabled"
+            }
+            thinking_type = mode_map.get(thinking_mode)
+            if thinking_type:
+                payload["thinking"] = {"type": thinking_type}
+            else:
+                logger.warning(
+                    zhcn=f"未识别的thinking模式: {thinking_mode}，已跳过",
+                    en=f"Unrecognized thinking mode: {thinking_mode}, skipped"
+                )
+
         # 添加 service_tier 参数支持 Flex 模式半价计费
         service_tier = self.config.get('OpenAI_service_tier')
         if service_tier and service_tier != "default":

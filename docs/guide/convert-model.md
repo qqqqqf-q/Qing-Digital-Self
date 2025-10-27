@@ -1,3 +1,10 @@
+## 在`Llama Factory`导出hf格式的模型
+* 设置第一块的`模型路径`(基底模型路径,不是Lora检查点,例如./model/Qwen2.5-1.5B-Instruct)
+* 设置第二块的`检查点路径`(例如./saves/Qwen2.5-1.5B-Instruct/lora/train_2025-10-20-19-55-19)
+* 点击`Export`页面
+* 设置`导出路径`
+* `开始导出`
+
 ## 编译 llama.cpp
 
 > 下面三步都依赖于编译好的 llama.cpp
@@ -6,23 +13,22 @@
 git clone https://github.com/ggerganov/llama.cpp --depth 1
 cd llama.cpp
 mkdir build && cd build
-cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON
-cmake --build . --config Release
+cmake .. -DLLAMA_BUILD_EXAMPLES=ON -DLLAMA_NATIVE=ON -DLLAMA_CURL=OFF
+cmake --build . --config Release -j
 
-cd..
+cd ..
 python3 -m venv venv
 source venv/bin/activate
 pip install -r "./requirements/requirements-convert_hf_to_gguf.txt"
 ```
 
----
 
 ## HuggingFace 权重转 GGUF
 
 ### 命令格式：
 
 ```bash
-python3 ./convert_hf_to_gguf.py <HF模型路径> --outfile  <输出GGUF路径> --outtype <精度类型>
+python3 ./convert_hf_to_gguf.py <HF模型路径> --outfile <输出GGUF路径> --outtype <精度类型>
 ```
 
 * `<HF模型路径>`：HuggingFace 格式模型目录（通常为微调或下载后的路径）
@@ -58,9 +64,8 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
   Q8_0
 ```
 
----
 
-## 7. 运行模型测试
+## (可选)运行模型测试
 
 ### 命令格式：
 
@@ -76,13 +81,11 @@ python3 convert_hf_to_gguf.py /root/autodl-tmp/finetune/models/qwen3-8b-qlora/me
 ./build/bin/llama-run /root/autodl-fs/qwen3-8b-fp16-agent.gguf
 ```
 
----
-## 8.从服务器上高速下载文件
+## 从服务器上高速下载文件
 
-## 可以直接从服务器提供商的数据存储中下载,就不用开机付费了
+* 可以直接从服务器提供商的数据存储中下载,就不用开机付费了
 
-### 或者
-### 命令格式
+* 或者使用lftp
 ```bash
 lftp -u {用户名},{密码} -p {端口} sftp://{服务器地址}-e "set xfer:clobber true;  pget -n {线程数} {服务器文件路径} -o {本地文件名/路径}: bye"
 ```

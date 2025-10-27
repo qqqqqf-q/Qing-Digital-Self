@@ -242,6 +242,7 @@ def main():
     parser.add_argument(
         "--no-gradient_checkpointing",
         action="store_true",
+        dest="no_gradient_checkpointing",
         help="不使用梯度检查点 (default: 使用)",
     )
     parser.add_argument(
@@ -290,7 +291,7 @@ def main():
     # 构建命令行参数（使用torchrun启动分布式训练）
     cmd = [
         "torchrun",
-        "--nproc_per_node", str(torch.cuda.device_count() if torch.cuda.is_available() else 1),  # 自动检测GPU数量
+        "--nproc_per_node", str(1),  # 自动检测GPU数量
         "--master_port=29500",  # 可以根据需要调整端口
         "finetune/finetune.py",
         "--repo_id",

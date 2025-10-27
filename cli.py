@@ -177,6 +177,26 @@ def create_parser() -> argparse.ArgumentParser:
     data_clean_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')
     data_clean_llm.add_argument('--workers', type=int, help='工作进程数（默认从配置读取）')
     
+    # data clean estimate
+    data_clean_estimate = data_clean_subparsers.add_parser('estimate', help='估算清洗资源消耗')
+    data_clean_estimate_subparsers = data_clean_estimate.add_subparsers(dest='estimate_method', help='估算策略')
+    
+    data_clean_estimate_llm = data_clean_estimate_subparsers.add_parser('llm', help='估算LLM清洗字符量')
+    data_clean_estimate_llm.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
+    data_clean_estimate_llm.add_argument('--parser', choices=['scoring'], default='scoring', help='处理策略')
+    data_clean_estimate_llm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
+                                         help='可接受的最低分数阈值(仅用于scoring策略)')
+    data_clean_estimate_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')
+    data_clean_estimate_llm.add_argument('--workers', type=int, help='工作进程数（默认从配置读取）')
+    
+    # data clean rellm
+    data_clean_rellm = data_clean_subparsers.add_parser('rellm', help='基于已有打分结果重新筛选数据')
+    data_clean_rellm.add_argument('--input', help='原始数据输入路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--scored', help='打分结果CSV路径（默认: 输出路径对应的_scored.csv）')
+    data_clean_rellm.add_argument('--output', help='输出文件路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
+                                  help='重新筛选可接受的最低分数阈值(1-5分，默认2分)')
+    
     # data convert
     data_convert = data_subparsers.add_parser('convert', help='转换数据格式')
     data_convert.add_argument('--input', required=True, help='输入文件路径')
@@ -197,40 +217,6 @@ def create_parser() -> argparse.ArgumentParser:
     # data stats
     data_stats = data_subparsers.add_parser('stats', help='显示数据统计')
     data_stats.add_argument('--input', required=True, help='输入文件路径')
-    
-    # 模型训练命令
-    train_parser = subparsers.add_parser(
-        'train',
-        help='模型训练',
-        description='QLoRA微调和模型管理'
-    )
-    train_subparsers = train_parser.add_subparsers(dest='train_action')
-    
-    # train start
-    train_start = train_subparsers.add_parser('start', help='开始训练')
-    train_start.add_argument('--model-path', help='基础模型路径')
-    train_start.add_argument('--data-path', help='训练数据路径')
-    train_start.add_argument('--output-dir', help='输出目录')
-    train_start.add_argument('--lora-r', type=int, default=16, help='LoRA rank')
-    train_start.add_argument('--lora-alpha', type=int, default=32, help='LoRA alpha')
-    train_start.add_argument('--batch-size', type=int, default=1, help='批处理大小')
-    train_start.add_argument('--max-steps', type=int, default=1000, help='最大训练步数')
-    train_start.add_argument('--resume', help='恢复训练检查点路径')
-    
-    # train status
-    train_status = train_subparsers.add_parser('status', help='训练状态')
-    train_status.add_argument('--follow', action='store_true', help='实时跟踪')
-    train_status.add_argument('--output-dir', help='训练输出目录')
-    
-    # train stop
-    train_stop = train_subparsers.add_parser('stop', help='停止训练')
-    train_stop.add_argument('--force', action='store_true', help='强制停止')
-    
-    # train merge
-    train_merge = train_subparsers.add_parser('merge', help='合并LoRA权重')
-    train_merge.add_argument('--base-model', required=True, help='基础模型路径')
-    train_merge.add_argument('--lora-path', required=True, help='LoRA权重路径')
-    train_merge.add_argument('--output', required=True, help='输出路径')
     
     # 模型推理命令
     infer_parser = subparsers.add_parser(
@@ -315,7 +301,51 @@ def create_parser() -> argparse.ArgumentParser:
     # model info
     model_info = model_subparsers.add_parser('info', help='查看模型信息')
     model_info.add_argument('model_path', nargs='?', help='模型路径（可选，不指定则显示所有模型信息）')
-    
+
+    # 训练命令
+    train_parser = subparsers.add_parser(
+        'train',
+        help='模型训练',
+        description='启动训练、查看状态、停止训练，或启动 WebUI'
+    )
+    train_subparsers = train_parser.add_subparsers(dest='train_action')
+
+    # train start（传统脚本训练）
+    train_start = train_subparsers.add_parser('start', help='开始训练')
+    train_start.add_argument('--model-path', help='基础模型路径')
+    train_start.add_argument('--data-path', help='训练数据路径')
+    train_start.add_argument('--output-dir', help='输出目录')
+    train_start.add_argument('--lora-r', type=int, default=16, help='LoRA rank')
+    train_start.add_argument('--lora-alpha', type=int, default=32, help='LoRA alpha')
+    train_start.add_argument('--batch-size', type=int, default=1, help='批大小')
+    train_start.add_argument('--max-steps', type=int, default=1000, help='最大训练步数')
+    train_start.add_argument('--resume', help='恢复训练的检查点路径')
+
+    # train status
+    train_status = train_subparsers.add_parser('status', help='训练状态')
+    train_status.add_argument('--follow', action='store_true', help='实时跟踪')
+    train_status.add_argument('--output-dir', help='训练输出目录')
+
+    # train stop
+    train_stop = train_subparsers.add_parser('stop', help='停止训练')
+    train_stop.add_argument('--force', action='store_true', help='强制停止')
+
+    # train merge
+    train_merge = train_subparsers.add_parser('merge', help='合并LoRA权重')
+    train_merge.add_argument('--base-model', required=True, help='基础模型路径')
+    train_merge.add_argument('--lora-path', required=True, help='LoRA权重路径')
+    train_merge.add_argument('--output', required=True, help='输出路径')
+
+    # train webui start（LLaMA Factory WebUI）
+    train_webui = train_subparsers.add_parser('webui', help='LLaMA Factory WebUI')
+    train_webui_sub = train_webui.add_subparsers(dest='webui_action')
+    train_webui_start = train_webui_sub.add_parser('start', help='启动 WebUI')
+    train_webui_start.add_argument('--host', default='0.0.0.0', help='监听地址')
+    train_webui_start.add_argument('--port', type=int, default=7860, help='监听端口')
+    train_webui_start.add_argument('--no-browser', action='store_true', help='不自动打开浏览器（上游限制，可能无效）')
+    train_webui_start.add_argument('--share', action='store_true', help='开启公网分享 (Gradio)')
+    train_webui_start.add_argument('--workdir', default=None, help='工作目录（可选）')
+
     return parser
 
 
@@ -341,6 +371,7 @@ def handle_global_args(args: argparse.Namespace) -> None:
 
 def main() -> int:
     """主函数"""
+    args: Optional[argparse.Namespace] = None
     try:
         # 创建命令行解析器
         parser = create_parser()
@@ -380,7 +411,7 @@ def main() -> int:
     except Exception as e:
         logger = get_logger()
         logger.error(f"未预期的错误: {e}")
-        if hasattr(args, 'verbose') and args.verbose:
+        if args and getattr(args, 'verbose', False):
             import traceback
             logger.error(traceback.format_exc())
         return 1

@@ -37,6 +37,15 @@ class ModelDownloader:
     def __init__(self, logger=None):
         self.logger = logger or get_logger('ModelDownloader')
         self.config = get_config()
+
+    def _derive_model_path(self, model_repo: str) -> str:
+        """根据仓库名称推导本地路径"""
+        base_dir = self.config.get('models_dir', './model') or './model'
+        if not model_repo:
+            return os.path.join(base_dir, 'default')
+        repo_tail = model_repo.rstrip('/').split('/')[-1]
+        safe_name = repo_tail.replace('\\', '_').replace('/', '_').replace(':', '_')
+        return os.path.join(base_dir, safe_name)
         
     def _log(self, level: str, message: str):
         """内部日志方法"""
@@ -149,12 +158,18 @@ class ModelDownloader:
                       download_source: str = None) -> bool:
         """下载模型（自动选择源）"""
         # 使用参数或配置文件的值
+        user_provided_repo = model_repo is not None
+
         if model_repo is None:
             model_repo = self.config.get('model_repo')
-        if model_path is None:
-            model_path = self.config.get('model_path')
         if download_source is None:
             download_source = self.config.get('download_source', 'modelscope')
+        if model_path is None:
+            default_path = self.config.get('model_path')
+            if user_provided_repo or not default_path:
+                model_path = self._derive_model_path(model_repo)
+            else:
+                model_path = default_path
         
         if not model_repo:
             self._log("error", "未指定模型仓库")

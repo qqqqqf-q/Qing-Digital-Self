@@ -256,9 +256,10 @@ def load_model_and_tokenizer(
     use_gradient_checkpointing: bool = True,
     load_precision: str = "fp16",
     use_flash_attention_2: bool = False,
+    device_map: Optional[Dict[str, int]] = None,
 ) -> tuple[AutoModelForCausalLM, AutoTokenizer]:
     """加载模型和分词器，支持 Unsloth 和普通量化，支持多种加载精度。
-    注意：不在此函数内注入 LoRA，统一在主流程步骤 4 进行一次注入，避免重复。
+    注意：不在此函数内注入 LoRA，统一在主流程步骤 5 进行一次注入，避免重复。
 
     Args:
         base_dir: 模型目录路径
@@ -267,6 +268,7 @@ def load_model_and_tokenizer(
         use_gradient_checkpointing: 是否使用梯度检查点
         load_precision: 加载精度 ("fp16", "int8", "int4")
         use_flash_attention_2: 是否使用FlashAttention2（仅支持fp16/bf16，Unsloth内置优化）
+        device_map: 设备映射配置，用于多卡 DDP 训练时固定模型到特定 GPU
     """
     logger.info(zhcn="加载分词器...", en="Loading tokenizer...")
     tokenizer = AutoTokenizer.from_pretrained(
@@ -323,6 +325,7 @@ def load_model_and_tokenizer(
                     dtype=None,
                     load_in_4bit=True,  # 启用4bit
                     load_in_8bit=False,  # 禁用8bit
+                    device_map=device_map,  # 绑定到本 rank 的 GPU
                     trust_remote_code=True,
                 )
                 logger.info(
@@ -335,6 +338,7 @@ def load_model_and_tokenizer(
                     dtype=None,
                     load_in_4bit=False,  # 禁用4bit
                     load_in_8bit=True,  # 启用8bit
+                    device_map=device_map,  # 绑定到本 rank 的 GPU
                     trust_remote_code=True,
                 )
                 logger.info(
@@ -347,6 +351,7 @@ def load_model_and_tokenizer(
                     dtype=None,
                     load_in_4bit=False,  # 禁用4bit
                     load_in_8bit=False,  # 禁用8bit
+                    device_map=device_map,  # 绑定到本 rank 的 GPU
                     trust_remote_code=True,
                 )
                 logger.info(
@@ -426,6 +431,10 @@ def load_model_and_tokenizer(
     if attn_implementation is not None:
         model_kwargs["attn_implementation"] = attn_implementation
 
+    # 添加 device_map 到模型加载参数
+    if device_map is not None:
+        model_kwargs["device_map"] = device_map
+    
     if bnb_config is not None:
         model_kwargs["quantization_config"] = bnb_config
         model = AutoModelForCausalLM.from_pretrained(base_dir, **model_kwargs)
@@ -950,9 +959,30 @@ def main() -> None:
     )
     log_gpu_memory_usage("模型下载完成")
 
-    # 步骤 2: 加载模型和分词器
+    # 步骤 2: 配置多卡 DDP 设备映射
     logger.info(
-        zhcn="步骤 2/5: 加载模型和分词器...", en="Step 2/5: Load model and tokenizer..."
+        zhcn="步骤 2/6: 配置多卡 DDP 设备映射...", en="Step 2/6: Configure multi-GPU DDP device mapping..."
+    )
+    
+    # 方案 B: 为每个 rank 显式固定 device_map
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
+    device_map = None
+    if torch.cuda.is_available():
+        torch.cuda.set_device(local_rank)
+        device_map = {"": local_rank}
+        logger.info(
+            zhcn=f"[rank{local_rank}] 使用设备 cuda:{torch.cuda.current_device()}",
+            en=f"[rank{local_rank}] using device cuda:{torch.cuda.current_device()}"
+        )
+    else:
+        logger.warning(
+            zhcn="CUDA 不可用，使用 CPU 模式",
+            en="CUDA not available, using CPU mode"
+        )
+    
+    # 步骤 3: 加载模型和分词器
+    logger.info(
+        zhcn="步骤 3/6: 加载模型和分词器...", en="Step 3/6: Load model and tokenizer..."
     )
     log_gpu_memory_usage("开始加载模型")
     model, tokenizer = load_model_and_tokenizer(
@@ -962,13 +992,22 @@ def main() -> None:
         use_gradient_checkpointing=args.gradient_checkpointing,
         load_precision=args.load_precision,
         use_flash_attention_2=args.use_flash_attention_2,
+        device_map=device_map,
     )
     tokenizer.model_max_length = args.model_max_length
+    
+    # 重要：不要在后续代码中使用 model.to("cuda:...") 等操作
+    # 保持模型在当前 rank 的 GPU 上，让 accelerate.prepare(model) 只做 wrapper，不做搬家
+    logger.info(
+        zhcn="注意：模型已固定在当前 rank 的 GPU 上，避免后续移动操作",
+        en="Note: Model is fixed on current rank's GPU, avoiding subsequent move operations"
+    )
+    
     log_gpu_memory_usage("模型加载完成")
 
-    # 步骤 3: 准备数据
+    # 步骤 4: 准备数据
     logger.info(
-        zhcn="步骤 3/5: 准备训练数据...", en="Step 3/5: Prepare training data..."
+        zhcn="步骤 4/6: 准备训练数据...", en="Step 4/6: Prepare training data..."
     )
     log_gpu_memory_usage("开始准备数据")
 
@@ -1019,8 +1058,8 @@ def main() -> None:
     )
     log_gpu_memory_usage("数据准备完成")
 
-    # 步骤 4: 应用 LoRA（统一入口，支持 MoE）
-    logger.info(zhcn="步骤 4/5: 应用 LoRA...", en="Step 4/5: Apply LoRA...")
+    # 步骤 5: 应用 LoRA（统一入口，支持 MoE）
+    logger.info(zhcn="步骤 5/6: 应用 LoRA...", en="Step 5/6: Apply LoRA...")
     log_gpu_memory_usage("开始应用LoRA")
 
     if args.moe_enable:
@@ -1099,8 +1138,8 @@ def main() -> None:
 
     log_gpu_memory_usage("LoRA应用完成")
 
-    # 步骤 5: 训练
-    logger.info(zhcn="步骤 5/5: 开始训练...", en="Step 5/5: Start training...")
+    # 步骤 6: 训练
+    logger.info(zhcn="步骤 6/6: 开始训练...", en="Step 6/6: Start training...")
 
     if args.resume_from_checkpoint:
         logger.info(

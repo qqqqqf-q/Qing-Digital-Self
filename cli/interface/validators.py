@@ -270,7 +270,9 @@ def validate_qq_number(qq_number: Union[str, int], param_name: str = "qq_number"
     return qq_str
 
 
-def validate_time_range(time_range: str, param_name: str = "time_range") -> tuple[str, str]:
+from typing import Tuple
+
+def validate_time_range(time_range: str, param_name: str = "time_range") -> Tuple[str, str]:
     """
     验证时间范围格式
     

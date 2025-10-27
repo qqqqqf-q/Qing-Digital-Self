@@ -20,6 +20,7 @@ from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -74,6 +75,9 @@ class LLMScoringStrategy:
         self.model = config.get('OpenAI_Model', 'default')
         self.batch_size = batch_size
         self.workers = workers
+        self.total_prompt_tokens = 0
+        self.total_completion_tokens = 0
+        self._token_lock = threading.Lock()
         
     def judge(self, qa_pairs: List[QaPair], on_batch_scored=None) -> None:
         """
@@ -102,29 +106,61 @@ class LLMScoringStrategy:
         for i in range(0, len(qa_pairs), batch_size):
             batches.append(qa_pairs[i:i + batch_size])
 
-        # 多线程处理批次
-        with ThreadPoolExecutor(max_workers=workers) as executor:
+        # 多线程处理批次（可被Ctrl+C安全中断）
+        executor = ThreadPoolExecutor(max_workers=workers)
+        try:
             # 提交所有任务
             future_to_batch = {
                 executor.submit(self._score_batch, batch, scoring_prompt): batch
                 for batch in batches
             }
 
-            # 使用tqdm显示进度
+            # 迭代处理完成的任务，同时允许KeyboardInterrupt打断
+            remaining = set(future_to_batch.keys())
             with tqdm(total=len(batches), desc="LLM打分进度") as pbar:
-                for future in as_completed(future_to_batch):
-                    batch = future_to_batch[future]
+                while remaining:
+                    # 采用短超时的等待，便于主线程响应Ctrl+C
                     try:
-                        future.result()  # 获取结果，如果有异常会抛出
-                    except Exception as e:
-                        logger.error(f"批次处理失败: {e}")
-                        # 给失败的批次默认分数
-                        for qa in batch:
-                            if qa.score is None:
-                                qa.score = 0
-                    if on_batch_scored:
-                        on_batch_scored(batch)
-                    pbar.update(1)
+                        done, not_done = self._wait_futures(remaining, timeout=0.2)
+                    except KeyboardInterrupt:
+                        # 主动快速关闭，不等待未完成任务
+                        logger.warning("检测到中断，正在取消未开始的任务并快速退出...")
+                        try:
+                            executor.shutdown(wait=False, cancel_futures=True)
+                        except Exception:
+                            pass
+                        raise
+
+                    for future in list(done):
+                        batch = future_to_batch.get(future)
+                        try:
+                            future.result()
+                        except Exception as e:
+                            logger.error(f"批次处理失败: {e}")
+                            if batch:
+                                for qa in batch:
+                                    if qa.score is None:
+                                        qa.score = 0
+                        if on_batch_scored and batch:
+                            on_batch_scored(batch)
+                        pbar.update(1)
+                        remaining.discard(future)
+        finally:
+            # 避免在__exit__里阻塞等待所有线程结束
+            try:
+                executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
+
+    @staticmethod
+    def _wait_futures(futures_set, timeout: float):
+        """等待一小段时间以检查已完成的future，支持快速响应Ctrl+C。"""
+        from concurrent.futures import wait, FIRST_COMPLETED
+        if not futures_set:
+            return set(), set()
+        done, not_done = wait(futures_set, timeout=timeout, return_when=FIRST_COMPLETED)
+        # 如果在timeout内没有完成的任务，返回空done集合，保持循环可响应
+        return done, (futures_set - done)
     
     def _build_scoring_prompt(self) -> str:
         """构建LLM打分提示词"""
@@ -138,7 +174,7 @@ class LLMScoringStrategy:
 1.  **简短回答的有效性:** 请注意，诸如“好的”、“是的”、“收到”、“嗯”、“知道了”等简短的肯定、确认或应答，在合适的语境下是完全**有逻辑且相关的**。**不要仅仅因为回答简短就将其评为低分。** 只有当这类简短回答与【问题/上下文 Q】**明显不符**时，才应考虑低分。
 2.  **处理错别字和自我纠正:** 聊天记录中可能包含常见的打字错误（错别字）或用户先打错字随后又自行纠正的情况（例如，发送“我想去1楼”紧接着又发送“*2楼”进行更正）。在评估时，请**聚焦于用户想要表达的最终意图和信息的核心内容**，而**不应仅仅因为存在错别字或纠正过程就判定为低质量**。。
 
-# 核心评估点 (请在心中衡量)
+# 核心评估点 (请在心中衡量,请勿输出到结果中)
 1.  **相关性 (Relevance):** 【回答 A】是否直接回应或恰当地衔接了【问题/上下文 Q】？它是在回答问题，还是完全跑题了？只有当【回答 A】与【问题/上下文 Q】**明显矛盾**、**完全不着边际**（即使考虑上下文也无法合理化），或简短回答**明显不适用于**该【问题/上下文 Q】时，才给予低分。
 2.  **逻辑性 (Coherence):** 【回答 A】本身是否符合基本的逻辑？结合【问题/上下文 Q】来看，这个问答对是否构成了一个符合逻辑的交流片段？是否存在明显的矛盾、混乱的内容？只有当【回答 A】**自身逻辑混乱**、**与Q存在无法解释的矛盾**时，才给予低分。
 3. **风格代表性**  (Style Representativeness): 评估【回答 A】是否展现了自然、独特的人类对话风格特征。回答Ａ是否带有个性化的色彩？关注点包括但不限于：是否体现了特定的语气（如友好、幽默、不耐烦、正式、脏话），是否包含口头禅、俚语、网络用语（如“yyds”、“绝绝子”）、表情符号 Emoji、颜文字、标点符号的特殊使用如“!!!”、“???”、“~”等表达、特定的缩写或短语、非标准的但一致的表达方式（如方言词汇、个人口癖）？
@@ -179,11 +215,16 @@ class LLMScoringStrategy:
         """
         # 构建批量请求
         qa_list = []
+        id_mapping: Dict[str, QaPair] = {}
+        sequence = 1
         for qa in batch:
             if qa.images:  # 包含图片的直接给高分
                 qa.score = 6
                 continue
-                
+            short_id = str(sequence)
+            sequence += 1
+            id_mapping[short_id] = qa
+            
             messages_str = ""
             for msg in qa.messages:
                 if msg.role == "user":
@@ -192,7 +233,7 @@ class LLMScoringStrategy:
                     messages_str += f"A: {msg.content}\n"
             
             qa_list.append({
-                "id": qa.id,
+                "id": short_id,
                 "Q": next((msg.content for msg in qa.messages if msg.role == "user"), ""),
                 "A": next((msg.content for msg in qa.messages if msg.role == "assistant"), "")
             })
@@ -213,11 +254,44 @@ class LLMScoringStrategy:
                 temperature=config.get("OpenAI_temperature", 0.7),
                 max_tokens=config.get("OpenAI_max_tokens", 10000)
             )
-            
+
+            usage = response.get("usage") or {}
+            if not usage and response.get("choices"):
+                usage = response["choices"][0].get("usage") or {}
+            prompt_tokens_raw = (
+                usage.get("prompt_tokens")
+                or usage.get("input_tokens")
+                or usage.get("total_prompt_tokens")
+                or usage.get("promptTokens")
+            )
+            completion_tokens_raw = (
+                usage.get("completion_tokens")
+                or usage.get("output_tokens")
+                or usage.get("total_completion_tokens")
+                or usage.get("completionTokens")
+            )
+            try:
+                prompt_tokens = int(prompt_tokens_raw or 0)
+            except (TypeError, ValueError):
+                prompt_tokens = 0
+            try:
+                completion_tokens = int(completion_tokens_raw or 0)
+            except (TypeError, ValueError):
+                completion_tokens = 0
+            with self._token_lock:
+                self.total_prompt_tokens += prompt_tokens
+                self.total_completion_tokens += completion_tokens
+                cumulative_prompt = self.total_prompt_tokens
+                cumulative_completion = self.total_completion_tokens
+            if prompt_tokens or completion_tokens:
+                logger.info(
+                    f"本批次tokens: 输入 {prompt_tokens}，输出 {completion_tokens}；累计输入 {cumulative_prompt}，累计输出 {cumulative_completion}"
+            )
+
             # 解析响应
             content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
-            self._parse_scores(batch, content)
-            
+            self._parse_scores(batch, content, id_mapping)
+
         except Exception as e:
             logger.error(f"LLM打分失败: {e}")
             # 失败时给默认分数
@@ -225,13 +299,14 @@ class LLMScoringStrategy:
                 if qa.score is None:
                     qa.score = 0
     
-    def _parse_scores(self, batch: List[QaPair], content: str) -> None:
+    def _parse_scores(self, batch: List[QaPair], content: str, id_mapping: Dict[str, QaPair]) -> None:
         """
         解析LLM返回的分数
         
         Args:
             batch: 问答对批次
             content: LLM返回的内容
+            id_mapping: 短ID到原始问答的映射
         """
         try:
             # 清理内容，移除多余的空白字符
@@ -241,17 +316,16 @@ class LLMScoringStrategy:
             if content.startswith('['):
                 scores = json.loads(content)
                 for score_data in scores:
-                    qa_id = score_data.get('id')
+                    qa_id_raw = score_data.get('id')
+                    qa_id = str(qa_id_raw) if qa_id_raw is not None else None
                     score = score_data.get('score', 0)
                     # 确保分数是整数类型
                     try:
                         score = int(score)
                     except (ValueError, TypeError):
                         score = 0
-                    for qa in batch:
-                        if qa.id == qa_id:
-                            qa.score = score
-                            break
+                    if qa_id and qa_id in id_mapping:
+                        id_mapping[qa_id].score = score
             else:
                 # 处理多个JSON对象连在一起的情况
                 # 按行分割并尝试解析每一行
@@ -264,17 +338,16 @@ class LLMScoringStrategy:
                         
                     try:
                         score_data = json.loads(line)
-                        qa_id = score_data.get('id')
+                        qa_id_raw = score_data.get('id')
+                        qa_id = str(qa_id_raw) if qa_id_raw is not None else None
                         score = score_data.get('score', 0)
                         # 确保分数是整数类型
                         try:
                             score = int(score)
                         except (ValueError, TypeError):
                             score = 0
-                        for qa in batch:
-                            if qa.id == qa_id:
-                                qa.score = score
-                                break
+                        if qa_id and qa_id in id_mapping:
+                            id_mapping[qa_id].score = score
                     except json.JSONDecodeError:
                         # 单行解析失败，继续处理下一行
                         continue
@@ -526,6 +599,9 @@ class LLMDataProcessor:
                 score_counts = score_series.value_counts().sort_index()
                 logger.info(f"分数分布: {dict(score_counts)}")
             logger.info(f"LLM打分过滤完成: {accepted}/{total} 个问答对通过筛选")
+            logger.info(
+                f"LLM累计tokens: 输入 {self.strategy.total_prompt_tokens}，输出 {self.strategy.total_completion_tokens}"
+            )
             logger.info(f"打分策略处理完成: {output_path}")
             if scored_csv:
                 logger.info(f"完整打分结果已保存: {scored_csv}")

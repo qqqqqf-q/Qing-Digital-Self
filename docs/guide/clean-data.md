@@ -1,9 +1,23 @@
+## 准备环境
+
+1. 创建配置文件
+从模板复制一份配置文件，等会要用上
+```bash
+cp setting_template.jsonc setting.jsonc
+```
+
+2. 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
 ## 将数据转化为csv
 ```bash
 python cli.py data extract
 # 或自定义parser字段
-python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890--output ./dataset/csv
+python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
 ```
+* 若转化的是QQ数据，则`--qq-number-ai`或者`setting.jsonc`的`qq_number_ai`字段至少要填写一个。TG以此类推
 
 | 参数 | 说明 | 默认值/备注 |
 |------|------|-------------|
@@ -39,18 +53,21 @@ python cli.py data clean raw
 > 这个部分同样建议在windows上优化完再上传至GPU服务器  
 > 不确定在Linux上有没有兼容性问题
 
-* 前往`setting.jsonc`文件中修改`clean_set_args`组的`openai_api`字段
-* 设置`api_base` `api_key` `model_name`等字段
+* 前往`setting.jsonc`文件中修改`clean_set_args`组的`openai_api`字段  
+* 设置`api_base` `api_key` `model_name`等字段  
+* 可设置`thinking`字段来开关模型的think功能
 
 ### run!
 ```bash
-python cli.py data clean llm
+#使用此命令来预估llm使用的token数量
+python cli.py data clean estimate llm
 
 # 打分策略
 python cli.py data clean llm --parser scoring
 
-# 设置分数阈值
+# 设置分数阈值(请使用此命令)
 python cli.py data clean llm --parser scoring --accept-score 4
+# --accept-score 为{1-5}的数字
 
 # 使用句段策略(没写完)
 python cli.py data clean llm --parser segment
@@ -60,25 +77,34 @@ python cli.py data clean llm --parser segment
 --output - 输出文件路径（默认从配置读取）
 --batch-size - 批处理大小（默认从配置读取）
 --workers - 工作进程数（默认从配置读取）
+
+# 从已经打分好的scored文件中重新输出数据集(sft.jsonl)
+python cli.py data clean rellm --accept-score 4
+# --accept-score 为{1-5}的数字
+
 ```
-> 可以调大`betch_size`来减少api调用次数以减少tpm/rpm限制  
-> 不过会增大token  
+> 可以调大`betch_size`来减少api调用次数以缓解速率限制  
+> 不过每次消耗的token会多点  
 
 > 如果遇到了400报错大概率是因为message太大了被模型框架拒绝了
 
 # 以下为不使用云端llm服务清洗使用
 
 ## LM Studio搭建教程
-* 1.前往[LM Studio](https://lmstudio.ai/)下载LM Studio
-* 2.安装LM Studio
-* 3.打开LM Studio,点击左侧`搜索`->`Model Search`
-* 4.搜索 `qwen2.5-7b-instruct`->`Complete Download`  
-* 5.选择合适你的量化版本**建议至少Q4,最好Q6-Q8,随你的设备情况而定,不知道的可以问AI**
-* 记住你的**模型名称**,填写到`setting.jsonc`文件的`model_name`中
-* 如果不知道你的模型名称可以运行test_openai.py,会输出所有的模型名称
-* 6.安装好后,在左侧`开发者/Developer`点击`Status:Stopped`右边的按钮
-* 如果下面log显示端口被占用请点击`seetings`换个`server port`
-* 记住这个`server port`,将你的配置填写至`setting.jsonc`文件中
+1. 前往[LM Studio](https://lmstudio.ai/)下载LM Studio
+2. 安装LM Studio
+3. 打开LM Studio,点击左侧`搜索`->`Model Search`
+4. 搜索 `qwen2.5-7b-instruct`->`Complete Download`  
+5. 选择合适你的量化版本**建议至少Q4,最好Q6-Q8,随你的设备情况而定,不知道的可以问AI**
+
+    记住你的**模型名称**,填写到`setting.jsonc`文件的`model_name`中
+
+    如果不知道你的模型名称可以运行test_openai.py,会输出所有的模型名称
+6. 安装好后,在左侧`开发者/Developer`点击`Status:Stopped`右边的按钮
+
+    如果下面log显示端口被占用请点击`seetings`换个`server port`
+
+    记住这个`server port`,将你的配置填写至`setting.jsonc`文件中
 
 
 ---
