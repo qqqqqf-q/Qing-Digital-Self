@@ -66,3 +66,8 @@ Github:[@qqqqqf-q](https://github.com/qqqqqf-q)
 * 删掉原来的`run_finetune`和`finetune`脚本
 * todo1.增加serverapi为webui做准备
 * 代码未优化
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=qqqqqf-q/Qing-Digital-Self&type=Date&theme=dark" />
+  <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=qqqqqf-q/Qing-Digital-Self&type=Date" />
+  <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=qqqqqf-q/Qing-Digital-Self&type=Date" />
+</picture>
