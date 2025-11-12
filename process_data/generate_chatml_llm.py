@@ -395,66 +395,7 @@ class LLMScoringStrategy:
         return filtered
 
 
-class SegmentStrategy:
-    """generate_training_data风格的可用句段策略"""
-    
-    def __init__(self, client: Optional[OpenAIClient] = None):
-        """
-        初始化句段策略
-        
-        Args:
-            client: OpenAI客户端实例
-        """
-        self.client = client or OpenAIClient()
-        self.llm_cleaner = LLMDataCleaner(self.client)
-        self.model = config.get('OpenAI_Model', 'default')
-    
-    def process_conversation(self, messages: List[Dict[str, Any]], date: Optional[str] = None) -> List[Dict[str, str]]:
-        """
-        处理对话，返回可用句段
-        
-        Args:
-            messages: 消息列表
-            date: 日期标识
-            
-        Returns:
-            处理后的消息列表
-        """
-        try:
-            # 使用现有的LLM清洗功能
-            cleaned_messages = self.llm_cleaner.clean_daily_conversation(messages, date)
-            
-            logger.info(f"句段策略处理完成: 保留 {len(cleaned_messages)}/{len(messages)} 条消息")
-            
-            return cleaned_messages
-            
-        except Exception as e:
-            logger.error(f"句段策略处理失败: {e}")
-            # 失败时返回原始消息（去除无效内容）
-            return self._fallback_process(messages)
-    
-    def _fallback_process(self, messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
-        """
-        备用处理方法
-        
-        Args:
-            messages: 消息列表
-            
-        Returns:
-            处理后的消息列表
-        """
-        from generate_training_data import is_valid_conversation_text, is_image_content_strict
-        
-        valid_messages = []
-        for msg in messages:
-            content = msg.get('content', '').strip()
-            if content and not is_image_content_strict(content) and is_valid_conversation_text(content):
-                valid_messages.append({
-                    'role': msg.get('role', 'user'),
-                    'content': content
-                })
-        
-        return valid_messages
+# SegmentStrategy类已移除
 
 
 class LLMDataProcessor:
@@ -480,7 +421,9 @@ class LLMDataProcessor:
             workers = kwargs.get('workers', None)
             self.strategy = LLMScoringStrategy(self.client, accept_score, batch_size, workers)
         elif parser == 'segment':
-            self.strategy = SegmentStrategy(self.client)
+            logger.warning("segment策略暂未实现")
+            # 这里可以为未来的segment策略实现预留接口
+            raise NotImplementedError("segment策略暂未实现")
         else:
             raise ValueError(f"不支持的处理策略: {parser}")
     
@@ -623,36 +566,8 @@ class LLMDataProcessor:
         Returns:
             处理结果状态码
         """
-        try:
-            # 读取输入数据
-            conversations = self._load_conversations(input_path)
-            
-            if not conversations:
-                logger.warning("没有找到有效的对话数据")
-                return 1
-            
-            # 处理对话
-            processed_conversations = []
-            for i, conv in enumerate(tqdm(conversations, desc="处理对话")):
-                try:
-                    processed = self.strategy.process_conversation(conv.get('messages', []), f"conversation_{i}")
-                    if processed:
-                        processed_conversations.append({
-                            'messages': processed
-                        })
-                except Exception as e:
-                    logger.warning(f"处理对话 {i} 失败: {e}")
-                    continue
-            
-            # 保存结果
-            self._save_conversations(processed_conversations, output_path)
-            
-            logger.info(f"句段策略处理完成: {output_path}")
-            return 0
-            
-        except Exception as e:
-            logger.error(f"句段策略处理失败: {e}")
-            return 1
+        logger.warning("segment策略暂未实现")
+        raise NotImplementedError("segment策略暂未实现")
     
     def _load_qa_pairs(self, input_path: str) -> List[QaPair]:
         """
