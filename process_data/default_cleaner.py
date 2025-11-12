@@ -314,6 +314,10 @@ class DefaultLLMCleaner:
         except Exception as exc:
             self.logger.error(f"读取CSV失败 {file_path}: {exc}")
             return []
+        if "CreateTime" not in df.columns:
+            self.logger.warning(f"文件缺少 CreateTime 列: {file_path}")
+            return []
+        df["CreateTime"] = self._parse_create_time_column(df["CreateTime"])
         messages: List[ChatMessage] = []
         for _, row in df.iterrows():
             type_name = str(row.get("type_name", "")).strip()
@@ -368,6 +372,24 @@ class DefaultLLMCleaner:
             )
             messages.append(chat_message)
         return messages
+
+    def _parse_create_time_column(self, series: pd.Series) -> pd.Series:
+        """向量化解析 CreateTime，避免逐行转时间造成的巨大开销"""
+        parsed = pd.to_datetime(
+            series,
+            format="%Y-%m-%d %H:%M:%S",
+            errors="coerce",
+            cache=True,
+        )
+        missing_mask = parsed.isna()
+        if missing_mask.any():
+            parsed.loc[missing_mask] = pd.to_datetime(
+                series[missing_mask],
+                errors="coerce",
+                infer_datetime_format=True,
+                cache=True,
+            )
+        return parsed
 
     def _group_consecutive_messages(
         self, messages: List[ChatMessage]
