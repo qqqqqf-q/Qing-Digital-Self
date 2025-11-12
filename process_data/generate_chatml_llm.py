@@ -25,6 +25,7 @@ import threading
 # 添加项目根目录到Python路径
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
+from process_data.default_cleaner import DefaultLLMCleaner
 from utils.config.config import get_config
 from utils.logger.logger import get_logger
 from utils.openai.openai_client import OpenAIClient, LLMDataCleaner
@@ -49,6 +50,7 @@ class QaPair:
     score: Optional[int] = None
     valid_segments: Optional[List[int]] = None
     images: Optional[List[str]] = None
+    system_prompt: Optional[str] = None
 
 
 @dataclass
@@ -411,15 +413,23 @@ class LLMDataProcessor:
         """
         self.parser = parser
         self.client = OpenAIClient()
+        self.default_cleaner = None
         
         # 从配置中读取system prompt
         self.system_prompt = config.get('system_prompt', '')
         
-        if parser == 'scoring':
+        if parser in {'scoring', 'default'}:
             accept_score = kwargs.get('accept_score', config.get('accept_score', 2))
             batch_size = kwargs.get('batch_size', None)
             workers = kwargs.get('workers', None)
             self.strategy = LLMScoringStrategy(self.client, accept_score, batch_size, workers)
+            if parser == 'default':
+                self.default_cleaner = DefaultLLMCleaner(
+                    config=config,
+                    qa_cls=QaPair,
+                    message_cls=Message,
+                    system_prompt=self.system_prompt,
+                )
         elif parser == 'segment':
             logger.warning("segment策略暂未实现")
             # 这里可以为未来的segment策略实现预留接口
@@ -448,6 +458,8 @@ class LLMDataProcessor:
             
             if self.parser == 'scoring':
                 return self._process_with_scoring(input_path, output_path, **kwargs)
+            if self.parser == 'default':
+                return self._process_with_default(input_path, output_path, **kwargs)
             elif self.parser == 'segment':
                 return self._process_with_segment(input_path, output_path, **kwargs)
             
@@ -465,7 +477,9 @@ class LLMDataProcessor:
     def _append_qa_pair(self, fp, qa: QaPair) -> None:
         """追加单个问答对到JSONL文件"""
         messages = []
-        system_prompt = getattr(self, 'system_prompt', None)
+        system_prompt = getattr(qa, 'system_prompt', None)
+        if not system_prompt:
+            system_prompt = getattr(self, 'system_prompt', None)
         if system_prompt and system_prompt.strip() and system_prompt != "*":
             messages.append({"role": "system", "content": system_prompt})
         processed_messages = self._process_messages(qa.messages)
@@ -475,7 +489,41 @@ class LLMDataProcessor:
             data['images'] = qa.images
         fp.write(json.dumps(data, ensure_ascii=False) + '\n')
 
-    def _process_with_scoring(self, input_path: str, output_path: str, scored_csv: Optional[str] = None, **kwargs) -> int:
+    def _process_with_default(self, input_path: str, output_path: str, scored_csv: Optional[str] = None, **kwargs) -> int:
+        """默认结构化 parser，先构建QA再复用打分逻辑"""
+        if not self.default_cleaner:
+            logger.error("LLM清洗失败: 清洗器未初始化")
+            return 1
+        try:
+            # 先备份既有输出，避免构建阶段出错导致原数据丢失
+            self._backup_file(output_path)
+            if scored_csv:
+                self._backup_file(scored_csv)
+
+            qa_pairs = self.default_cleaner.build_qa_pairs(input_path)
+        except Exception as exc:
+            logger.error(f"LLM清洗失败: {exc}")
+            return 1
+        if not qa_pairs:
+            logger.warning("LLM清洗未生成有效问答对")
+            return 1
+        return self._process_with_scoring(
+            input_path=input_path,
+            output_path=output_path,
+            scored_csv=scored_csv,
+            qa_pairs=qa_pairs,
+            skip_backup=True,
+        )
+
+    def _process_with_scoring(
+        self,
+        input_path: str,
+        output_path: str,
+        scored_csv: Optional[str] = None,
+        qa_pairs: Optional[List[QaPair]] = None,
+        skip_backup: bool = False,
+        **kwargs,
+    ) -> int:
         """
         使用打分策略处理
 
@@ -489,16 +537,18 @@ class LLMDataProcessor:
             处理结果状态码
         """
         try:
-            qa_pairs = self._load_qa_pairs(input_path)
+            if qa_pairs is None:
+                qa_pairs = self._load_qa_pairs(input_path)
 
             if not qa_pairs:
                 logger.warning("没有找到有效的问答对")
                 return 1
 
             # 备份已有输出文件
-            self._backup_file(output_path)
-            if scored_csv:
-                self._backup_file(scored_csv)
+            if not skip_backup:
+                self._backup_file(output_path)
+                if scored_csv:
+                    self._backup_file(scored_csv)
 
             # 打开输出文件
             out_fp = open(output_path, 'w', encoding='utf-8')

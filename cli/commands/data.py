@@ -483,7 +483,7 @@ class DataCommand(BaseCommand):
             from process_data.generate_chatml_llm import LLMDataProcessor
             
             self.logger.info(f"开始LLM清洗，策略: {parser}")
-            if parser == 'scoring':
+            if parser in ('scoring', 'default'):
                 self.logger.info(f"分数阈值: {accept_score}")
                 self.logger.info(f"批处理大小: {batch_size}")
                 self.logger.info(f"工作线程数: {workers}")

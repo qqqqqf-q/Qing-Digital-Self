@@ -19,6 +19,7 @@
     "data_args": {
         "data_dir": "./dataset/original/",
         "output_dir": "./dataset/csv/",
+        "media_dir": "./dataset/media",
         "qq_agrs": {
             "qq_db_path": "./dataset/original/qq.db",
             "qq_number_ai": "1234567890"
@@ -39,8 +40,18 @@
         "qa_match_time_window": 5,
         "combine_msg_max_length": 2048,
         "messages_max_length": 2048,
+        "max_image_num": 2,
+        "add_time_to_system": false,
+        "vision_api": {  // 目前不支持vision,请勿开启
+            "enable": false,
+            "api_base": "",
+            "api_key": "",
+            "model_name": "",
+            "max_workers": 4
+        },
         "clean_set_args": {
             "clean_method": "llm",
+            "llm_parser": "default",
             "openai_api": {
                 "api_base": "http://127.0.0.1:1236/v1/chat/completions",
                 "api_key": "sk-1234567890abcdef1234567890abcdef",

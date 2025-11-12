@@ -178,11 +178,20 @@ class Config:
             "qa_match_time_window": self._get_nested_value("data_args.qa_match_time_window", 5),
             "combine_msg_max_length": self._get_nested_value("data_args.combine_msg_max_length", 2048),
             "messages_max_length": self._get_nested_value("data_args.messages_max_length", 2048),
+            "media_dir": self._get_nested_value("data_args.media_dir", "./dataset/media"),
+            "max_image_num": self._get_nested_value("data_args.max_image_num", 2),
+            "add_time_to_system": self._get_nested_value("data_args.add_time_to_system", False),
+            "vision_api_enable": self._get_nested_value("data_args.vision_api.enable", False),
+            "vision_api_url": self._get_nested_value("data_args.vision_api.api_base", None),
+            "vision_api_key": self._get_nested_value("data_args.vision_api.api_key", None),
+            "vision_api_model": self._get_nested_value("data_args.vision_api.model_name", None),
+            "vision_api_max_workers": self._get_nested_value("data_args.vision_api.max_workers", 4),
             
             # 清理配置
             "clean_method": self._get_nested_value("data_args.clean_set_args.clean_method", "llm"),
             "use_llm_clean": self._get_nested_value("data_args.clean_set_args.clean_method", "llm") == "llm",
             "accept_score": self._get_nested_value("data_args.clean_set_args.accept_score", 2),
+            "llm_parser": self._get_nested_value("data_args.clean_set_args.llm_parser", "scoring"),
             
             # OpenAI API配置
             "OpenAI_URL": self._get_nested_value("data_args.clean_set_args.openai_api.api_base", "http://127.0.0.1:1236"),

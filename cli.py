@@ -170,8 +170,8 @@ def create_parser() -> argparse.ArgumentParser:
     data_clean_llm = data_clean_subparsers.add_parser('llm', help='使用LLM方法清洗数据')
     data_clean_llm.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
     data_clean_llm.add_argument('--output', help='输出文件路径（默认从配置读取）')
-    data_clean_llm.add_argument('--parser', choices=['scoring', 'segment'], default='scoring',
-                               help='LLM清洗策略: scoring(打分策略) 或 segment(句段策略)')
+    data_clean_llm.add_argument('--parser', choices=['default', 'scoring', 'segment'], default='scoring',
+                               help='LLM清洗策略: default(结构化) / scoring(打分) / segment(预留)')
     data_clean_llm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
                                help='可接受的最低分数阈值(1-5分，仅用于scoring策略，默认2分)')
     data_clean_llm.add_argument('--batch-size', type=int, help='批处理大小（默认从配置读取）')

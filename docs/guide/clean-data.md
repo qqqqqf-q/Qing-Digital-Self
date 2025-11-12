@@ -65,6 +65,9 @@ python cli.py data clean estimate llm
 # 打分策略
 python cli.py data clean llm --parser scoring
 
+# 结构化默认策略（带CSV预处理+LLM打分）
+python cli.py data clean llm --parser default
+
 # 设置分数阈值(请使用此命令)
 python cli.py data clean llm --parser scoring --accept-score 4
 # --accept-score 为{1-5}的数字
@@ -77,6 +80,7 @@ python cli.py data clean llm --parser segment
 --output - 输出文件路径（默认从配置读取）
 --batch-size - 批处理大小（默认从配置读取）
 --workers - 工作进程数（默认从配置读取）
+--parser - default 会自动执行结构化 CSV→QA→打分（setting.jsonc 的 clean_set_args.llm_parser 也可设置）
 
 # 从已经打分好的scored文件中重新输出数据集(sft.jsonl)
 python cli.py data clean rellm --accept-score 4
