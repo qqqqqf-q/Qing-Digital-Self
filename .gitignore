@@ -231,4 +231,4 @@ dataset/*.jsonl
 savemodel
 train.sh
 swanlog
-WeClone-0.3.02
+dataset/backup/*

@@ -13,6 +13,8 @@ import re
 import sys
 import shutil
 import csv
+import time
+from contextlib import contextmanager
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
@@ -33,6 +35,11 @@ from utils.openai.openai_client import OpenAIClient, LLMDataCleaner
 # 获取配置和日志
 config = get_config()
 logger = get_logger('LLM_Data_Cleaner')
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_BACKUP_DIR = PROJECT_ROOT / 'dataset' / 'backup'
+_BACKUP_NOTICE_SHOWN = False
+_BACKUP_LOG_COUNT = 0
+IS_TTY = sys.stdout.isatty()
 
 
 @dataclass
@@ -60,6 +67,97 @@ class QaPairScore:
     reason: Optional[str] = None
 
 
+class _SingleLineProgress:
+    """在命令行单行刷新显示进度"""
+
+    def __init__(self, total: int, desc: str = ""):
+        self.total = max(1, total)
+        self.desc = desc.strip()
+        self.current = 0
+        self._last_len = 0
+        self._closed = False
+        self._needs_render = True
+        self._start_time = time.time()
+        self._extra_text = ""
+        self._render()
+
+    def update(self, step: int = 1, refresh: bool = True) -> None:
+        if step <= 0:
+            return
+        self.current = min(self.total, self.current + step)
+        if refresh:
+            self._render()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._render()
+        sys.stdout.write('\n')
+        sys.stdout.flush()
+        self._closed = True
+
+    def _render(self) -> None:
+        if self._closed:
+            return
+        percent = self.current / self.total
+        bar_length = 30
+        filled = int(bar_length * percent)
+        bar = '#' * filled + '-' * (bar_length - filled)
+        elapsed = max(0.0, time.time() - self._start_time)
+        eta = self._estimate_eta(elapsed)
+        eta_text = self._format_seconds(eta) if eta is not None else "--:--"
+        desc = f"{self.desc} " if self.desc else ""
+        extra = f" | {self._extra_text}" if self._extra_text else ""
+        text = (
+            f"{desc}[{bar}] {self.current}/{self.total} ({percent * 100:5.1f}%) "
+            f"ETA {eta_text}{extra}"
+        )
+        self._write_line(text)
+
+    def _write_line(self, text: str) -> None:
+        padding = ' ' * max(0, self._last_len - len(text))
+        sys.stdout.write('\r' + text + padding)
+        sys.stdout.flush()
+        self._last_len = len(text)
+
+    def _estimate_eta(self, elapsed: float) -> Optional[int]:
+        if self.current <= 0 or elapsed <= 0:
+            return None
+        rate = self.current / elapsed
+        if rate <= 0:
+            return None
+        remaining = self.total - self.current
+        return max(0, int(remaining / rate))
+
+    @staticmethod
+    def _format_seconds(seconds: int) -> str:
+        hours, rem = divmod(seconds, 3600)
+        minutes, secs = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours:02d}:{minutes:02d}:{secs:02d}"
+        return f"{minutes:02d}:{secs:02d}"
+
+    def _clear_line(self) -> None:
+        sys.stdout.write('\r' + ' ' * self._last_len + '\r')
+        sys.stdout.flush()
+
+    @contextmanager
+    def log_context(self):
+        self._clear_line()
+        try:
+            yield
+        finally:
+            self._render()
+
+    def set_extra(self, text: str, refresh: bool = True) -> None:
+        self._extra_text = text.strip()
+        if refresh:
+            self._render()
+
+    def refresh(self) -> None:
+        self._render()
+
+
 class LLMScoringStrategy:
     
     def __init__(self, client: Optional[OpenAIClient] = None, accept_score: int = 2, batch_size: int = None, workers: int = None):
@@ -80,6 +178,48 @@ class LLMScoringStrategy:
         self.total_prompt_tokens = 0
         self.total_completion_tokens = 0
         self._token_lock = threading.Lock()
+        self._progress_display: Optional[_SingleLineProgress] = None
+        self._interactive = IS_TTY
+        self._token_log_interval = 5
+        self._token_log_counter = 0
+    
+    def _log_with_progress(self, level: str, message: str) -> None:
+        log_fn = getattr(logger, level, None)
+        if not callable(log_fn):
+            return
+        progress = self._progress_display
+        if progress:
+            with progress.log_context():
+                log_fn(message)
+        else:
+            log_fn(message)
+
+    def _record_token_usage(self, prompt_tokens: int, completion_tokens: int, refresh: bool = True) -> None:
+        prompt = max(0, prompt_tokens or 0)
+        completion = max(0, completion_tokens or 0)
+        if prompt == 0 and completion == 0:
+            return
+        with self._token_lock:
+            self.total_prompt_tokens += prompt
+            self.total_completion_tokens += completion
+            cumulative_prompt = self.total_prompt_tokens
+            cumulative_completion = self.total_completion_tokens
+        if self._progress_display:
+            extra = (
+                f"tokens 本批 输入 {prompt} 输出 {completion} | "
+                f"累计 输入 {cumulative_prompt} 输出 {cumulative_completion}"
+            )
+            self._progress_display.set_extra(extra, refresh=refresh)
+        else:
+            self._token_log_counter += 1
+            if self._token_log_counter == 1 or self._token_log_counter % self._token_log_interval == 0:
+                self._log_with_progress(
+                    "info",
+                    (
+                        f"LLM打分进度: tokens 本批 输入 {prompt} 输出 {completion}；"
+                        f"累计 输入 {cumulative_prompt} 输出 {cumulative_completion}"
+                    ),
+                )
         
     def judge(self, qa_pairs: List[QaPair], on_batch_scored=None) -> None:
         """
@@ -119,14 +259,16 @@ class LLMScoringStrategy:
 
             # 迭代处理完成的任务，同时允许KeyboardInterrupt打断
             remaining = set(future_to_batch.keys())
-            with tqdm(total=len(batches), desc="LLM打分进度") as pbar:
+            progress = _SingleLineProgress(len(batches), desc="LLM打分进度") if batches and self._interactive else None
+            self._progress_display = progress
+            try:
                 while remaining:
                     # 采用短超时的等待，便于主线程响应Ctrl+C
                     try:
-                        done, not_done = self._wait_futures(remaining, timeout=0.2)
+                        done, _ = self._wait_futures(remaining, timeout=0.2)
                     except KeyboardInterrupt:
                         # 主动快速关闭，不等待未完成任务
-                        logger.warning("检测到中断，正在取消未开始的任务并快速退出...")
+                        self._log_with_progress("warning", "检测到中断，正在取消未开始的任务并快速退出...")
                         try:
                             executor.shutdown(wait=False, cancel_futures=True)
                         except Exception:
@@ -135,18 +277,29 @@ class LLMScoringStrategy:
 
                     for future in list(done):
                         batch = future_to_batch.get(future)
+                        usage: Optional[Tuple[int, int]] = None
                         try:
-                            future.result()
+                            usage = future.result()
                         except Exception as e:
-                            logger.error(f"批次处理失败: {e}")
+                            self._log_with_progress("error", f"批次处理失败: {e}")
                             if batch:
                                 for qa in batch:
                                     if qa.score is None:
                                         qa.score = 0
+                        if progress:
+                            progress.update(1, refresh=False)
+                        if usage:
+                            prompt_tokens, completion_tokens = usage
+                            self._record_token_usage(prompt_tokens, completion_tokens, refresh=False)
                         if on_batch_scored and batch:
                             on_batch_scored(batch)
-                        pbar.update(1)
+                        if progress:
+                            progress.refresh()
                         remaining.discard(future)
+            finally:
+                if progress:
+                    progress.close()
+                self._progress_display = None
         finally:
             # 避免在__exit__里阻塞等待所有线程结束
             try:
@@ -207,7 +360,7 @@ class LLMScoringStrategy:
   …
 ]"""
     
-    def _score_batch(self, batch: List[QaPair], scoring_prompt: str) -> None:
+    def _score_batch(self, batch: List[QaPair], scoring_prompt: str) -> Tuple[int, int]:
         """
         批量打分
         
@@ -241,7 +394,7 @@ class LLMScoringStrategy:
             })
         
         if not qa_list:
-            return
+            return 0, 0
             
         qa_list_json = json.dumps(qa_list, ensure_ascii=False)
         prompt_text = f"{scoring_prompt}\n\n请评估以下问答对：\n{qa_list_json}"
@@ -280,26 +433,17 @@ class LLMScoringStrategy:
                 completion_tokens = int(completion_tokens_raw or 0)
             except (TypeError, ValueError):
                 completion_tokens = 0
-            with self._token_lock:
-                self.total_prompt_tokens += prompt_tokens
-                self.total_completion_tokens += completion_tokens
-                cumulative_prompt = self.total_prompt_tokens
-                cumulative_completion = self.total_completion_tokens
-            if prompt_tokens or completion_tokens:
-                logger.info(
-                    f"本批次tokens: 输入 {prompt_tokens}，输出 {completion_tokens}；累计输入 {cumulative_prompt}，累计输出 {cumulative_completion}"
-            )
-
             # 解析响应
             content = response.get("choices", [{}])[0].get("message", {}).get("content", "")
             self._parse_scores(batch, content, id_mapping)
+            return prompt_tokens, completion_tokens
 
         except Exception as e:
-            logger.error(f"LLM打分失败: {e}")
             # 失败时给默认分数
             for qa in batch:
                 if qa.score is None:
                     qa.score = 0
+            raise RuntimeError(f"LLM打分失败: {e}") from e
     
     def _parse_scores(self, batch: List[QaPair], content: str, id_mapping: Dict[str, QaPair]) -> None:
         """
@@ -470,9 +614,22 @@ class LLMDataProcessor:
     def _backup_file(self, path: str) -> None:
         """备份已有文件"""
         if path and os.path.exists(path):
-            backup_path = f"{path}.{datetime.now().strftime('%Y%m%d%H%M%S')}.bak"
+            global _BACKUP_NOTICE_SHOWN, _BACKUP_LOG_COUNT
+            backup_dir_cfg = config.get('dataset_backup_dir') or DEFAULT_BACKUP_DIR
+            backup_dir = Path(backup_dir_cfg)
+            if not backup_dir.is_absolute():
+                backup_dir = (PROJECT_ROOT / backup_dir).resolve()
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            backup_name = f"{Path(path).name}.{timestamp}.bak"
+            backup_path = backup_dir / backup_name
             shutil.copy(path, backup_path)
-            logger.info(f"已备份文件: {backup_path}")
+            relative_path = os.path.relpath(backup_path, PROJECT_ROOT)
+            logger.info(f"已备份文件: {relative_path}")
+            _BACKUP_LOG_COUNT += 1
+            if _BACKUP_LOG_COUNT >= 2 and not _BACKUP_NOTICE_SHOWN:
+                logger.info("分析数据中，请耐心等待1-2分钟")
+                _BACKUP_NOTICE_SHOWN = True
 
     def _append_qa_pair(self, fp, qa: QaPair) -> None:
         """追加单个问答对到JSONL文件"""
