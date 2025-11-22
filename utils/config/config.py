@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import shutil
 from typing import Dict, Any, Optional, Union
 from urllib.parse import urlparse
 
@@ -82,8 +83,17 @@ class Config:
         """加载JSONC配置文件"""
         config_path = "setting.jsonc"
         if not os.path.exists(config_path):
-            self.logger.warning(f"配置文件不存在: {config_path}")
-            return
+            try:
+                template_path = "setting_template.jsonc"
+                if os.path.exists(template_path):
+                    shutil.copy2(template_path, config_path)
+                    self.logger.info(f"创建配置文件: {config_path}")
+                else:
+                    self.logger.warning(f"配置文件不存在: {config_path}")
+                    return
+            except Exception as e:
+                self.logger.error(f"创建默认配置失败: {e}")
+                return
 
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
