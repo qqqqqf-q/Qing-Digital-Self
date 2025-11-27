@@ -1,0 +1,1 @@
+import{_ as i,c as a,o as n,ae as l}from"./chunks/framework.iOmxR4Tm.js";const o=JSON.parse('{"title":"","description":"","frontmatter":{},"headers":[],"relativePath":"guide/rocm.md","filePath":"guide/rocm.md"}'),h={name:"guide/rocm.md"};function t(p,s,k,e,F,r){return n(),a("div",null,[...s[0]||(s[0]=[l("",15)])])}const c=i(h,[["render",t]]);export{o as __pageData,c as default};
