@@ -39,8 +39,8 @@ export default defineConfig({
             items: [
               { text: '修改Logger的语言', link: '/guide/change-logger-language' },
               { text: '不同种类模型的微调经验(例如Qwen,Llama,Gemma等)', link: '/guide/fine-tune-model-exp' },
-              { text: '节省显存', link: '/guide/save-vram' }
-
+              { text: '节省显存', link: '/guide/save-vram' },
+              { text: 'AMD显卡使用Rocm的全套教程(包括环境搭建和vllm)', link: '/guide/rocm' }
             ]
           },
 

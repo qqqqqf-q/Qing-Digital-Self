@@ -60,11 +60,17 @@ uv pip install deepspeed
 
 ---
 
-# 准备模型
+# 准备模型和配置
+### 参数配置
+```bash
+cp setting_template.jsonc setting.jsonc
+```
+使用`nano`或`vim`编辑器编辑`setting.jsonc`
 
-在设置完`setting.jsonc`中的模型参数后可以不用填写参数使用这个下载模型
+---
+在设置完`setting.jsonc`中的模型参数后使用CLI的download不需要附加`--model-repo`等  参数
 
-支持从ModelScope和HuggingFace下载模型：
+> 支持从ModelScope和HuggingFace下载模型：
 
 > 如果需要Huggingface镜像站请先运行`export HF_ENDPOINT=https://hf-mirror.com`
 ### 推荐使用 CLI 模型管理命令
@@ -92,7 +98,7 @@ python3 cli.py model info ./model/Qwen2.5-7B-Instruct
 
 ---
 
-# 微调
+## 微调
 
 * 运行Llama Factory WebUI：
 
@@ -105,8 +111,9 @@ python cli.py train webui start --share --no-browser
 ---
 程序运行后  
 默认应会有一个`public URL`  
-若出现`frpc`报错请根据指引安装`frpc`  
-
+请复制到浏览器打开
+> 若出现`frpc`报错请根据指引安装`frpc`  
+---
 进入网页后请往下翻找到`配置路径`,选择`finetune-config.yaml`  
 并点击`载入训练参数`  
 将会加载你的`setting.jsonc`配置
@@ -115,7 +122,7 @@ python cli.py train webui start --share --no-browser
 
 ---
 
-# 补充
+## 补充
 可以在`pip`命令后增加这些内地源加速
 ```bash
 -i https://mirrors.cloud.tencent.com/pypi/simple/
