@@ -24,7 +24,7 @@ export default defineConfig({
           {
             text: '快速上手',
             items: [
-              { text: '1. QQ/TG/WX其他数据的获取', link: '/guide/prepare-data' },
+              { text: '1. QQ/TG其他数据的获取', link: '/guide/prepare-data' },
               { text: '2. 清洗数据', link: '/guide/clean-data' },
               { text: '3. (可选) 混合数据', link: '/guide/mix-data' },
               { text: '4. 微调模型', link: '/guide/finetune-llama-factory' },

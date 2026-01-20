@@ -36,11 +36,18 @@
 * 比如以下ID需要填写的是`qqqqq f`
 
 
-## 获取微信(WX)聊天数据
-* 前往[WeChatBakTool的Github项目](https://github.com/SuxueCode/WechatBakTool)并且去release下载最新版
-* 或点此下载[WechatBakTool](https://github.com/SuxueCode/WechatBakTool/releases/download/v0.9.7.6/WechatBakTool.zip)
-* 前往[此项目](https://github.com/tom-snow/wechat-windows-versions/releases)下载老版本微信(v3.9.12.15)
-* 或点此链接快速下载[微信](https://github.com/tom-snow/wechat-windows-versions/releases/download/v3.9.12.15/WeChatSetup-3.9.12.15.exe)
+## ~~获取微信(WX)聊天数据~~ 已失效
+**此方法已死**  
+**由于原仓库被腾讯发DMCA了，导致此方法无法使用**  
+**且老版本微信无法正常登录,故方法无效**  
+**下面的内容仅作为备份**  
+```
+    * **给大家备份了一份原工具**  
+    * **点此下载[WechatBakTool](https://mega.nz/file/62hX3Q7Y#_A3Poa5cPJLNoAO1hrxvW8YsSgb5tA95f79aOCLXbjY)**  
+    * ~~前往[WeChatBakTool的Github项目](https://github.com/SuxueCode/WechatBakTool)并且去release下载最新版~~  
+    * ~~或点此下载[WechatBakTool](https://github.com/SuxueCode/WechatBakTool/releases/download/v0.9.7.6/WechatBakTool.zip)~~  
+    * 前往[此项目](https://github.com/tom-snow/wechat-windows-versions/releases)下载老版本微信(v3.9.12.15)  
+    * 或点此链接快速下载[微信](https://github.com/tom-snow/wechat-windows-versions/releases/download/v3.9.12.15/WeChatSetup-3.9.12.15.exe)  
 
 * 安装微信并登录
 * 手机打开`设置-聊天-聊天记录迁移与备份-迁移-迁移至电脑微信`并继续
@@ -57,6 +64,7 @@
 * 将前往`baktool`的文件夹,进入`workspace-[随机名文件夹]-DecDB`
 * 找到所有`MSG*.db`的文件,例如`MSG1.db`,全部移动至`dataset/original/wechat`文件夹内
 <img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP">
+```
 ## (可选) 从视频/音频文件中获取聊天数据
 
 *  从双音轨的视频/音频中提取(需要有音轨分离的文件)
