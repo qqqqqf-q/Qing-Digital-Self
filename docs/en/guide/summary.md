@@ -15,7 +15,7 @@
 > And you can add emoticons to the training set, like "[trash bag]" which will be more like real people
 ### For more detailed steps or script parameter explanations, welcome to ~~bother~~ contact me:
 
- * QQ: 1684773595
+
  * Email: qingf622@outlook.com
  * X: @qqqqqf5
 ---
