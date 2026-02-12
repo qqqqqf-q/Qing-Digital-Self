@@ -232,3 +232,4 @@ savemodel
 train.sh
 swanlog
 dataset/backup/*
+openai_data
