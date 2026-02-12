@@ -222,11 +222,17 @@ class ConfigCommand(BaseCommand):
             config_data['data_args'] = {}
         
         # QQ数据配置
-        qq_db_path = self._safe_input("QQ数据库路径 [./data/qq.db]: ")
-        if qq_db_path:
+        qq_c2c_db_path = self._safe_input("QQ私聊数据库路径(c2c_msg_table) [./dataset/original/qq.db]: ")
+        if qq_c2c_db_path:
             if 'qq_agrs' not in config_data['data_args']:
                 config_data['data_args']['qq_agrs'] = {}
-            config_data['data_args']['qq_agrs']['qq_db_path'] = qq_db_path
+            config_data['data_args']['qq_agrs']['qq_c2c_db_path'] = qq_c2c_db_path
+
+        qq_group_db_path = self._safe_input("QQ群聊数据库路径(group_msg_table，可选) [./dataset/original/group_msg_table.sql]: ")
+        if qq_group_db_path:
+            if 'qq_agrs' not in config_data['data_args']:
+                config_data['data_args']['qq_agrs'] = {}
+            config_data['data_args']['qq_agrs']['qq_group_db_path'] = qq_group_db_path
         
         qq_number = self._safe_input("AI对应的QQ号码: ")
         if qq_number:
@@ -356,7 +362,8 @@ class ConfigCommand(BaseCommand):
         })
         
         self._print_config_section("数据配置", {
-            "QQ数据库": config_data.get('qq_db_path'),
+            "QQ私聊数据库": config_data.get('qq_c2c_db_path') or config_data.get('qq_db_path'),
+            "QQ群聊数据库": config_data.get('qq_group_db_path'),
             "QQ号码": config_data.get('qq_number_ai'),
             "清洗方法": config_data.get('clean_method'),
         })
@@ -414,7 +421,7 @@ class ConfigCommand(BaseCommand):
         """验证配置键是否有效"""
         valid_keys = [
             'log_level', 'language', 'model_path', 'model_repo', 'template',
-            'qq_db_path', 'qq_number_ai', 'clean_method', 'data_path',
+            'qq_c2c_db_path', 'qq_group_db_path', 'qq_db_path', 'qq_number_ai', 'clean_method', 'data_path',
             'lora_r', 'lora_alpha', 'batch_size', 'learning_rate'
         ]
         return key in valid_keys
@@ -541,9 +548,13 @@ class ConfigCommand(BaseCommand):
                 validation_errors.append(f"模型路径不存在: {model_path}")
             
             # 验证数据路径
-            qq_db_path = config.get('qq_db_path')
-            if qq_db_path and not os.path.exists(os.path.dirname(qq_db_path)):
-                validation_errors.append(f"QQ数据库目录不存在: {os.path.dirname(qq_db_path)}")
+            qq_c2c_db_path = config.get('qq_c2c_db_path') or config.get('qq_db_path')
+            qq_group_db_path = config.get('qq_group_db_path')
+
+            if qq_c2c_db_path and not os.path.exists(os.path.dirname(qq_c2c_db_path)):
+                validation_errors.append(f"QQ私聊数据库目录不存在: {os.path.dirname(qq_c2c_db_path)}")
+            if qq_group_db_path and not os.path.exists(os.path.dirname(qq_group_db_path)):
+                validation_errors.append(f"QQ群聊数据库目录不存在: {os.path.dirname(qq_group_db_path)}")
             
             # 验证日志级别
             log_level = config.get('log_level')

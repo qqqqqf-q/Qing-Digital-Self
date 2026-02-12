@@ -149,7 +149,9 @@ def create_parser() -> argparse.ArgumentParser:
     
     # QQ相关参数
     qq_group = data_extract.add_argument_group('QQ数据源参数')
-    qq_group.add_argument('--qq-db-path', help='QQ数据库文件路径')
+    qq_group.add_argument('--qq-c2c-db-path', dest='qq_c2c_db_path', help='QQ私聊(c2c_msg_table)数据库/SQL文件路径（支持.db/.sql）')
+    qq_group.add_argument('--qq-group-db-path', dest='qq_group_db_path', help='QQ群聊(group_msg_table)数据库/SQL文件路径（支持.db/.sql）')
+    qq_group.add_argument('--qq-db-path', dest='qq_c2c_db_path', help='QQ数据库文件路径（兼容旧参数，等同于--qq-c2c-db-path）')
     qq_group.add_argument('--qq-number-ai', help='AI的QQ号码（用于区分发送者）')
     
     # Telegram相关参数

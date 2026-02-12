@@ -822,10 +822,19 @@ def create_parser():
     )
     
     parser.add_argument(
-        '--qq-db-path',
+        '--qq-c2c-db-path',
+        dest='qq_c2c_db_path',
         type=str,
         required=False,
-        help='QQ数据库文件路径 (默认从配置文件获取)'
+        help='QQ私聊(c2c_msg_table)数据库文件路径 (默认从配置文件获取)'
+    )
+
+    parser.add_argument(
+        '--qq-db-path',
+        dest='qq_c2c_db_path',
+        type=str,
+        required=False,
+        help='QQ数据库文件路径 (兼容旧参数，等同于--qq-c2c-db-path)'
     )
     
     parser.add_argument(
@@ -849,7 +858,12 @@ def get_effective_config(args):
     获取有效配置，优先级：命令行参数 > 配置文件 > 默认值
     """
     # 从命令行参数、配置文件和默认值中获取参数
-    qq_db_path = args.qq_db_path or config.get('qq_db_path') or None
+    qq_db_path = (
+        getattr(args, 'qq_c2c_db_path', None)
+        or config.get('qq_c2c_db_path')
+        or config.get('qq_db_path')
+        or None
+    )
     qq_number_ai = args.qq_number_ai or config.get('qq_number_ai') or None
     output_dir = args.output or config.get('output_dir') or "./dataset/csv/"
     
@@ -866,7 +880,7 @@ def main():
     
     # 验证必要参数
     if not qq_db_path:
-        logger.error("QQ数据库路径未指定，请使用 --qq-db-path 参数或在配置文件中设置 qq_db_path")
+        logger.error("QQ私聊数据库路径未指定，请使用 --qq-c2c-db-path 参数或在配置文件中设置 qq_c2c_db_path")
         return 1
         
     if not os.path.exists(qq_db_path):

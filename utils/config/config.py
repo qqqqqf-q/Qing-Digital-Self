@@ -153,6 +153,15 @@ class Config:
 
     def _load_default_config(self):
         """加载默认配置"""
+        qq_c2c_db_path = self._get_nested_value("data_args.qq_agrs.qq_c2c_db_path", None)
+        if not qq_c2c_db_path:
+            qq_c2c_db_path = self._get_nested_value("data_args.qq_agrs.qq_db_path", "./dataset/original/qq.db")
+
+        qq_group_db_path = self._get_nested_value("data_args.qq_agrs.qq_group_db_path", None)
+        qq_group_focus_ai = self._get_nested_value("data_args.qq_agrs.qq_group_focus_ai", True)
+        qq_group_context_before = self._get_nested_value("data_args.qq_agrs.qq_group_context_before", 6)
+        qq_group_context_after = self._get_nested_value("data_args.qq_agrs.qq_group_context_after", 2)
+
         # 从JSONC配置文件中加载，如果不存在则使用环境变量或默认值
         self._config = {
             # 基础信息
@@ -175,7 +184,12 @@ class Config:
             "language": self._get_nested_value("logger_args.language", "zhcn"),
             
             # QQ数据配置
-            "qq_db_path": self._get_nested_value("data_args.qq_agrs.qq_db_path", "./dataset/original/qq.db"),
+            "qq_c2c_db_path": qq_c2c_db_path,
+            "qq_group_db_path": qq_group_db_path,
+            "qq_group_focus_ai": qq_group_focus_ai,
+            "qq_group_context_before": qq_group_context_before,
+            "qq_group_context_after": qq_group_context_after,
+            "qq_db_path": qq_c2c_db_path,  # 兼容旧字段
             "qq_number_ai": self._get_nested_value("data_args.qq_agrs.qq_number_ai", None),
             
             # Telegram配置
@@ -272,13 +286,17 @@ class Config:
             errors.append(f"OpenAI URL解析错误: {e}")
         
         # 验证数据库路径的目录是否存在
-        qq_db_dir = os.path.dirname(os.path.abspath(self._config['qq_db_path']))
-        if not os.path.exists(qq_db_dir):
-            try:
-                os.makedirs(qq_db_dir, exist_ok=True)
-                self.logger.info(f"创建数据库目录: {qq_db_dir}")
-            except Exception as e:
-                errors.append(f"无法创建数据库目录 {qq_db_dir}: {e}")
+        for path_key in ("qq_c2c_db_path", "qq_group_db_path"):
+            db_path = self._config.get(path_key)
+            if not db_path:
+                continue
+            db_dir = os.path.dirname(os.path.abspath(db_path))
+            if not os.path.exists(db_dir):
+                try:
+                    os.makedirs(db_dir, exist_ok=True)
+                    self.logger.info(f"创建数据库目录: {db_dir}")
+                except Exception as e:
+                    errors.append(f"无法创建数据库目录 {db_dir}: {e}")
         
         # 如果有错误，记录并抛出异常
         if errors:
@@ -315,7 +333,8 @@ class Config:
             "jsonc_file_exists": os.path.exists('setting.jsonc'),
             "total_configs": len(self._config),
             "critical_configs_set": {
-                "qq_db_path": bool(self._config.get('qq_db_path')),
+                "qq_c2c_db_path": bool(self._config.get('qq_c2c_db_path')),
+                "qq_group_db_path": bool(self._config.get('qq_group_db_path')),
                 "OpenAI_URL": bool(self._config.get('OpenAI_URL')),
                 "system_prompt": bool(self._config.get('system_prompt')),
             }

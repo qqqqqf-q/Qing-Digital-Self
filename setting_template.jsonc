@@ -21,7 +21,11 @@
         "output_dir": "./dataset/csv/",
         "media_dir": "./dataset/media",
         "qq_agrs": {
-            "qq_db_path": "./dataset/original/qq.db",
+            "qq_c2c_db_path": "./dataset/original/qq.db",
+            "qq_group_db_path": null,  // 可填.db或导出的.sql（group_msg_table）
+            "qq_group_focus_ai": true,  // 仅保留AI消息及其上下文，避免群聊刷屏数据
+            "qq_group_context_before": 6,  // AI发言前保留的消息条数
+            "qq_group_context_after": 2,  // AI发言后保留的消息条数
             "qq_number_ai": "1234567890"
         },
         "telegram_args": {

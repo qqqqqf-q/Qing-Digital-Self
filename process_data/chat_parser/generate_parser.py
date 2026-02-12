@@ -48,9 +48,15 @@ class DataSourceDetector:
         if qq_db_files:
             self.logger.info(f"检测到QQ数据库文件: {[str(f) for f in qq_db_files]}")
             return True
+
+        # 检查SQL导出文件（可直接导入）
+        qq_sql_files = list(self.data_dir.glob("*.sql"))
+        if qq_sql_files:
+            self.logger.info(f"检测到QQ SQL文件: {[str(f) for f in qq_sql_files]}")
+            return True
         
         # 检查其他可能的QQ数据格式
-        qq_data_patterns = ["qq*.db", "QQ*.db", "Msg*.db", "msg*.db"]
+        qq_data_patterns = ["qq*.db", "QQ*.db", "Msg*.db", "msg*.db", "qq*.sql", "QQ*.sql", "Msg*.sql", "msg*.sql"]
         for pattern in qq_data_patterns:
             if list(self.data_dir.glob(pattern)):
                 self.logger.info(f"检测到QQ数据文件: {pattern}")
@@ -203,33 +209,64 @@ class UnifiedParser:
         """解析QQ数据"""
         try:
             from .qq_parser import QQParser
+            from .qq_group_parser import QQGroupParser
             
             # 获取QQ解析参数
-            qq_db_path = kwargs.get('qq_db_path') or self.config.get('qq_db_path')
+            qq_c2c_db_path = (
+                kwargs.get('qq_c2c_db_path')
+                or kwargs.get('qq_db_path')
+                or self.config.get('qq_c2c_db_path')
+                or self.config.get('qq_db_path')
+            )
+            qq_group_db_path = kwargs.get('qq_group_db_path') or self.config.get('qq_group_db_path')
             qq_number_ai = kwargs.get('qq_number_ai') or self.config.get('qq_number_ai')
             
-            if not qq_db_path:
-                # 尝试自动查找QQ数据库文件
-                qq_db_files = list(Path(self.data_dir).glob("*.db"))
-                if qq_db_files:
-                    qq_db_path = str(qq_db_files[0])
-                    self.logger.info(f"自动选择QQ数据库文件: {qq_db_path}")
-                else:
-                    self.logger.error("未找到QQ数据库文件")
-                    return 1
-            
-            self.logger.info(f"开始解析QQ数据: {qq_db_path}")
-            
-            # 创建QQ解析器并执行解析
-            parser = QQParser(
-                db_path=qq_db_path,
-                output_dir=self.output_dir,
-                qq_number_ai=qq_number_ai
+            data_dir = Path(self.data_dir)
+            group_candidates = sorted(
+                list(data_dir.glob("*group*.db"))
+                + list(data_dir.glob("*group*.sql"))
+                + list(data_dir.glob("*group_msg_table*.sql"))
             )
-            
-            parser.parse_all()
-            self.logger.info("QQ数据解析完成")
-            return 0
+            c2c_candidates = sorted(list(data_dir.glob("*c2c*.db")) + list(data_dir.glob("*c2c*.sql")))
+            generic_candidates = sorted(list(data_dir.glob("*.db")) + list(data_dir.glob("*.sql")))
+
+            if not qq_group_db_path and group_candidates:
+                qq_group_db_path = str(group_candidates[0])
+                self.logger.info(f"自动选择QQ群聊数据库/SQL文件: {qq_group_db_path}")
+
+            if not qq_c2c_db_path and c2c_candidates:
+                qq_c2c_db_path = str(c2c_candidates[0])
+                self.logger.info(f"自动选择QQ私聊数据库/SQL文件: {qq_c2c_db_path}")
+
+            if not qq_c2c_db_path and not qq_group_db_path and generic_candidates:
+                guessed = str(generic_candidates[0])
+                if "group" in guessed.lower():
+                    qq_group_db_path = guessed
+                    self.logger.info(f"自动选择QQ群聊数据库/SQL文件: {qq_group_db_path}")
+                else:
+                    qq_c2c_db_path = guessed
+                    self.logger.info(f"自动选择QQ私聊数据库/SQL文件: {qq_c2c_db_path}")
+
+            success = True
+            parsed_any = False
+
+            if qq_c2c_db_path:
+                parsed_any = True
+                self.logger.info(f"开始解析QQ私聊数据(c2c_msg_table): {qq_c2c_db_path}")
+                QQParser(db_path=qq_c2c_db_path, output_dir=self.output_dir, qq_number_ai=qq_number_ai).parse_all()
+                self.logger.info("QQ私聊数据解析完成")
+
+            if qq_group_db_path:
+                parsed_any = True
+                self.logger.info(f"开始解析QQ群聊数据(group_msg_table): {qq_group_db_path}")
+                QQGroupParser(db_path=qq_group_db_path, output_dir=self.output_dir, qq_number_ai=qq_number_ai).parse_all()
+                self.logger.info("QQ群聊数据解析完成")
+
+            if not parsed_any:
+                self.logger.error("未找到QQ私聊/群聊数据库或SQL文件，请检查配置或参数")
+                return 1
+
+            return 0 if success else 1
             
         except ImportError as e:
             self.logger.error(f"无法导入QQ解析器: {e}")
@@ -349,7 +386,8 @@ def create_parser():
   python generate_parser.py --data-dir "./dataset/original/" --output-dir "./dataset/csv/"
 
   # QQ特定参数
-  python generate_parser.py --source qq --qq-db-path "./dataset/original/qq.db" --qq-number-ai "123456789"
+  python generate_parser.py --source qq --qq-c2c-db-path "./dataset/original/qq.db" --qq-number-ai "123456789"
+  python generate_parser.py --source qq --qq-group-db-path "./dataset/original/group_msg_table.sql" --qq-number-ai "123456789"
 
   # Telegram特定参数
   python generate_parser.py --source tg --telegram-chat-id "Your Chat Name"
@@ -385,9 +423,22 @@ def create_parser():
     # QQ特定参数
     qq_group = parser.add_argument_group('QQ数据源参数')
     qq_group.add_argument(
-        '--qq-db-path',
+        '--qq-c2c-db-path',
+        dest='qq_c2c_db_path',
         type=str,
-        help='QQ数据库文件路径'
+        help='QQ私聊(c2c_msg_table)数据库/SQL文件路径'
+    )
+    qq_group.add_argument(
+        '--qq-group-db-path',
+        dest='qq_group_db_path',
+        type=str,
+        help='QQ群聊(group_msg_table)数据库/SQL文件路径'
+    )
+    qq_group.add_argument(
+        '--qq-db-path',
+        dest='qq_c2c_db_path',
+        type=str,
+        help='QQ数据库文件路径(兼容旧参数，等同于--qq-c2c-db-path)'
     )
     qq_group.add_argument(
         '--qq-number-ai',
@@ -445,8 +496,10 @@ def main():
     # 构建解析参数
     parse_kwargs = {}
     
-    if args.qq_db_path:
-        parse_kwargs['qq_db_path'] = args.qq_db_path
+    if getattr(args, 'qq_c2c_db_path', None):
+        parse_kwargs['qq_c2c_db_path'] = args.qq_c2c_db_path
+    if getattr(args, 'qq_group_db_path', None):
+        parse_kwargs['qq_group_db_path'] = args.qq_group_db_path
     if args.qq_number_ai:
         parse_kwargs['qq_number_ai'] = args.qq_number_ai
     if args.telegram_chat_id:

@@ -104,9 +104,13 @@ class DataCommand(BaseCommand):
         
         # 根据数据源类型进行特定验证
         if source_type == 'qq':
-            qq_db_path = getattr(args, 'qq_db_path') or self.config.get('qq_db_path')
-            if qq_db_path and not os.path.exists(qq_db_path):
-                raise ValidationError(f"QQ数据库文件不存在: {qq_db_path}")
+            qq_c2c_db_path = getattr(args, 'qq_c2c_db_path', None) or self.config.get('qq_c2c_db_path') or self.config.get('qq_db_path')
+            qq_group_db_path = getattr(args, 'qq_group_db_path', None) or self.config.get('qq_group_db_path')
+
+            if qq_c2c_db_path and not os.path.exists(qq_c2c_db_path):
+                raise ValidationError(f"QQ私聊数据库/SQL文件不存在: {qq_c2c_db_path}")
+            if qq_group_db_path and not os.path.exists(qq_group_db_path):
+                raise ValidationError(f"QQ群聊数据库/SQL文件不存在: {qq_group_db_path}")
         
         # 输出路径验证
         output_path = getattr(args, 'output')
@@ -200,7 +204,8 @@ class DataCommand(BaseCommand):
                 'output_dir': output_path,
                 'source_type': source_type,
                 # QQ相关参数
-                'qq_db_path': getattr(args, 'qq_db_path', None) or self.config.get('qq_db_path'),
+                'qq_c2c_db_path': getattr(args, 'qq_c2c_db_path', None) or self.config.get('qq_c2c_db_path') or self.config.get('qq_db_path'),
+                'qq_group_db_path': getattr(args, 'qq_group_db_path', None) or self.config.get('qq_group_db_path'),
                 'qq_number_ai': getattr(args, 'qq_number_ai', None) or self.config.get('qq_number_ai'),
                 # Telegram相关参数
                 'telegram_chat_id': getattr(args, 'telegram_chat_id', None) or self.config.get('telegram_chat_id'),
@@ -236,8 +241,10 @@ class DataCommand(BaseCommand):
             parse_kwargs = {}
             
             # 添加QQ相关参数
-            if extract_args.get('qq_db_path'):
-                parse_kwargs['qq_db_path'] = extract_args['qq_db_path']
+            if extract_args.get('qq_c2c_db_path'):
+                parse_kwargs['qq_c2c_db_path'] = extract_args['qq_c2c_db_path']
+            if extract_args.get('qq_group_db_path'):
+                parse_kwargs['qq_group_db_path'] = extract_args['qq_group_db_path']
             if extract_args.get('qq_number_ai'):
                 parse_kwargs['qq_number_ai'] = extract_args['qq_number_ai']
             
@@ -278,21 +285,27 @@ class DataCommand(BaseCommand):
         try:
             # 导入QQ解析器
             from process_data.chat_parser.qq_parser import QQParser
+            from process_data.chat_parser.qq_group_parser import QQGroupParser
             
-            qq_db_path = extract_args.get('qq_db_path')
-            if not qq_db_path:
-                self.logger.error("降级到QQ解析器时未指定QQ数据库路径")
+            qq_c2c_db_path = extract_args.get('qq_c2c_db_path')
+            qq_group_db_path = extract_args.get('qq_group_db_path')
+            if not qq_c2c_db_path and not qq_group_db_path:
+                self.logger.error("降级到QQ解析器时未指定QQ私聊/群聊数据库路径")
                 return 1
-            
-            # 使用正确的参数初始化QQParser
-            parser = QQParser(
-                db_path=qq_db_path,
-                output_dir=extract_args['output_dir'],
-                qq_number_ai=extract_args.get('qq_number_ai')
-            )
-            
-            # 执行提取
-            parser.parse_all()
+
+            if qq_c2c_db_path:
+                QQParser(
+                    db_path=qq_c2c_db_path,
+                    output_dir=extract_args['output_dir'],
+                    qq_number_ai=extract_args.get('qq_number_ai')
+                ).parse_all()
+
+            if qq_group_db_path:
+                QQGroupParser(
+                    db_path=qq_group_db_path,
+                    output_dir=extract_args['output_dir'],
+                    qq_number_ai=extract_args.get('qq_number_ai')
+                ).parse_all()
             return 0
             
         except ImportError as e:
@@ -311,8 +324,8 @@ class DataCommand(BaseCommand):
                 '--extract-only'
             ]
             
-            if extract_args.get('qq_db_path'):
-                cmd.extend(['--qq-db-path', extract_args['qq_db_path']])
+            if extract_args.get('qq_c2c_db_path'):
+                cmd.extend(['--qq-db-path', extract_args['qq_c2c_db_path']])
             
             if extract_args.get('qq_number_ai'):
                 cmd.extend(['--qq-number-ai', extract_args['qq_number_ai']])
