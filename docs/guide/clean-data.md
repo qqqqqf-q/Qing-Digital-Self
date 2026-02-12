@@ -15,7 +15,9 @@ pip install -r requirements.txt
 ```bash
 python cli.py data extract
 # 或自定义parser字段
-python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
+python cli.py data extract --qq-c2c-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
+# 仅群聊(group_msg_table)导出
+python cli.py data extract --qq-group-db-path ./data/group_msg_table.sql --qq-number-ai 1234567890 --output ./dataset/csv
 ```
 * 若转化的是QQ数据，则`--qq-number-ai`或者`setting.jsonc`的`qq_number_ai`字段至少要填写一个。TG以此类推
 
@@ -25,7 +27,9 @@ python cli.py data extract --qq-db-path ./data/qq.db --qq-number-ai 1234567890 -
 | `--source-type {qq,tg,telegram}` | 指定数据源类型 | 不指定则自动检测 |
 | `--data-dir DATA_DIR` | 数据目录路径 | `./dataset/original/` |
 | `--output OUTPUT` | 输出目录路径 | `./dataset/csv/` |
-| `--qq-db-path QQ_DB_PATH` | QQ 数据库文件路径 | - |
+| `--qq-c2c-db-path QQ_C2C_DB_PATH` | QQ私聊(c2c_msg_table)数据库/SQL文件路径 | - |
+| `--qq-group-db-path QQ_GROUP_DB_PATH` | QQ群聊(group_msg_table)数据库/SQL文件路径 | - |
+| `--qq-db-path QQ_DB_PATH` | QQ数据库文件路径（兼容旧参数，等同于--qq-c2c-db-path） | - |
 | `--qq-number-ai QQ_NUMBER_AI` | AI 的 QQ 号码（用于区分发送者） | - |
 | `--telegram-chat-id TELEGRAM_CHAT_ID` | AI 的 Telegram 聊天名称（用于区分发送者） | - |
 | `--tg-data-dir TG_DATA_DIR` | Telegram 数据目录 | 如不指定则使用 `--data-dir` |

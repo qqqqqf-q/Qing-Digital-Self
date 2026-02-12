@@ -10,7 +10,8 @@
 * Get a database like this
 * Structure as shown below, it's a plaintext database (you can open it and see the data, which means it's normal)
 * Rename the database to `qq.db` and place it in the `dataset/original` folder
-> Or modify the `qq_db_path` in `setting.jsonc`
+> Or modify the `qq_c2c_db_path` in `setting.jsonc`
+> If you exported `group_msg_table`, set it in `qq_group_db_path`
 
 
 
