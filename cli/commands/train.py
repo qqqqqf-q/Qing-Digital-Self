@@ -24,6 +24,7 @@ from ..core.helpers import format_time_duration, format_file_size, ensure_direct
 from ..interface.validators import validate_path, validate_positive_int, validate_model_path
 from utils.config.config import get_config
 from utils.logger.logger import get_logger
+from utils.config.path_resolver import resolve_train_data_path
 
 
 class TrainCommand(BaseCommand):
@@ -68,10 +69,16 @@ class TrainCommand(BaseCommand):
             validate_model_path(model_path)
         
         # 验证数据路径
-        data_path = getattr(args, 'data_path') or self.config.get('data_path')
-        if not data_path:
+        configured_data_path = getattr(args, 'data_path') or self.config.get('data_path')
+        if not configured_data_path:
             raise ValidationError("必须指定训练数据路径")
-        
+
+        try:
+            resolved = resolve_train_data_path(configured_data_path, runs_root=self.config.get("runs_root", "./runs"))
+            data_path = resolved.value
+        except FileNotFoundError as e:
+            raise ValidationError(str(e)) from e
+
         validate_path(data_path, must_exist=True)
         
         # 验证数值参数
@@ -117,10 +124,18 @@ class TrainCommand(BaseCommand):
     
     def _prepare_training_params(self, args: argparse.Namespace) -> Dict[str, Any]:
         """准备训练参数"""
+        # 兼容 data_path=LATEST（自动指向 runs/chat 下最新的 sft/train.jsonl）
+        configured_data_path = getattr(args, 'data_path') or self.config.get('data_path')
+        try:
+            resolved = resolve_train_data_path(configured_data_path, runs_root=self.config.get("runs_root", "./runs"))
+            data_path = resolved.value
+        except Exception:
+            data_path = configured_data_path
+
         # 从配置和命令行参数合并
         params = {
             'model_path': getattr(args, 'model_path') or self.config.get('model_path'),
-            'data_path': getattr(args, 'data_path') or self.config.get('data_path'),
+            'data_path': data_path,
             'output_dir': getattr(args, 'output_dir') or './checkpoints',
             'lora_r': getattr(args, 'lora_r') or self.config.get('lora_r', 16),
             'lora_alpha': getattr(args, 'lora_alpha') or self.config.get('lora_alpha', 32),

@@ -17,6 +17,10 @@
         "language": "zhcn"
     },
     "data_args": {
+        "paths": {
+            "data_root": "./data",
+            "runs_root": "./runs"
+        },
         "data_dir": "./data/chat/qq/original/",
         "output_dir": null,  // 留空则由 CLI 自动输出到 runs/chat/<run_id>/csv
         "media_dir": "./data/chat/media",
@@ -70,7 +74,7 @@
         },
         "train_sft_args": {
             "use_qlora": true,
-            "data_path": "./dataset/sft.jsonl",  // 阶段1后建议改为 runs/chat/<run_id>/sft/train.jsonl
+            "data_path": "LATEST",  // 由配置生成器自动解析到 runs/chat/<latest>/sft/train.jsonl；也可手动填具体路径以复现实验
             "lora_r": 16,
             "lora_alpha": 32,
             "lora_dropout": 0.1,

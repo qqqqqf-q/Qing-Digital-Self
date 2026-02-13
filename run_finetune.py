@@ -9,6 +9,7 @@ import argparse
 import torch
 from utils.logger.logger import logger
 from utils.config.config import get_config
+from utils.config.path_resolver import resolve_train_data_path
 
 def main():
     """运行QLoRA微调的主函数（不使用 Unsloth）
@@ -20,6 +21,11 @@ def main():
     """
     # 获取配置实例
     config = get_config()
+    # 兼容 data_path=LATEST（自动选择 runs/chat 下最新的 sft/train.jsonl）
+    try:
+        resolved_data_path = resolve_train_data_path(config.get("data_path", "training_data.jsonl"), runs_root=config.get("runs_root", "./runs")).value
+    except Exception:
+        resolved_data_path = config.get("data_path", "training_data.jsonl")
     
     parser = argparse.ArgumentParser(description="QLoRA微调脚本-")
 
@@ -57,7 +63,7 @@ def main():
     parser.add_argument(
         "--data_path",
         type=str,
-        default=config.get("data_path", "training_data.jsonl"),
+        default=resolved_data_path,
         help="训练数据路径 (默认从config读取或使用 training_data.jsonl)",
     )
     parser.add_argument(
