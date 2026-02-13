@@ -6,10 +6,10 @@ Qing-Digital-Self CLI 主入口
 支持数据处理、模型训练、推理服务等核心操作。
 
 使用示例:
-    qds config init                 # 初始化配置
-    qds data extract --help         # 查看数据提取帮助
-    qds train start                 # 开始训练
-    qds infer chat                  # 启动对话模式
+    python cli.py config init
+    python cli.py data extract --help
+    python cli.py train start
+    python cli.py infer chat
 
 支持的命令:
     config   - 配置管理
@@ -38,21 +38,22 @@ from utils.config.config import get_config, ConfigError
 
 def create_parser() -> argparse.ArgumentParser:
     """创建主命令行解析器"""
+    prog = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "cli.py"
     parser = argparse.ArgumentParser(
-        prog='qds',
+        prog=prog,
         description='Qing-Digital-Self CLI - 企业级数字分身项目管理工具',
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
+        epilog=f"""
 常用命令示例:
-  qds config init                   初始化配置文件
-  qds config show                   显示当前配置
-  qds data extract                  从QQ数据库提取数据
-  qds data clean llm --accept-score 3  使用LLM清洗数据(分数阈值3)
-  qds train start                   开始模型训练
-  qds infer chat                    启动交互式对话
+  {prog} config init                   初始化配置文件
+  {prog} config show                   显示当前配置
+  {prog} data extract                  从聊天数据中提取数据
+  {prog} data clean llm --accept-score 3  使用LLM清洗数据(分数阈值3)
+  {prog} train start                   开始模型训练
+  {prog} infer chat                    启动交互式对话
 
 获取更多帮助:
-  qds <command> --help              查看特定命令的详细帮助
+  {prog} <command> --help              查看特定命令的详细帮助
   
 项目地址: https://github.com/qqqqqf-q/Qing-Digital-Self
 文档地址: https://github.com/qqqqqf-q/Qing-Digital-Self/docs
@@ -101,7 +102,7 @@ def create_parser() -> argparse.ArgumentParser:
         dest='command',
         title='可用命令',
         description='选择要执行的操作',
-        help='使用 qds <command> --help 查看详细帮助'
+        help=f'使用 {prog} <command> --help 查看详细帮助'
     )
     
     # 配置管理命令
@@ -222,6 +223,26 @@ def create_parser() -> argparse.ArgumentParser:
     # data stats
     data_stats = data_subparsers.add_parser('stats', help='显示数据统计')
     data_stats.add_argument('--input', required=True, help='输入文件路径')
+
+    # data migrate-layout（Data Layout v2）
+    data_migrate_layout = data_subparsers.add_parser(
+        'migrate-layout',
+        help='将 legacy 的 dataset/openai_data 迁移到 data/runs 目录结构（默认仅输出计划）'
+    )
+    data_migrate_layout.add_argument('--apply', action='store_true', help='实际执行迁移（不指定则仅 dry-run）')
+    data_migrate_layout.add_argument('--mode', choices=['move', 'copy'], default='move',
+                                    help='迁移方式: move(推荐，快速) / copy(保留旧目录)')
+    data_migrate_layout.add_argument('--run-id', help='将 legacy 产物归档到 runs/chat/<run_id>/（默认自动生成）')
+    data_migrate_layout.add_argument('--run-tag', default='legacy',
+                                    help='自动run_id的后缀标签（默认: legacy）')
+    data_migrate_layout.add_argument('--skip-openai', action='store_true',
+                                    help='跳过 openai_data -> data/openai-export 的迁移')
+    data_migrate_layout.add_argument('--data-root', dest='data_root',
+                                    help='覆盖 data_root（默认读取配置或 ./data）')
+    data_migrate_layout.add_argument('--runs-root', dest='runs_root',
+                                    help='覆盖 runs_root（默认读取配置或 ./runs）')
+    data_migrate_layout.add_argument('--force', action='store_true',
+                                    help='目标已存在时尝试覆盖/合并（谨慎使用）')
     
     # 模型推理命令
     infer_parser = subparsers.add_parser(

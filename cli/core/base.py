@@ -231,11 +231,12 @@ class QingCLI:
     
     def _print_general_help(self) -> None:
         """打印总体帮助信息"""
+        prog = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "cli.py"
         print("Qing-Digital-Self CLI - 企业级数字分身项目管理工具\n")
         print("使用方法:")
-        print("  qds <command> [options]\n")
+        print(f"  {prog} <command> [options]\n")
         self._print_available_commands()
-        print("\n使用 'qds <command> --help' 获取特定命令的详细帮助")
+        print(f"\n使用 '{prog} <command> --help' 获取特定命令的详细帮助")
     
     def _print_available_commands(self) -> None:
         """打印可用命令列表"""

@@ -213,8 +213,9 @@ class DataCommand(BaseCommand):
 
         legacy = self._legacy_chat_csv_dir()
         if legacy.exists():
+            prog = os.path.basename(sys.argv[0]) if sys.argv and sys.argv[0] else "cli.py"
             self._print_migration_tip(
-                f"未找到 runs/chat 下的运行产物，当前回退读取旧目录 {legacy}；建议先运行 `qds data extract` 生成 runs/ 结构"
+                f"未找到 runs/chat 下的运行产物，当前回退读取旧目录 {legacy}；建议先运行 `{prog} data extract` 生成 runs/ 结构"
             )
             return str(legacy), None, True
 
@@ -251,6 +252,8 @@ class DataCommand(BaseCommand):
             return self._preview_data(args)
         elif action == 'stats':
             return self._show_stats(args)
+        elif action == 'migrate-layout':
+            return self._migrate_layout_v2(args)
         else:
             self.logger.error("未指定数据操作")
             return 1
@@ -269,6 +272,279 @@ class DataCommand(BaseCommand):
             self._validate_merge_args(args)
         elif action in ['preview', 'stats']:
             self._validate_input_file_args(args)
+        elif action == 'migrate-layout':
+            self._validate_migrate_layout_v2_args(args)
+
+    def _validate_migrate_layout_v2_args(self, args: argparse.Namespace) -> None:
+        """验证目录迁移参数（Data Layout v2）"""
+        mode = str(getattr(args, "mode", "move") or "move").lower()
+        if mode not in {"move", "copy"}:
+            raise ValidationError("mode 仅支持: move / copy")
+
+    def _migrate_layout_v2(self, args: argparse.Namespace) -> int:
+        """将 legacy 的 dataset/openai_data 迁移到 data/runs（默认仅输出计划）"""
+        apply_changes = bool(getattr(args, "apply", False))
+        mode = str(getattr(args, "mode", "move") or "move").lower()
+        force = bool(getattr(args, "force", False))
+        skip_openai = bool(getattr(args, "skip_openai", False))
+
+        data_root = Path(getattr(args, "data_root", None) or self._data_root())
+        runs_root = Path(getattr(args, "runs_root", None) or self._runs_root())
+
+        run_id = self._generate_run_id(
+            getattr(args, "run_id", None),
+            getattr(args, "run_tag", None) or "legacy",
+        )
+
+        plan = self._build_layout_v2_migration_plan(
+            data_root=data_root,
+            runs_root=runs_root,
+            run_id=run_id,
+            skip_openai=skip_openai,
+        )
+
+        self._print_layout_v2_migration_plan(plan, data_root=data_root, runs_root=runs_root, run_id=run_id, mode=mode, apply_changes=apply_changes)
+        if not plan["ops"]:
+            self.logger.warning("未发现可迁移的 legacy 数据（dataset/openai_data 都不存在或为空）")
+            return 0
+
+        if not apply_changes:
+            return 0
+
+        self._apply_layout_v2_migration_plan(plan, mode=mode, force=force)
+        self._write_layout_v2_migration_manifest(
+            runs_root=runs_root,
+            run_id=run_id,
+            mode=mode,
+            skip_openai=skip_openai,
+            moved_items=plan["moved_items"],
+        )
+        return 0
+
+    def _build_layout_v2_migration_plan(
+        self,
+        data_root: Path,
+        runs_root: Path,
+        run_id: str,
+        skip_openai: bool,
+    ) -> Dict[str, Any]:
+        ops: List[Dict[str, Any]] = []
+        moved_items: List[Dict[str, str]] = []
+
+        def add_op(src: Path, dst: Path, kind: str, description: str) -> None:
+            ops.append(
+                {
+                    "src": src,
+                    "dst": dst,
+                    "kind": kind,
+                    "description": description,
+                }
+            )
+            moved_items.append({"src": str(src).replace("\\", "/"), "dst": str(dst).replace("\\", "/"), "kind": kind})
+
+        # 1) dataset/original -> data/chat/{qq,telegram,wechat}/original
+        legacy_original = Path("dataset") / "original"
+        if legacy_original.exists() and legacy_original.is_dir():
+            qq_original = data_root / "chat" / "qq" / "original"
+            tg_original = data_root / "chat" / "telegram" / "original"
+            wx_original = data_root / "chat" / "wechat" / "original"
+
+            for item in sorted(legacy_original.iterdir(), key=lambda p: p.name.lower()):
+                if item.is_dir() and item.name.lower() == "wechat":
+                    add_op(item, wx_original, "dir", "迁移 WeChat 原始目录到 data/chat/wechat/original")
+                    continue
+
+                if item.is_dir() and (item.name.startswith("ChatExport_") or item.name.startswith("TG_ChatExport_")):
+                    add_op(item, tg_original / item.name, "dir", "迁移 Telegram ChatExport 目录到 data/chat/telegram/original")
+                    continue
+
+                if item.is_file() and item.suffix.lower() in {".db", ".sql", ".sqlite", ".sqlite3"}:
+                    add_op(item, qq_original / item.name, "file", "迁移 QQ 数据库/SQL 到 data/chat/qq/original")
+                    continue
+
+                # 兜底：未知文件/目录也归到 qq/original，避免丢数据
+                add_op(item, qq_original / item.name, "dir" if item.is_dir() else "file", "迁移 legacy original 的其它内容到 data/chat/qq/original")
+
+        # 2) dataset/media -> data/chat/media（优先使用配置里的 media_dir）
+        legacy_media = Path("dataset") / "media"
+        if legacy_media.exists() and legacy_media.is_dir():
+            configured_media_dir = Path(self.config.get("media_dir", str(data_root / "chat" / "media")))
+            # 迁移场景下，配置可能仍指向 legacy 目录；避免 src==dst 导致递归合并
+            try:
+                media_dir = data_root / "chat" / "media" if configured_media_dir.resolve() == legacy_media.resolve() else configured_media_dir
+            except Exception:
+                media_dir = data_root / "chat" / "media" if str(configured_media_dir).replace("\\", "/").strip("./") == "dataset/media" else configured_media_dir
+            add_op(legacy_media, media_dir, "dir", "迁移媒体目录到 data/chat/media（或配置 media_dir）")
+
+        # 3) openai_data -> data/openai-export
+        legacy_openai = Path("openai_data")
+        if not skip_openai and legacy_openai.exists() and legacy_openai.is_dir():
+            add_op(legacy_openai, data_root / "openai-export", "dir", "迁移 ChatGPT 导出到 data/openai-export")
+
+        # 4) dataset/csv -> runs/chat/<run_id>/csv
+        legacy_csv = Path("dataset") / "csv"
+        if legacy_csv.exists() and legacy_csv.is_dir():
+            add_op(legacy_csv, runs_root / "chat" / run_id / "csv", "dir", "归档 legacy CSV 到 runs/chat/<run_id>/csv")
+
+        # 5) dataset/sft.jsonl -> runs/chat/<run_id>/sft/train.jsonl
+        legacy_sft = Path("dataset") / "sft.jsonl"
+        if legacy_sft.exists() and legacy_sft.is_file():
+            add_op(legacy_sft, runs_root / "chat" / run_id / "sft" / "train.jsonl", "file", "归档 legacy SFT 到 runs/chat/<run_id>/sft/train.jsonl")
+
+        # 6) dataset/sft_scored.csv -> runs/chat/<run_id>/stats/sft_scored.csv
+        legacy_scored = Path("dataset") / "sft_scored.csv"
+        if legacy_scored.exists() and legacy_scored.is_file():
+            add_op(legacy_scored, runs_root / "chat" / run_id / "stats" / "sft_scored.csv", "file", "归档 legacy scored CSV 到 runs/chat/<run_id>/stats/")
+
+        # 7) dataset/backup + dataset/*.bak -> runs/_archive/dataset_backup_<run_id>/
+        legacy_backup_dir = Path("dataset") / "backup"
+        archive_root = runs_root / "_archive" / f"dataset_backup_{run_id}"
+        if legacy_backup_dir.exists() and legacy_backup_dir.is_dir():
+            add_op(legacy_backup_dir, archive_root / "backup", "dir", "迁移 legacy backup 到 runs/_archive/")
+
+        legacy_root_baks = sorted((Path("dataset")).glob("*.bak"), key=lambda p: p.name.lower())
+        for bak_file in legacy_root_baks:
+            if bak_file.is_file():
+                add_op(bak_file, archive_root / "bak" / bak_file.name, "file", "迁移 legacy 根目录 .bak 到 runs/_archive/")
+
+        return {"ops": ops, "moved_items": moved_items}
+
+    def _print_layout_v2_migration_plan(
+        self,
+        plan: Dict[str, Any],
+        data_root: Path,
+        runs_root: Path,
+        run_id: str,
+        mode: str,
+        apply_changes: bool,
+    ) -> None:
+        ops: List[Dict[str, Any]] = plan.get("ops", [])
+        print("\n=== Data Layout v2 迁移计划 ===")
+        print(f"模式: {mode} | 执行: {'apply' if apply_changes else 'dry-run'} | run_id: {run_id}")
+        print(f"data_root: {data_root}")
+        print(f"runs_root: {runs_root}")
+        print("迁移映射摘要:")
+        print("- dataset/original -> data/chat/{qq,telegram,wechat}/original")
+        print("- dataset/media -> data/chat/media（或配置 media_dir）")
+        print("- dataset/csv -> runs/chat/<run_id>/csv")
+        print("- dataset/sft.jsonl -> runs/chat/<run_id>/sft/train.jsonl")
+        print("- dataset/sft_scored.csv -> runs/chat/<run_id>/stats/sft_scored.csv")
+        print("- dataset/backup + dataset/*.bak -> runs/_archive/dataset_backup_<run_id>/")
+        print("- openai_data -> data/openai-export（可选）")
+        print(f"待处理项: {len(ops)}")
+        if not apply_changes:
+            print("提示: 这是 dry-run；如确认无误，追加 --apply 执行实际迁移。")
+        print("=============================\n")
+
+    def _apply_layout_v2_migration_plan(self, plan: Dict[str, Any], mode: str, force: bool) -> None:
+        ops: List[Dict[str, Any]] = plan.get("ops", [])
+        for op in ops:
+            src = Path(op["src"])
+            dst = Path(op["dst"])
+            kind = op.get("kind", "file")
+            desc = op.get("description", "")
+            if not src.exists():
+                self.logger.warning(f"跳过（不存在）: {src}")
+                continue
+
+            self.logger.info(f"{desc}: {src} -> {dst}")
+            if kind == "dir":
+                self._transfer_dir(src, dst, mode=mode, force=force)
+            else:
+                self._transfer_file(src, dst, mode=mode, force=force)
+
+        # 清理空的 legacy 目录（仅 move 才做）
+        if mode == "move":
+            self._remove_empty_dirs([Path("dataset") / "original", Path("dataset") / "media"])
+
+    def _transfer_dir(self, src: Path, dst: Path, mode: str, force: bool) -> None:
+        if not src.is_dir():
+            raise FileOperationError("源路径不是目录", str(src))
+
+        ensure_directory(dst.parent)
+
+        if dst.exists() and not dst.is_dir():
+            raise FileOperationError("目标路径不是目录", str(dst))
+
+        if not dst.exists():
+            if mode == "move":
+                shutil.move(str(src), str(dst))
+            else:
+                shutil.copytree(str(src), str(dst))
+            return
+
+        # 目标已存在：合并迁移（默认跳过同名冲突，--force 才覆盖）
+        for child in sorted(src.iterdir(), key=lambda p: p.name.lower()):
+            child_dst = dst / child.name
+            if child.is_dir():
+                self._transfer_dir(child, child_dst, mode=mode, force=force)
+            else:
+                self._transfer_file(child, child_dst, mode=mode, force=force)
+
+        if mode == "move":
+            self._try_remove_dir(src)
+
+    def _transfer_file(self, src: Path, dst: Path, mode: str, force: bool) -> None:
+        if not src.is_file():
+            raise FileOperationError("源路径不是文件", str(src))
+
+        ensure_directory(dst.parent)
+
+        if dst.exists():
+            if not force:
+                self.logger.warning(f"跳过（目标已存在，未指定 --force）: {dst}")
+                if mode == "move":
+                    return
+                return
+            try:
+                if dst.is_file():
+                    dst.unlink()
+                else:
+                    shutil.rmtree(str(dst))
+            except Exception as exc:
+                raise FileOperationError(f"无法覆盖目标: {exc}", str(dst)) from exc
+
+        if mode == "move":
+            shutil.move(str(src), str(dst))
+        else:
+            shutil.copy2(str(src), str(dst))
+
+    def _try_remove_dir(self, path: Path) -> None:
+        try:
+            if path.exists() and path.is_dir() and not any(path.iterdir()):
+                path.rmdir()
+        except Exception:
+            return
+
+    def _remove_empty_dirs(self, dirs: List[Path]) -> None:
+        for d in dirs:
+            self._try_remove_dir(d)
+
+    def _write_layout_v2_migration_manifest(
+        self,
+        runs_root: Path,
+        run_id: str,
+        mode: str,
+        skip_openai: bool,
+        moved_items: List[Dict[str, str]],
+    ) -> None:
+        manifest_path = runs_root / "chat" / run_id / "manifest.json"
+        ensure_directory(manifest_path.parent)
+        payload = {
+            "pipeline": "chat",
+            "run_id": run_id,
+            "kind": "layout_migration_v2",
+            "mode": mode,
+            "skip_openai": skip_openai,
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "items": moved_items,
+        }
+        try:
+            with open(manifest_path, "w", encoding="utf-8") as f:
+                json.dump(payload, f, ensure_ascii=False, indent=2)
+            self.logger.info(f"已写入 manifest: {manifest_path}")
+        except Exception as exc:
+            self.logger.warning(f"写入 manifest 失败: {exc}")
     
     def _validate_extract_args(self, args: argparse.Namespace) -> None:
         """验证数据提取参数"""

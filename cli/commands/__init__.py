@@ -1,7 +1,7 @@
 """
 CLI 命令模块
 
-包含所有 QDS CLI 命令的实现。
+包含所有 CLI 命令的实现。
 """
 
 from .config import ConfigCommand
