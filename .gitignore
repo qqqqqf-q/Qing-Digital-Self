@@ -222,7 +222,7 @@ dataset/sft_scored.csv
 dataset/sft.jsonl.*.bak
 dataset/sft_scored.csv.*.bak
 cache
-config
+/config/
 saves
 .gradio
 docs/.npmrc
