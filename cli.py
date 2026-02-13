@@ -262,6 +262,29 @@ def create_parser() -> argparse.ArgumentParser:
     data_openai_distill.add_argument('--max-messages', type=int, default=80, help='单样本最大消息数（默认: 80，超出则保留末尾）')
     data_openai_distill.add_argument('--data-root', dest='data_root', help='覆盖 data_root（默认读取配置或 ./data）')
     data_openai_distill.add_argument('--runs-root', dest='runs_root', help='覆盖 runs_root（默认读取配置或 ./runs）')
+
+    # data openai-clean（SFT -> Cleaned SFT）
+    data_openai_clean = data_subparsers.add_parser(
+        'openai-clean',
+        help='使用LLM清洗 OpenAI SFT（去技术/工具/搜索痕迹）'
+    )
+    data_openai_clean.add_argument('--input', help='输入SFT JSONL路径（默认读取 runs/openai-distill/<latest>/sft/text.jsonl）')
+    data_openai_clean.add_argument('--distill-run-id', dest='distill_run_id',
+                                   help='指定 runs/openai-distill/<run_id>/sft/text.jsonl 作为输入')
+    data_openai_clean.add_argument('--run-id', help='指定本次清洗输出run_id（默认自动生成 YYYYMMDD_HHMMSS，可配合 --run-tag）')
+    data_openai_clean.add_argument('--run-tag', default='openai-clean', help='自动run_id的后缀标签（默认: openai-clean）')
+    data_openai_clean.add_argument('--model', help='覆盖清洗模型（默认读取 clean_set_args.openai_api.model_name）')
+    data_openai_clean.add_argument('--temperature', type=float, default=None, help='清洗温度（默认: 0.2）')
+    data_openai_clean.add_argument('--max-tokens', type=int, default=None, help='单次清洗最大输出tokens（默认: 4096）')
+    data_openai_clean.add_argument('--workers', type=int, default=None, help='并发workers（默认读取 clean_set_args.openai_api.clean_workers）')
+    data_openai_clean.add_argument('--max-chars', type=int, default=None, help='单样本最大字符数（默认: 20000）')
+    data_openai_clean.add_argument('--max-messages', type=int, default=None, help='单样本最大消息数（默认: 80）')
+    data_openai_clean.add_argument('--max-samples', type=int, help='最多处理样本数（用于小规模验证）')
+    data_openai_clean.add_argument('--base-prompt', help='输出训练集用的system prompt（默认读取 data_args.openai_sft_system_prompt；传\"*\"或空串表示不添加）')
+    data_openai_clean.add_argument('--base-prompt-file', help='从文件读取base prompt（优先级高于--base-prompt）')
+    data_openai_clean.add_argument('--no-base-prompt', action='store_true', help='不添加system prompt（覆盖其它设置）')
+    data_openai_clean.add_argument('--data-root', dest='data_root', help='覆盖 data_root（默认读取配置或 ./data）')
+    data_openai_clean.add_argument('--runs-root', dest='runs_root', help='覆盖 runs_root（默认读取配置或 ./runs）')
     
     # 模型推理命令
     infer_parser = subparsers.add_parser(

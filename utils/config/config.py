@@ -270,6 +270,7 @@ class Config:
             
             # 系统提示词配置
             "system_prompt": self._get_nested_value("data_args.system_prompt", "*"),
+            "openai_sft_system_prompt": self._get_nested_value("data_args.openai_sft_system_prompt", "*"),
         }
 
     def _validate_config(self):

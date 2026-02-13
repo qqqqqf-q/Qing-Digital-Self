@@ -94,6 +94,7 @@
             "max_workers": 6,
             "use_unsloth": true
         },
+        "openai_sft_system_prompt": "*",  // OpenAI 导出SFT专用system prompt；"*"或空串表示不添加；填字符串则注入到每条样本开头
         "system_prompt": "*"
     }
 }

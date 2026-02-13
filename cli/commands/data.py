@@ -177,6 +177,18 @@ class DataCommand(BaseCommand):
         latest = max(candidates, key=lambda p: p.stat().st_mtime)
         return latest.name
 
+    def _find_latest_openai_distill_run_id(self) -> Optional[str]:
+        distill_root = self._runs_root() / "openai-distill"
+        if not distill_root.exists() or not distill_root.is_dir():
+            return None
+
+        candidates = [p for p in distill_root.iterdir() if p.is_dir()]
+        if not candidates:
+            return None
+
+        latest = max(candidates, key=lambda p: p.stat().st_mtime)
+        return latest.name
+
     def _try_parse_run_id_from_path(self, path: str) -> Optional[str]:
         normalized = Path(path).as_posix().replace("\\", "/")
         parts = [p for p in normalized.split("/") if p]
@@ -256,6 +268,8 @@ class DataCommand(BaseCommand):
             return self._migrate_layout_v2(args)
         elif action == 'openai-distill':
             return self._openai_distill(args)
+        elif action == 'openai-clean':
+            return self._openai_clean(args)
         else:
             self.logger.error("未指定数据操作")
             return 1
@@ -278,6 +292,8 @@ class DataCommand(BaseCommand):
             self._validate_migrate_layout_v2_args(args)
         elif action == 'openai-distill':
             self._validate_openai_distill_args(args)
+        elif action == 'openai-clean':
+            self._validate_openai_clean_args(args)
 
     def _validate_migrate_layout_v2_args(self, args: argparse.Namespace) -> None:
         """验证目录迁移参数（Data Layout v2）"""
@@ -624,6 +640,132 @@ class DataCommand(BaseCommand):
         self.logger.info(f"run_id: {run_id}")
         print(f"run_id: {run_id}")
         print(f"SFT: {(output_root / 'sft' / 'text.jsonl').as_posix()}")
+        return 0
+
+    def _resolve_openai_clean_input(self, args: argparse.Namespace, runs_root: Path) -> Path:
+        explicit = getattr(args, "input", None)
+        if explicit:
+            return Path(str(explicit))
+
+        distill_run_id = getattr(args, "distill_run_id", None)
+        if distill_run_id:
+            candidate = runs_root / "openai-distill" / str(distill_run_id) / "sft" / "text.jsonl"
+            if not candidate.exists():
+                raise ValidationError(f"指定的 distill_run_id '{distill_run_id}' 不存在: {candidate}")
+            return candidate
+
+        latest = self._find_latest_openai_distill_run_id()
+        if latest:
+            return runs_root / "openai-distill" / latest / "sft" / "text.jsonl"
+
+        return runs_root / "openai-distill" / "LATEST" / "sft" / "text.jsonl"
+
+    def _validate_openai_clean_args(self, args: argparse.Namespace) -> None:
+        runs_root = Path(getattr(args, "runs_root", None) or self._runs_root())
+        input_path = self._resolve_openai_clean_input(args, runs_root=runs_root)
+        validate_path(str(input_path), must_exist=True)
+
+        workers = getattr(args, "workers", None)
+        if workers is not None:
+            validate_positive_int(workers, "workers")
+
+        max_chars = getattr(args, "max_chars", None)
+        if max_chars is not None:
+            validate_positive_int(max_chars, "max_chars")
+
+        max_messages = getattr(args, "max_messages", None)
+        if max_messages is not None:
+            validate_positive_int(max_messages, "max_messages")
+
+        max_tokens = getattr(args, "max_tokens", None)
+        if max_tokens is not None:
+            validate_positive_int(max_tokens, "max_tokens")
+
+        max_samples = getattr(args, "max_samples", None)
+        if max_samples is not None:
+            validate_positive_int(max_samples, "max_samples")
+
+        temperature = getattr(args, "temperature", None)
+        if temperature is not None:
+            try:
+                float(temperature)
+            except (TypeError, ValueError):
+                raise ValidationError("temperature 必须为数字")
+
+        base_prompt_file = getattr(args, "base_prompt_file", None)
+        if base_prompt_file:
+            validate_path(str(base_prompt_file), must_exist=True)
+
+    def _openai_clean(self, args: argparse.Namespace) -> int:
+        """对 openai-distill 产物做 LLM 清洗，去除技术/工具/搜索痕迹。"""
+        try:
+            from process_data.openai_export_llm_clean import OpenAICleanOptions, clean_openai_sft_jsonl_with_llm
+        except Exception as e:
+            raise DataProcessingError(f"无法加载 OpenAI LLM 清洗模块: {e}")
+
+        runs_root = Path(getattr(args, "runs_root", None) or self._runs_root())
+        input_path = self._resolve_openai_clean_input(args, runs_root=runs_root)
+
+        run_id = self._generate_run_id(
+            getattr(args, "run_id", None),
+            getattr(args, "run_tag", None) or "openai-clean",
+        )
+        output_root = runs_root / "openai-clean" / run_id
+
+        sft_system_prompt: Optional[str] = None
+        if bool(getattr(args, "no_base_prompt", False)):
+            sft_system_prompt = "*"
+        else:
+            prompt_file = getattr(args, "base_prompt_file", None)
+            if prompt_file:
+                with open(str(prompt_file), "r", encoding="utf-8") as f:
+                    sft_system_prompt = f.read()
+            else:
+                sft_system_prompt = getattr(args, "base_prompt", None)
+                if sft_system_prompt is None:
+                    sft_system_prompt = self.config.get("openai_sft_system_prompt", "*")
+
+        model = getattr(args, "model", None) or self.config.get("OpenAI_Model")
+        temperature = getattr(args, "temperature", None)
+        if temperature is None:
+            temperature = 0.2
+        max_tokens = getattr(args, "max_tokens", None)
+        if max_tokens is None:
+            max_tokens = 4096
+        workers = getattr(args, "workers", None)
+        if workers is None:
+            workers = self.config.get("clean_workers", 4)
+        max_chars = getattr(args, "max_chars", None)
+        if max_chars is None:
+            max_chars = 20000
+        max_messages = getattr(args, "max_messages", None)
+        if max_messages is None:
+            max_messages = 80
+
+        options_kwargs: Dict[str, Any] = {
+            "model": model,
+            "temperature": float(temperature or 0.2),
+            "max_tokens": int(max_tokens or 4096),
+            "workers": int(workers or 4),
+            "max_chars": int(max_chars or 20000),
+            "max_messages": int(max_messages or 80),
+            "max_samples": getattr(args, "max_samples", None),
+        }
+        if sft_system_prompt is not None:
+            options_kwargs["base_prompt"] = sft_system_prompt
+
+        options = OpenAICleanOptions(**options_kwargs)
+
+        clean_openai_sft_jsonl_with_llm(
+            input_path=Path(input_path),
+            output_root=output_root,
+            run_id=run_id,
+            options=options,
+        )
+
+        self.logger.info(f"run_id: {run_id}")
+        print(f"run_id: {run_id}")
+        print(f"SFT: {(output_root / 'sft' / 'train.jsonl').as_posix()}")
         return 0
 	    
     def _validate_extract_args(self, args: argparse.Namespace) -> None:

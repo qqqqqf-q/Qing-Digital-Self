@@ -60,6 +60,11 @@ runs/                              # 运行产物（默认忽略提交）
       sft/                         # 最终训练集（text/tool 等）
       stats/
       manifest.json
+  openai-clean/
+    20260213_010000/
+      sft/                         # 清洗后的训练集输出（train.jsonl）
+      stats/                       # 清洗统计与丢弃原因
+      manifest.json
 
 dataset/                           # 公开数据区（允许提交）
   examples/                        # 小样例（已存在）
@@ -177,6 +182,13 @@ notes/                             # 设计文档与方案（建议提交）
 - 先产出一条最小闭环：`sft/text.jsonl`（纯文本风格）
 - 在闭环稳定后，再扩展：`sft/tool.jsonl`（工具轨迹，后续 P3）
 - 固化统计与 manifest（与 chat 产物同一套规范）
+
+### 阶段 2.5：OpenAI SFT 清洗（去技术/工具/搜索痕迹）
+
+- 输入默认读取 `runs/openai-distill/<latest>/sft/text.jsonl`
+- 输出写入 `runs/openai-clean/<run_id>/sft/train.jsonl`
+- 目标：尽量剥离代码/工具调用/搜索痕迹，并做轻量口语去噪（不抹平语气）
+- 建议在 `setting.jsonc` 的 `data_args.openai_sft_system_prompt` 中配置 OpenAI SFT 写入时的 `system` 消息注入策略
 
 ### 阶段 3：清理 legacy（对外开源的“收敛”阶段，可选）
 
