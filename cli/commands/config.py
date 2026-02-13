@@ -222,13 +222,13 @@ class ConfigCommand(BaseCommand):
             config_data['data_args'] = {}
         
         # QQ数据配置
-        qq_c2c_db_path = self._safe_input("QQ私聊数据库路径(c2c_msg_table) [./dataset/original/qq.db]: ")
+        qq_c2c_db_path = self._safe_input("QQ私聊数据库路径(c2c_msg_table) [./data/chat/qq/original/qq.db]: ")
         if qq_c2c_db_path:
             if 'qq_agrs' not in config_data['data_args']:
                 config_data['data_args']['qq_agrs'] = {}
             config_data['data_args']['qq_agrs']['qq_c2c_db_path'] = qq_c2c_db_path
 
-        qq_group_db_path = self._safe_input("QQ群聊数据库路径(group_msg_table，可选) [./dataset/original/group_msg_table.sql]: ")
+        qq_group_db_path = self._safe_input("QQ群聊数据库路径(group_msg_table，可选) [./data/chat/qq/original/group_msg_table.sql]: ")
         if qq_group_db_path:
             if 'qq_agrs' not in config_data['data_args']:
                 config_data['data_args']['qq_agrs'] = {}

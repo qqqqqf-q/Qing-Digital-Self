@@ -17,11 +17,11 @@
         "language": "zhcn"
     },
     "data_args": {
-        "data_dir": "./dataset/original/",
-        "output_dir": "./dataset/csv/",
-        "media_dir": "./dataset/media",
+        "data_dir": "./data/chat/qq/original/",
+        "output_dir": null,  // 留空则由 CLI 自动输出到 runs/chat/<run_id>/csv
+        "media_dir": "./data/chat/media",
         "qq_agrs": {
-            "qq_c2c_db_path": "./dataset/original/qq.db",
+            "qq_c2c_db_path": "./data/chat/qq/original/qq.db",
             "qq_group_db_path": null,  // 可填.db或导出的.sql（group_msg_table）
             "qq_group_focus_ai": true,  // 仅保留AI消息及其上下文，避免群聊刷屏数据
             "qq_group_context_before": 6,  // AI发言前保留的消息条数
@@ -30,7 +30,7 @@
         },
         "telegram_args": {
             "telegram_chat_id": null,
-            "tg_data_dir": "./dataset/original/"
+            "tg_data_dir": "./data/chat/telegram/original/"
         },
         "include_type": [
             "text"
@@ -70,7 +70,7 @@
         },
         "train_sft_args": {
             "use_qlora": true,
-            "data_path": "./dataset/sft.jsonl",
+            "data_path": "./dataset/sft.jsonl",  // 阶段1后建议改为 runs/chat/<run_id>/sft/train.jsonl
             "lora_r": 16,
             "lora_alpha": 32,
             "lora_dropout": 0.1,

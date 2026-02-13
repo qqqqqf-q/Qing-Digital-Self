@@ -144,8 +144,10 @@ def create_parser() -> argparse.ArgumentParser:
     
     # 数据源选择
     data_extract.add_argument('--source-type', choices=['qq', 'tg', 'telegram', 'wx', 'wechat'], help='指定数据源类型（不指定则自动检测）')
-    data_extract.add_argument('--data-dir', help='数据目录路径（默认: ./dataset/original/）')
-    data_extract.add_argument('--output', help='输出目录路径（默认: ./dataset/csv/）')
+    data_extract.add_argument('--data-dir', help='数据目录路径（默认: ./data/chat/<source>/original/，兼容 ./dataset/original/）')
+    data_extract.add_argument('--output', help='输出目录路径（默认: ./runs/chat/<run_id>/csv/）')
+    data_extract.add_argument('--run-id', help='指定本次运行ID（默认自动生成 YYYYMMDD_HHMMSS，可配合 --run-tag）')
+    data_extract.add_argument('--run-tag', help='自动run_id的后缀标签（如 chat_qq，字符会被清洗为[a-zA-Z0-9_-]）')
     
     # QQ相关参数
     qq_group = data_extract.add_argument_group('QQ数据源参数')
@@ -161,17 +163,18 @@ def create_parser() -> argparse.ArgumentParser:
     
     # data clean
     data_clean = data_subparsers.add_parser('clean', help='清洗训练数据')
+    data_clean.add_argument('--run-id', help='指定 runs/chat/<run_id> 作为输入/输出上下文（不指定则自动选择最新run）')
     data_clean_subparsers = data_clean.add_subparsers(dest='clean_method', help='清洗方法')
     
     # data clean raw
     data_clean_raw = data_clean_subparsers.add_parser('raw', help='使用原始算法清洗数据')
-    data_clean_raw.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
-    data_clean_raw.add_argument('--output', help='输出文件路径（默认从配置读取）')
+    data_clean_raw.add_argument('--input', help='输入CSV目录路径（默认: runs/chat/<latest>/csv，兼容 dataset/csv）')
+    data_clean_raw.add_argument('--output', help='输出文件路径（默认: runs/chat/<run_id>/sft/train.jsonl）')
     
     # data clean llm
     data_clean_llm = data_clean_subparsers.add_parser('llm', help='使用LLM方法清洗数据')
-    data_clean_llm.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
-    data_clean_llm.add_argument('--output', help='输出文件路径（默认从配置读取）')
+    data_clean_llm.add_argument('--input', help='输入CSV目录路径（默认: runs/chat/<latest>/csv，兼容 dataset/csv）')
+    data_clean_llm.add_argument('--output', help='输出文件路径（默认: runs/chat/<run_id>/sft/train.jsonl）')
     data_clean_llm.add_argument('--parser', choices=['default', 'scoring', 'segment'], default='default',
                                help='LLM清洗策略: default(结构化) / scoring(打分) / segment(预留)')
     data_clean_llm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
@@ -184,7 +187,7 @@ def create_parser() -> argparse.ArgumentParser:
     data_clean_estimate_subparsers = data_clean_estimate.add_subparsers(dest='estimate_method', help='估算策略')
     
     data_clean_estimate_llm = data_clean_estimate_subparsers.add_parser('llm', help='估算LLM清洗字符量')
-    data_clean_estimate_llm.add_argument('--input', help='输入CSV目录路径（默认从配置读取）')
+    data_clean_estimate_llm.add_argument('--input', help='输入CSV目录路径（默认: runs/chat/<latest>/csv，兼容 dataset/csv）')
     data_clean_estimate_llm.add_argument('--parser', choices=['scoring'], default='scoring', help='处理策略')
     data_clean_estimate_llm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
                                          help='可接受的最低分数阈值(仅用于scoring策略)')
@@ -193,9 +196,9 @@ def create_parser() -> argparse.ArgumentParser:
     
     # data clean rellm
     data_clean_rellm = data_clean_subparsers.add_parser('rellm', help='基于已有打分结果重新筛选数据')
-    data_clean_rellm.add_argument('--input', help='原始数据输入路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--input', help='原始数据输入路径（默认: runs/chat/<latest>/csv，兼容 dataset/csv）')
     data_clean_rellm.add_argument('--scored', help='打分结果CSV路径（默认: 输出路径对应的_scored.csv）')
-    data_clean_rellm.add_argument('--output', help='输出文件路径（默认从配置读取）')
+    data_clean_rellm.add_argument('--output', help='输出文件路径（默认: runs/chat/<run_id>/sft/train.jsonl）')
     data_clean_rellm.add_argument('--accept-score', type=int, default=2, choices=[1, 2, 3, 4, 5],
                                   help='重新筛选可接受的最低分数阈值(1-5分，默认2分)')
     

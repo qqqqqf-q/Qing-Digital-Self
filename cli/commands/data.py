@@ -56,6 +56,184 @@ class DataCommand(BaseCommand):
     
     def __init__(self):
         super().__init__("data", "数据处理")
+
+    def _print_migration_tip(self, message: str) -> None:
+        """输出迁移提示（既打日志也打印到stdout，避免被quiet吞掉）"""
+        self.logger.warning(message)
+        print(f"迁移提示: {message}")
+
+    def _canonical_source_type(self, source_type: Optional[str]) -> Optional[str]:
+        """规范化数据源类型"""
+        if not source_type:
+            return None
+
+        normalized = str(source_type).strip().lower()
+        if normalized in {"tg", "telegram"}:
+            return "telegram"
+        if normalized in {"wx", "wechat"}:
+            return "wechat"
+        if normalized == "qq":
+            return "qq"
+        return None
+
+    def _sanitize_run_tag(self, run_tag: Optional[str]) -> Optional[str]:
+        if not run_tag:
+            return None
+        cleaned = re.sub(r"[^0-9a-zA-Z_-]+", "_", str(run_tag).strip())
+        cleaned = cleaned.strip("_")
+        return cleaned or None
+
+    def _generate_run_id(self, run_id: Optional[str], run_tag: Optional[str] = None) -> str:
+        """生成 run_id：YYYYMMDD_HHMMSS[_tag]"""
+        if run_id and str(run_id).strip():
+            return str(run_id).strip()
+
+        base = datetime.now().strftime("%Y%m%d_%H%M%S")
+        tag = self._sanitize_run_tag(run_tag)
+        return f"{base}_{tag}" if tag else base
+
+    def _runs_root(self) -> Path:
+        return Path(self.config.get("runs_root", "./runs"))
+
+    def _data_root(self) -> Path:
+        return Path(self.config.get("data_root", "./data"))
+
+    def _default_chat_original_dir(self, source_type: Optional[str]) -> Path:
+        source = source_type or "qq"
+        return self._data_root() / "chat" / source / "original"
+
+    def _legacy_chat_original_dir(self) -> Path:
+        return Path("./dataset/original")
+
+    def _legacy_chat_csv_dir(self) -> Path:
+        return Path("dataset/csv")
+
+    def _is_legacy_path(self, path: str) -> bool:
+        normalized = str(path).replace("\\", "/").lower()
+        return "dataset/original" in normalized or "dataset/csv" in normalized or "dataset/sft.jsonl" in normalized
+
+    def _resolve_extract_data_dir(self, args: argparse.Namespace) -> Tuple[str, bool]:
+        """解析 extract 的 data_dir，并在必要时回退 legacy 目录"""
+        explicit_data_dir = getattr(args, "data_dir", None)
+        if explicit_data_dir:
+            return explicit_data_dir, self._is_legacy_path(explicit_data_dir)
+
+        configured = self.config.get("data_dir")
+        if configured:
+            configured_path = Path(str(configured))
+            if configured_path.exists():
+                return str(configured_path), self._is_legacy_path(str(configured_path))
+
+            legacy = self._legacy_chat_original_dir()
+            if legacy.exists():
+                self._print_migration_tip(
+                    f"配置 data_dir 指向 {configured_path} 但目录不存在，当前回退读取旧目录 {legacy}（后续建议迁移）"
+                )
+                return str(legacy), True
+
+            return str(configured_path), self._is_legacy_path(str(configured_path))
+
+        source_type = self._canonical_source_type(getattr(args, "source_type", None))
+        candidate = self._default_chat_original_dir(source_type)
+        if candidate.exists():
+            return str(candidate), False
+
+        legacy = self._legacy_chat_original_dir()
+        if legacy.exists():
+            self._print_migration_tip(
+                f"默认数据目录已迁移到 {self._default_chat_original_dir(source_type)}，"
+                f"当前回退读取旧目录 {legacy}（后续建议迁移）"
+            )
+            return str(legacy), True
+
+        return str(candidate), False
+
+    def _resolve_extract_output_dir(self, args: argparse.Namespace, source_type: Optional[str]) -> Tuple[str, Optional[str], bool]:
+        """解析 extract 的输出目录。默认输出到 runs/chat/<run_id>/csv"""
+        explicit_output = getattr(args, "output", None)
+        if explicit_output:
+            if self._is_legacy_path(explicit_output):
+                self._print_migration_tip(
+                    f"检测到输出仍指向旧目录 {explicit_output}，建议改为 {self._runs_root() / 'chat' / '<run_id>' / 'csv'}"
+                )
+            return explicit_output, None, self._is_legacy_path(explicit_output)
+
+        run_id = self._generate_run_id(
+            getattr(args, "run_id", None),
+            getattr(args, "run_tag", None) or (f"chat_{source_type}" if source_type else None),
+        )
+        output_dir = self._runs_root() / "chat" / run_id / "csv"
+        return str(output_dir), run_id, False
+
+    def _find_latest_chat_run_id(self) -> Optional[str]:
+        chat_root = self._runs_root() / "chat"
+        if not chat_root.exists() or not chat_root.is_dir():
+            return None
+
+        candidates = [p for p in chat_root.iterdir() if p.is_dir()]
+        if not candidates:
+            return None
+
+        latest = max(candidates, key=lambda p: p.stat().st_mtime)
+        return latest.name
+
+    def _try_parse_run_id_from_path(self, path: str) -> Optional[str]:
+        normalized = Path(path).as_posix().replace("\\", "/")
+        parts = [p for p in normalized.split("/") if p]
+        # .../runs/chat/<run_id>/csv 或 .../runs/chat/<run_id>/sft/...
+        runs_root_name = self._runs_root().name or "runs"
+        for chat_index in range(len(parts) - 2, 0, -1):
+            if parts[chat_index] != "chat":
+                continue
+            if parts[chat_index - 1] != runs_root_name:
+                continue
+            run_id = parts[chat_index + 1]
+            if run_id in {"csv", "sft", "stats"}:
+                continue
+            return run_id
+        return None
+
+    def _resolve_clean_input_path(self, args: argparse.Namespace) -> Tuple[str, Optional[str], bool]:
+        """解析 clean 的输入CSV目录。优先级: --input > --run-id > latest run > legacy dataset/csv"""
+        explicit_input = getattr(args, "input", None)
+        if explicit_input:
+            return explicit_input, self._try_parse_run_id_from_path(explicit_input), self._is_legacy_path(explicit_input)
+
+        run_id = getattr(args, "run_id", None)
+        if run_id:
+            input_dir = self._runs_root() / "chat" / str(run_id) / "csv"
+            if not input_dir.exists():
+                raise ValidationError(f"指定的 run_id '{run_id}' 对应的CSV目录不存在: {input_dir}")
+            return str(input_dir), str(run_id), False
+
+        latest_run = self._find_latest_chat_run_id()
+        if latest_run:
+            input_dir = self._runs_root() / "chat" / latest_run / "csv"
+            return str(input_dir), latest_run, False
+
+        legacy = self._legacy_chat_csv_dir()
+        if legacy.exists():
+            self._print_migration_tip(
+                f"未找到 runs/chat 下的运行产物，当前回退读取旧目录 {legacy}；建议先运行 `qds data extract` 生成 runs/ 结构"
+            )
+            return str(legacy), None, True
+
+        return str(legacy), None, True
+
+    def _resolve_clean_output_path(self, args: argparse.Namespace, run_id_hint: Optional[str]) -> Tuple[str, str, bool]:
+        """解析 clean 的输出SFT文件。默认输出到 runs/chat/<run_id>/sft/train.jsonl"""
+        explicit_output = getattr(args, "output", None)
+        if explicit_output:
+            if self._is_legacy_path(explicit_output):
+                self._print_migration_tip(
+                    f"检测到输出仍指向旧目录 {explicit_output}，建议改为 {self._runs_root() / 'chat' / '<run_id>' / 'sft' / 'train.jsonl'}"
+                )
+            run_id = getattr(args, "run_id", None) or run_id_hint or self._generate_run_id(None, "chat")
+            return explicit_output, str(run_id), self._is_legacy_path(explicit_output)
+
+        run_id = getattr(args, "run_id", None) or run_id_hint or self._generate_run_id(None, "chat")
+        output_path = self._runs_root() / "chat" / str(run_id) / "sft" / "train.jsonl"
+        return str(output_path), str(run_id), False
     
     def execute(self, args: argparse.Namespace) -> int:
         """执行数据处理命令"""
@@ -95,8 +273,8 @@ class DataCommand(BaseCommand):
     def _validate_extract_args(self, args: argparse.Namespace) -> None:
         """验证数据提取参数"""
         # 获取数据源类型
-        source_type = getattr(args, 'source_type', None)
-        data_dir = getattr(args, 'data_dir') or self.config.get('data_dir', './dataset/original/')
+        source_type = self._canonical_source_type(getattr(args, 'source_type', None))
+        data_dir, _ = self._resolve_extract_data_dir(args)
         
         # 验证数据目录存在
         if not os.path.exists(data_dir):
@@ -125,11 +303,11 @@ class DataCommand(BaseCommand):
             self._validate_clean_estimate_args(args)
             return
         
-        output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
+        input_path, run_id_hint, _ = self._resolve_clean_input_path(args)
+        output_path, _, _ = self._resolve_clean_output_path(args, run_id_hint)
         
         if method == 'rellm':
-            validate_path(output_path, must_exist=False, check_parent=True)
-            input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+            validate_path(output_path, must_exist=False)
             validate_path(input_path, must_exist=True)
             scored_path = getattr(args, 'scored', None) or os.path.splitext(output_path)[0] + "_scored.csv"
             validate_path(scored_path, must_exist=True)
@@ -138,11 +316,8 @@ class DataCommand(BaseCommand):
                 validate_positive_int(accept_score, "accept_score")
             return
         
-        # 获取实际使用的路径（支持从配置读取）
-        input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
-        
         validate_path(input_path, must_exist=True)
-        validate_path(output_path, must_exist=False, check_parent=True)
+        validate_path(output_path, must_exist=False)
         
         if hasattr(args, 'batch_size') and getattr(args, 'batch_size', None) is not None:
             validate_positive_int(args.batch_size, "batch_size")
@@ -156,7 +331,7 @@ class DataCommand(BaseCommand):
         if estimate_method != 'llm':
             raise ValidationError("估算目前仅支持 llm 策略")
         
-        input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+        input_path, _, _ = self._resolve_clean_input_path(args)
         validate_path(input_path, must_exist=True)
         
         if hasattr(args, 'batch_size') and getattr(args, 'batch_size', None) is not None:
@@ -191,9 +366,12 @@ class DataCommand(BaseCommand):
             self.logger.info("开始从聊天数据中提取数据...")
             
             # 准备参数
-            source_type = getattr(args, 'source_type', None)
-            data_dir = getattr(args, 'data_dir') or self.config.get('data_dir', './dataset/original/')
-            output_path = getattr(args, 'output') or "./dataset/csv"
+            source_type = self._canonical_source_type(getattr(args, 'source_type', None))
+            data_dir, used_legacy = self._resolve_extract_data_dir(args)
+            output_path, run_id, _ = self._resolve_extract_output_dir(args, source_type)
+
+            if used_legacy and source_type:
+                self._print_migration_tip(f"建议将 {source_type} 原始数据放到 {self._default_chat_original_dir(source_type)}")
             
             # 确保输出目录存在
             ensure_directory(output_path)
@@ -218,6 +396,9 @@ class DataCommand(BaseCommand):
             if result == 0:
                 # 显示提取结果统计
                 self._show_extraction_stats(output_path)
+                if run_id:
+                    self.logger.info(f"run_id: {run_id}")
+                    print(f"run_id: {run_id}")
                 self.logger.info(f"数据提取完成: {output_path}")
             
             return result
@@ -411,9 +592,16 @@ class DataCommand(BaseCommand):
             if method == 'estimate':
                 return self._clean_data_estimate(args)
             
-            # 获取输出路径，支持从配置文件读取默认值
-            output_path = getattr(args, 'output', None) or self.config.get('data_path', './dataset/sft.jsonl')
+            input_path, run_id_hint, used_legacy_input = self._resolve_clean_input_path(args)
+            output_path, run_id, used_legacy_output = self._resolve_clean_output_path(args, run_id_hint)
             
+            if used_legacy_input:
+                self._print_migration_tip(f"clean 的默认输入已迁移到 {self._runs_root() / 'chat' / '<run_id>' / 'csv'}，当前仍在读取旧目录")
+            if used_legacy_output:
+                self._print_migration_tip(f"clean 的默认输出已迁移到 {self._runs_root() / 'chat' / '<run_id>' / 'sft' / 'train.jsonl'}，当前仍在写旧目录")
+
+            self.logger.info(f"run_id: {run_id}")
+            print(f"run_id: {run_id}")
             self.logger.info(f"输出路径: {output_path}")
             
             # 确保输出目录存在
@@ -422,7 +610,6 @@ class DataCommand(BaseCommand):
             # 根据清洗方法执行
             if method == 'rellm':
                 accept_score = getattr(args, 'accept_score', None) or self.config.get('accept_score', 2)
-                input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
                 scored_path = getattr(args, 'scored', None) or os.path.splitext(output_path)[0] + "_scored.csv"
                 self.logger.info(f"输入路径: {input_path}")
                 self.logger.info(f"打分结果路径: {scored_path}")
@@ -431,8 +618,6 @@ class DataCommand(BaseCommand):
                     raise FileOperationError("打分结果文件不存在", scored_path)
                 result = self._clean_data_rellm(scored_path, input_path, output_path, accept_score)
             else:
-                # 获取输入路径及并发参数
-                input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
                 self.logger.info(f"输入路径: {input_path}")
                 
                 # 检查输入路径
@@ -469,7 +654,7 @@ class DataCommand(BaseCommand):
                 self.logger.error("当前仅支持 llm 估算策略")
                 return 1
             
-            input_path = getattr(args, 'input', None) or self.config.get('dataset_csv_path', 'dataset/csv')
+            input_path, _, _ = self._resolve_clean_input_path(args)
             parser = getattr(args, 'parser', 'scoring')
             batch_size = getattr(args, 'batch_size', None) or self.config.get('clean_batch_size', 10)
             workers = getattr(args, 'workers', None) or self.config.get('clean_workers', 4)

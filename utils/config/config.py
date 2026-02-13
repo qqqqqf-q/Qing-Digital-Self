@@ -153,9 +153,20 @@ class Config:
 
     def _load_default_config(self):
         """加载默认配置"""
+        data_root = self._get_nested_value("data_args.paths.data_root", "./data")
+        runs_root = self._get_nested_value("data_args.paths.runs_root", "./runs")
+
+        default_chat_data_dir = os.path.join(data_root, "chat", "qq", "original")
+        default_tg_data_dir = os.path.join(data_root, "chat", "telegram", "original")
+        default_chat_media_dir = os.path.join(data_root, "chat", "media")
+
+        data_dir = self._get_nested_value("data_args.data_dir", default_chat_data_dir)
+        output_dir = self._get_nested_value("data_args.output_dir", None)
+        tg_data_dir = self._get_nested_value("data_args.telegram_args.tg_data_dir", default_tg_data_dir)
+
         qq_c2c_db_path = self._get_nested_value("data_args.qq_agrs.qq_c2c_db_path", None)
         if not qq_c2c_db_path:
-            qq_c2c_db_path = self._get_nested_value("data_args.qq_agrs.qq_db_path", "./dataset/original/qq.db")
+            qq_c2c_db_path = self._get_nested_value("data_args.qq_agrs.qq_db_path", os.path.join(default_chat_data_dir, "qq.db"))
 
         qq_group_db_path = self._get_nested_value("data_args.qq_agrs.qq_group_db_path", None)
         qq_group_focus_ai = self._get_nested_value("data_args.qq_agrs.qq_group_focus_ai", True)
@@ -182,6 +193,12 @@ class Config:
             # 日志配置
             "log_level": self._get_nested_value("logger_args.log_level", "INFO").upper(),
             "language": self._get_nested_value("logger_args.language", "zhcn"),
+
+            # 目录根（V2 目录结构）
+            "data_root": data_root,
+            "runs_root": runs_root,
+            "data_dir": data_dir,
+            "output_dir": output_dir,
             
             # QQ数据配置
             "qq_c2c_db_path": qq_c2c_db_path,
@@ -194,6 +211,7 @@ class Config:
             
             # Telegram配置
             "telegram_chat_id": self._get_nested_value("data_args.telegram_args.telegram_chat_id", None),
+            "tg_data_dir": tg_data_dir,
             
             # 数据处理配置
             "include_type": self._get_nested_value("data_args.include_type", ["text"]),
@@ -202,7 +220,7 @@ class Config:
             "qa_match_time_window": self._get_nested_value("data_args.qa_match_time_window", 5),
             "combine_msg_max_length": self._get_nested_value("data_args.combine_msg_max_length", 2048),
             "messages_max_length": self._get_nested_value("data_args.messages_max_length", 2048),
-            "media_dir": self._get_nested_value("data_args.media_dir", "./dataset/media"),
+            "media_dir": self._get_nested_value("data_args.media_dir", default_chat_media_dir),
             "max_image_num": self._get_nested_value("data_args.max_image_num", 2),
             "add_time_to_system": self._get_nested_value("data_args.add_time_to_system", False),
             "vision_api_enable": self._get_nested_value("data_args.vision_api.enable", False),

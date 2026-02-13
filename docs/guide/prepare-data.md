@@ -6,12 +6,12 @@
 * 使用 DB Browser for SQLite，密码填写你获取到的 16 位密钥
 * HMAC 算法一般为SHA1，也有人是SHA512和256,自行测试,算法错误了会打不开数据库（所以需要测试到打开为之,也可以用 AI 帮你适配）
 * 在 DB Browser 里**导出 `c2c_msg_table` 的 SQL**
-* 你可以直接把导出的 `.sql` 放到 `dataset/original/`，并在 `setting.jsonc` 里把 `qq_c2c_db_path` 指向该 `.sql`，提取时会自动导入为SQLite
+* 你可以直接把导出的 `.sql` 放到 `data/chat/qq/original/`，并在 `setting.jsonc` 里把 `qq_c2c_db_path` 指向该 `.sql`，提取时会自动导入为SQLite（兼容旧目录 `dataset/original/`）
 * 如果你导出的是 `group_msg_table`，请改填到 `qq_group_db_path`
 > * 新建数据库，**导入刚才导出的 SQL 文件**（或按上面方式跳过手动导入）  
     获得一个这样的数据库  
     结构如下图,是明文数据库(你能打开并且能看到数据就是正常的)  
-    将数据库重命名为 `qq.db`并放在`dataset/original`文件夹下
+    将数据库重命名为 `qq.db`并放在`data/chat/qq/original`文件夹下（兼容旧目录 `dataset/original/`）
 > 或修改`setting.jsonc`中的`qq_c2c_db_path`
 
 
@@ -29,7 +29,7 @@
 * 不必勾选其他按钮,因为此项目暂不支持多模态
 <img src="https://cdn.nodeimage.com/i/ZOx12BovPbYXo89k4xIF9yRlEamneq4g.png" alt="ZOx12BovPbYXo89k4xIF9yRlEamneq4g.png">
 
-* 将`导出文件夹下的**ChatExport_**文件夹全部移至`dataset/original/`文件夹内,如下图所示
+* 将`导出文件夹下的**ChatExport_**文件夹全部移至`data/chat/telegram/original/`文件夹内,如下图所示（兼容旧目录 `dataset/original/`）
 <img src="https://cdn.nodeimage.com/i/zbc3iDHiqJrIOtWwrHkzX7TMONYatB8G.png" alt="zbc3iDHiqJrIOtWwrHkzX7TMONYatB8G">
 
 * **重要**
@@ -64,7 +64,7 @@
 
 * 右键`工作区`-`管理`,导出好友聊天,全部
 * 将前往`baktool`的文件夹,进入`workspace-[随机名文件夹]-DecDB`
-* 找到所有`MSG*.db`的文件,例如`MSG1.db`,全部移动至`dataset/original/wechat`文件夹内
+* 找到所有`MSG*.db`的文件,例如`MSG1.db`,全部移动至`data/chat/wechat/original`文件夹内（兼容旧目录 `dataset/original/wechat`）
 <img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP">
 ```
 ## (可选) 从视频/音频文件中获取聊天数据

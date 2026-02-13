@@ -35,9 +35,9 @@ def validate_path(path: Union[str, Path], must_exist: bool = True, check_parent:
         if not str(path_obj).strip():
             raise ValidationError("路径不能为空")
         
-        # 检查路径是否包含危险字符
-        if '..' in str(path_obj) or str(path_obj).startswith('/'):
-            raise ValidationError(f"路径包含危险字符: {path_obj}")
+        # 检查路径是否包含路径遍历片段
+        if any(part == ".." for part in path_obj.parts):
+            raise ValidationError(f"路径包含危险片段: {path_obj}")
         
         # 检查路径是否存在
         if must_exist and not path_obj.exists():

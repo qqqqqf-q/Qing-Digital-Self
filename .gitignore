@@ -233,3 +233,6 @@ train.sh
 swanlog
 dataset/backup/*
 openai_data
+# Data layout v2（隐私/运行产物默认不提交）
+/data/
+/runs/

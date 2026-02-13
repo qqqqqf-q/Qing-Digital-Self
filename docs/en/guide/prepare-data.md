@@ -9,7 +9,7 @@
 * Create a new database, **import the SQL file you just exported**
 * Get a database like this
 * Structure as shown below, it's a plaintext database (you can open it and see the data, which means it's normal)
-* Rename the database to `qq.db` and place it in the `dataset/original` folder
+* Rename the database to `qq.db` and place it in the `data/chat/qq/original` folder (legacy `dataset/original` is still supported)
 > Or modify the `qq_c2c_db_path` in `setting.jsonc`
 > If you exported `group_msg_table`, set it in `qq_group_db_path`
 
@@ -26,7 +26,7 @@
 * No need to check other buttons, as this project does not support multimodal yet
 <img src="https://cdn.nodeimage.com/i/ZOx12BovPbYXo89k4xIF9yRlEamneq4g.png" alt="ZOx12BovPbYXo89k4xIF9yRlEamneq4g.png">
 
-* Move all **ChatExport_** folders from the export folder to the `dataset/original/` folder, as shown below
+* Move all **ChatExport_** folders from the export folder to the `data/chat/telegram/original/` folder, as shown below (legacy `dataset/original/` is still supported)
 <img src="https://cdn.nodeimage.com/i/zbc3iDHiqJrIOtWwrHkzX7TMONYatB8G.png" alt="zbc3iDHiqJrIOtWwrHkzX7TMONYatB8G">
 
 * **Important**
@@ -55,7 +55,7 @@
 
 * Right-click on the `Workspace` -> `Manage`, export friend chats, all.
 * Go to the `baktool` folder, enter `workspace-[random_folder_name]-DecDB`.
-* Find all `MSG*.db` files, for example `MSG1.db`, and move them all to the `dataset/original/wechat` folder.
+* Find all `MSG*.db` files, for example `MSG1.db`, and move them all to the `data/chat/wechat/original` folder (legacy `dataset/original/wechat` is still supported).
 <img src="https://cdn.nodeimage.com/i/TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png" alt="TRbknJP4C4KkBsfTKBUN3CXJPPVagMaP.png">
 
 ## (Optional) Getting Chat Data from Video/Audio Files

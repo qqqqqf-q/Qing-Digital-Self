@@ -1,18 +1,20 @@
 ## Convert Data to CSV
 ```bash
-python cli.py data extract
+python cli.py data extract --source-type qq
 # Or customize parser fields
-python cli.py data extract --qq-c2c-db-path ./data/qq.db --qq-number-ai 1234567890 --output ./dataset/csv
+python cli.py data extract --qq-c2c-db-path ./data/chat/qq/original/qq.db --qq-number-ai 1234567890
 # Group chat only (group_msg_table)
-python cli.py data extract --qq-group-db-path ./data/group_msg_table.sql --qq-number-ai 1234567890 --output ./dataset/csv
+python cli.py data extract --qq-group-db-path ./data/chat/qq/original/group_msg_table.sql --qq-number-ai 1234567890
 ```
 
 | Parameter | Description | Default/Notes |
 |-----------|-------------|---------------|
 | `-h, --help` | Show help information and exit | - |
 | `--source-type {qq,tg,telegram}` | Specify data source type | Auto-detect if not specified |
-| `--data-dir DATA_DIR` | Data directory path | `./dataset/original/` |
-| `--output OUTPUT` | Output directory path | `./dataset/csv/` |
+| `--data-dir DATA_DIR` | Data directory path | `./data/chat/<source>/original/` (legacy `./dataset/original/`) |
+| `--output OUTPUT` | Output directory path | `./runs/chat/<run_id>/csv/` |
+| `--run-id RUN_ID` | Specify run id | Auto-generate `YYYYMMDD_HHMMSS[_tag]` by default |
+| `--run-tag RUN_TAG` | Suffix tag for auto run id | e.g. `chat_qq` |
 | `--qq-c2c-db-path QQ_C2C_DB_PATH` | QQ private chat (c2c_msg_table) DB/SQL path | - |
 | `--qq-group-db-path QQ_GROUP_DB_PATH` | QQ group chat (group_msg_table) DB/SQL path | - |
 | `--qq-db-path QQ_DB_PATH` | QQ database file path (compat alias of --qq-c2c-db-path) | - |

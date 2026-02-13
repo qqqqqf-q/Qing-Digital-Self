@@ -126,7 +126,7 @@ python run_finetune.py
 > Below is an example of fine-tuning `qwen2.5-7b-instruct` on an RTX 4090:
 
 ```bash
-python3 run_finetune.py --output_dir /root/autodl-fs/qwen2.5-7b-qing-v1 --local_dir ./model/Qwen2.5-7B-Instruct --data_path ./dataset/sft.jsonl --use_qlora true --lora_dropout 0.1 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing  --load_precision int8
+python3 run_finetune.py --output_dir /root/autodl-fs/qwen2.5-7b-qing-v1 --local_dir ./model/Qwen2.5-7B-Instruct --data_path ./runs/chat/<run_id>/sft/train.jsonl --use_qlora true --lora_dropout 0.1 --num_train_epochs 8 --per_device_train_batch_size 4 --per_device_eval_batch_size 4 --gradient_accumulation_steps 8 --learning_rate 2e-5 --lr_scheduler cosine --logging_steps 5 --eval_steps 40 --save_steps 200 --warmup_ratio 0.05 --dataloader_num_workers 16 --fp16 true --use_unsloth true --no-gradient_checkpointing  --load_precision int8
 ```
 
 ### Evaluation Set Not Working

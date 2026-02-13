@@ -66,6 +66,12 @@ class DataSourceDetector:
 
     def detect_wechat_data(self) -> bool:
         """检测是否存在WeChat数据"""
+        if self.data_dir.is_dir():
+            direct_db_files = list(self.data_dir.glob("MSG*.db"))
+            if direct_db_files:
+                self.logger.info(f"检测到WeChat数据库文件: {[str(f) for f in direct_db_files]}")
+                return True
+
         wechat_dir = self.data_dir / "wechat"
         if wechat_dir.is_dir():
             wechat_db_files = list(wechat_dir.glob("MSG*.db"))
@@ -280,10 +286,18 @@ class UnifiedParser:
         try:
             from .wx_parser import WXParser
             
-            wechat_data_dir = os.path.join(self.data_dir, 'wechat')
-            
-            if not os.path.isdir(wechat_data_dir):
-                self.logger.error(f"WeChat数据目录不存在: {wechat_data_dir}")
+            legacy_wechat_dir = os.path.join(self.data_dir, 'wechat')
+            candidate_dirs = [legacy_wechat_dir, self.data_dir]
+            wechat_data_dir = None
+            for candidate in candidate_dirs:
+                if not os.path.isdir(candidate):
+                    continue
+                if list(Path(candidate).glob("MSG*.db")):
+                    wechat_data_dir = candidate
+                    break
+
+            if not wechat_data_dir:
+                self.logger.error(f"WeChat数据目录不存在或未找到MSG*.db: {legacy_wechat_dir} / {self.data_dir}")
                 return 1
 
             self.logger.info(f"开始解析WeChat数据: {wechat_data_dir}")
@@ -356,9 +370,12 @@ class UnifiedParser:
             result['telegram_directories'] = tg_dirs
 
         if DataSourceType.WECHAT in sources:
-            wechat_dir = Path(self.data_dir) / 'wechat'
-            if wechat_dir.is_dir():
-                wx_files = list(wechat_dir.glob("MSG*.db"))
+            wechat_dir = Path(self.data_dir)
+            direct_files = list(wechat_dir.glob("MSG*.db")) if wechat_dir.is_dir() else []
+            legacy_dir = wechat_dir / 'wechat'
+            legacy_files = list(legacy_dir.glob("MSG*.db")) if legacy_dir.is_dir() else []
+            wx_files = direct_files or legacy_files
+            if wx_files:
                 result['wechat_files'] = [str(f) for f in wx_files]
         
         return result
