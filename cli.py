@@ -243,6 +243,25 @@ def create_parser() -> argparse.ArgumentParser:
                                     help='覆盖 runs_root（默认读取配置或 ./runs）')
     data_migrate_layout.add_argument('--force', action='store_true',
                                     help='目标已存在时尝试覆盖/合并（谨慎使用）')
+
+    # data openai-distill（OpenAI-Export -> SFT）
+    data_openai_distill = data_subparsers.add_parser(
+        'openai-distill',
+        help='从 ChatGPT 导出(OpenAI-Export)生成训练集（normalized + sft/text.jsonl）'
+    )
+    data_openai_distill.add_argument('--input', help='conversations.json 路径（默认: data/openai-export/conversations.json，兼容 openai_data/conversations.json）')
+    data_openai_distill.add_argument('--run-id', help='指定本次运行ID（默认自动生成 YYYYMMDD_HHMMSS，可配合 --run-tag）')
+    data_openai_distill.add_argument('--run-tag', default='openai4o', help='自动run_id的后缀标签（默认: openai4o）')
+    data_openai_distill.add_argument('--allow-models', default='gpt-4o,gpt-4-1', help='允许的 default_model_slug，逗号分隔（默认: gpt-4o,gpt-4-1）')
+    data_openai_distill.add_argument('--cutoff-ts', type=float, help='按 conversation.create_time 过滤（Unix 秒，小于该值则丢弃）')
+    data_openai_distill.add_argument('--pii-policy', choices=['mask', 'drop', 'keep'], default='mask', help='PII 处理策略: mask(默认) / drop / keep')
+    data_openai_distill.add_argument('--keep-system', action='store_true', help='保留 system 消息（默认丢弃，避免学习导出内的 system 提示）')
+    data_openai_distill.add_argument('--keep-code', action='store_true', help='保留 content_type=code（默认丢弃，避免把工具痕迹混入文本训练）')
+    data_openai_distill.add_argument('--keep-tool', action='store_true', help='保留 tool 角色消息（默认丢弃）')
+    data_openai_distill.add_argument('--max-chars', type=int, default=20000, help='单样本最大字符数（默认: 20000，超出则从前裁剪）')
+    data_openai_distill.add_argument('--max-messages', type=int, default=80, help='单样本最大消息数（默认: 80，超出则保留末尾）')
+    data_openai_distill.add_argument('--data-root', dest='data_root', help='覆盖 data_root（默认读取配置或 ./data）')
+    data_openai_distill.add_argument('--runs-root', dest='runs_root', help='覆盖 runs_root（默认读取配置或 ./runs）')
     
     # 模型推理命令
     infer_parser = subparsers.add_parser(

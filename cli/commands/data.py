@@ -254,6 +254,8 @@ class DataCommand(BaseCommand):
             return self._show_stats(args)
         elif action == 'migrate-layout':
             return self._migrate_layout_v2(args)
+        elif action == 'openai-distill':
+            return self._openai_distill(args)
         else:
             self.logger.error("未指定数据操作")
             return 1
@@ -274,6 +276,8 @@ class DataCommand(BaseCommand):
             self._validate_input_file_args(args)
         elif action == 'migrate-layout':
             self._validate_migrate_layout_v2_args(args)
+        elif action == 'openai-distill':
+            self._validate_openai_distill_args(args)
 
     def _validate_migrate_layout_v2_args(self, args: argparse.Namespace) -> None:
         """验证目录迁移参数（Data Layout v2）"""
@@ -545,7 +549,83 @@ class DataCommand(BaseCommand):
             self.logger.info(f"已写入 manifest: {manifest_path}")
         except Exception as exc:
             self.logger.warning(f"写入 manifest 失败: {exc}")
-    
+
+    def _resolve_openai_export_input(self, args: argparse.Namespace, data_root: Path) -> Path:
+        explicit = getattr(args, "input", None)
+        if explicit:
+            return Path(str(explicit))
+
+        candidate = data_root / "openai-export" / "conversations.json"
+        if candidate.exists():
+            return candidate
+
+        legacy = Path("openai_data") / "conversations.json"
+        if legacy.exists():
+            self._print_migration_tip(
+                f"检测到仍在使用 legacy 导出 {legacy}，建议迁移到 {candidate}"
+            )
+            return legacy
+
+        return candidate
+
+    def _validate_openai_distill_args(self, args: argparse.Namespace) -> None:
+        data_root = Path(getattr(args, "data_root", None) or self._data_root())
+        input_path = self._resolve_openai_export_input(args, data_root=data_root)
+        validate_path(str(input_path), must_exist=True)
+
+        max_chars = int(getattr(args, "max_chars", 20000) or 20000)
+        max_messages = int(getattr(args, "max_messages", 80) or 80)
+        if max_chars <= 0:
+            raise ValidationError("max_chars 必须为正整数")
+        if max_messages <= 0:
+            raise ValidationError("max_messages 必须为正整数")
+
+        pii_policy = str(getattr(args, "pii_policy", "mask") or "mask").lower()
+        if pii_policy not in {"mask", "drop", "keep"}:
+            raise ValidationError("pii_policy 仅支持: mask / drop / keep")
+
+    def _openai_distill(self, args: argparse.Namespace) -> int:
+        """从 OpenAI-Export(conversations.json) 生成 SFT 训练集（文本版）。"""
+        try:
+            from process_data.openai_export_distill import DistillOptions, distill_openai_export
+        except Exception as e:
+            raise DataProcessingError(f"无法加载 OpenAI 导出解析模块: {e}")
+
+        data_root = Path(getattr(args, "data_root", None) or self._data_root())
+        runs_root = Path(getattr(args, "runs_root", None) or self._runs_root())
+        input_path = self._resolve_openai_export_input(args, data_root=data_root)
+
+        run_id = self._generate_run_id(
+            getattr(args, "run_id", None),
+            getattr(args, "run_tag", None) or "openai4o",
+        )
+        output_root = runs_root / "openai-distill" / run_id
+
+        allow_models_raw = str(getattr(args, "allow_models", "") or "")
+        allow_models = {m.strip() for m in allow_models_raw.split(",") if m.strip()}
+        options = DistillOptions(
+            allow_models=allow_models,
+            cutoff_ts=getattr(args, "cutoff_ts", None),
+            pii_policy=str(getattr(args, "pii_policy", "mask") or "mask").lower(),
+            keep_system=bool(getattr(args, "keep_system", False)),
+            keep_code=bool(getattr(args, "keep_code", False)),
+            keep_tool=bool(getattr(args, "keep_tool", False)),
+            max_chars=int(getattr(args, "max_chars", 20000) or 20000),
+            max_messages=int(getattr(args, "max_messages", 80) or 80),
+        )
+
+        distill_openai_export(
+            input_path=input_path,
+            output_root=output_root,
+            run_id=run_id,
+            options=options,
+        )
+
+        self.logger.info(f"run_id: {run_id}")
+        print(f"run_id: {run_id}")
+        print(f"SFT: {(output_root / 'sft' / 'text.jsonl').as_posix()}")
+        return 0
+	    
     def _validate_extract_args(self, args: argparse.Namespace) -> None:
         """验证数据提取参数"""
         # 获取数据源类型
