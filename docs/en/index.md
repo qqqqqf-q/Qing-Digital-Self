@@ -3,16 +3,16 @@
 layout: home
 
 hero:
-  name: "Qing-Digital-Self"
-  text: "Qing's digital avatar with complete setup tutorial"
-  tagline: Making it easier for people to build another 'self'
+  name: "MirrorFlow"
+  text: "旧名：Qing-Digital-Self（Old Name）"
+  tagline: Qing's digital avatar with complete setup tutorial · Making it easier for people to build another 'self'
   actions:
     - theme: brand
       text: Get Started
       link: /en/guide/index.md
     - theme: alt
       text: Github Repository
-      link: "https://github.com/qqqqqf-q/Qing-Digital-Self"
+      link: "https://github.com/qqqqqf-q/MirrorFlow"
 
 features:
   - title: Easy to Build, Easy to Get Started

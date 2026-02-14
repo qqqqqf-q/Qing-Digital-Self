@@ -1,11 +1,11 @@
 # 微调模型
 ## 克隆镜像
 ```bash
-git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
+git clone https://github.com/qqqqqf-q/MirrorFlow.git --depth 1
 ```
 或使用镜像(中国大陆加速)
 ```bash
-git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/Qing-Digital-Self.git  --depth 1
+git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/MirrorFlow.git  --depth 1
 ```
 
 ## 配置环境
@@ -142,11 +142,11 @@ python cli.py train webui start --share --no-browser
 ## 在此之前,你需要配置环境
 > 很简单,不必担心
 ```bash
-git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
+git clone https://github.com/qqqqqf-q/MirrorFlow.git --depth 1
 ```
 或使用镜像(中国大陆加速)
 ```bash
-git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/Qing-Digital-Self.git  --depth 1
+git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/MirrorFlow.git  --depth 1
 ```
 
 # 配置环境

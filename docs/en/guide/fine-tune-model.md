@@ -8,13 +8,13 @@
 > It's simple, don't worry.
 
 ```bash
-git clone https://github.com/qqqqqf-q/Qing-Digital-Self.git --depth 1
+git clone https://github.com/qqqqqf-q/MirrorFlow.git --depth 1
 ```
 
 Or use a mirror (China mainland acceleration):
 
 ```bash
-git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/Qing-Digital-Self.git  --depth 1
+git clone https://hk.gh-proxy.com/https://github.com/qqqqqf-q/MirrorFlow.git  --depth 1
 ```
 
 # Configure the Environment

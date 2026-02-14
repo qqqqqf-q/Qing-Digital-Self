@@ -3,16 +3,16 @@
 layout: home
 
 hero:
-  name: "Qing-Digital-Self"
-  text: "清凤的数字分身,并且包含了搭建教程"
-  tagline: 让人们更简单的搭建另一个'自己'
+  name: "MirrorFlow"
+  text: "旧名：Qing-Digital-Self（Old Name）"
+  tagline: 清凤的数字分身,并且包含了搭建教程 · 让人们更简单的搭建另一个'自己'
   actions:
     - theme: brand
       text: 开始
       link: /guide/index.md
     - theme: alt
       text: Github仓库
-      link: "https://github.com/qqqqqf-q/Qing-Digital-Self"
+      link: "https://github.com/qqqqqf-q/MirrorFlow"
 
 features:
   - title: 易于搭建,易于上手
@@ -24,4 +24,3 @@ features:
   - title: 支持多数据来源
     details: 支持从QQ/TG提取数据!包含教程!!
 ---
-

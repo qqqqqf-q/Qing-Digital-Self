@@ -1,8 +1,10 @@
-# Qing-Digital-Self
+# MirrorFlow
+
+<sub>旧名：Qing-Digital-Self（Old Name）</sub>
 
 对话数据到训练闭环：数字分身 + 模型蒸馏。
 
-Qing-Digital-Self 提供一套端到端工具链：
+MirrorFlow 提供一套端到端工具链：
 
 **对话数据 -> 清洗/提取 -> 可训练样本 -> 微调/蒸馏 -> 使用与评测**。
 

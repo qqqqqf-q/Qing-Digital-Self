@@ -1,8 +1,10 @@
-# Qing-Digital-Self
+# MirrorFlow
+
+<sub>旧名：Qing-Digital-Self（Old Name）</sub>
 
 Conversation-to-training pipeline: Digital Twin + Model Distillation.
 
-Qing-Digital-Self provides an end-to-end toolchain:
+MirrorFlow provides an end-to-end toolchain:
 
 **conversation data -> cleaning/extraction -> training samples -> fine-tuning/distillation -> usage & evaluation**.
 
