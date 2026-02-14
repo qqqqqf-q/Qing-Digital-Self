@@ -59,6 +59,16 @@ Below are some results trained with Qwen2.5 1.5B Instruct + my own data LoRA + a
 ### Qwen base model (no system prompt)
 ![OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp](https://cdn.nodeimage.com/i/OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp)
 
+## Contribute / Train
+
+If you want to join Keep4o:
+
+- Contribute data: click “Export data” in ChatGPT settings and send me the exported zip archive  
+  X: [@qqqqqf5](https://x.com/qqqqqf5)  
+  Telegram: [DM me here](https://t.me/NS_qingf_bot)
+- Train locally: run `openai-distill` / `openai-clean` to generate the dataset, then follow “Quick Start -> Fine-tune Model”  
+  Docs: <https://qqqqqf-q.github.io/Qing-Digital-Self/en/>
+
 ## Digital Twin
 
 This repo also includes a full tutorial/pipeline for digital-twin training, including:

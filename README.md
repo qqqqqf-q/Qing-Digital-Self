@@ -58,6 +58,17 @@ Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)
 ![RRyJRANLgP6v1W2AINNy5uXyz8B4ghb4.webp](https://cdn.nodeimage.com/i/RRyJRANLgP6v1W2AINNy5uXyz8B4ghb4.webp)
 ### 仅Qwen原模型无SystemPrompt
 ![OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp](https://cdn.nodeimage.com/i/OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp)
+
+## 开始贡献 / 训练
+
+如果你想参与 Keep4o：
+
+- 贡献数据：在 OpenAI 官网点击`导出数据`，把导出压缩包发给我  
+  X: [@qqqqqf5](https://x.com/qqqqqf5)  
+  Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)
+- 本地训练：先跑 `openai-distill` / `openai-clean` 生成训练集，再按文档里的「快速上手 -> 微调模型」进行微调  
+  Docs: <https://qqqqqf-q.github.io/Qing-Digital-Self/>
+
 ## 数字分身
 
 仓库也包含一套完整的数字分身教程与流程，包括：

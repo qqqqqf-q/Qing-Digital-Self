@@ -12,7 +12,8 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: '开始', link: '/' },
-          { text: '快速上手', link: '/guide/index' }
+          { text: '快速上手', link: '/guide/index' },
+          { text: 'Keep4o', link: '/keep4o/index' }
         ],
         sidebar: [
           {
@@ -32,6 +33,16 @@ export default defineConfig({
               { text: '6. 转换GUFF和量化模型', link: '/guide/convert-model' },
               { text: '7. 运行模型', link: '/guide/run-model' },
 
+            ]
+          },
+          {
+            text: 'Keep4o',
+            items: [
+              { text: '简介', link: '/keep4o/index' },
+              { text: '1. 导出 ChatGPT 数据', link: '/keep4o/export' },
+              { text: '2. OpenAI Distill（生成 SFT）', link: '/keep4o/distill' },
+              { text: '3. OpenAI Clean（LLM 清洗）', link: '/keep4o/clean' },
+              { text: '4. 微调模型', link: '/guide/finetune-llama-factory' }
             ]
           },
           {
@@ -61,7 +72,8 @@ export default defineConfig({
       themeConfig: {
         nav: [
           { text: 'Home', link: '/en/' },
-          { text: 'Quick Start', link: '/en/guide/index' }
+          { text: 'Quick Start', link: '/en/guide/index' },
+          { text: 'Keep4o', link: '/en/keep4o/index' }
         ],
         sidebar: [
           {
@@ -82,6 +94,16 @@ export default defineConfig({
               { text: '7. Convert GGUF and Quantize Model', link: '/en/guide/convert-model' },
               { text: '8. Run Model', link: '/en/guide/run-model' },
 
+            ]
+          },
+          {
+            text: 'Keep4o',
+            items: [
+              { text: 'Overview', link: '/en/keep4o/index' },
+              { text: '1. Export ChatGPT Data', link: '/en/keep4o/export' },
+              { text: '2. OpenAI Distill (Generate SFT)', link: '/en/keep4o/distill' },
+              { text: '3. OpenAI Clean (LLM Cleanup)', link: '/en/keep4o/clean' },
+              { text: '4. Fine-tune Model', link: '/en/guide/fine-tune-model' }
             ]
           },
           {
