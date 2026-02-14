@@ -12,8 +12,22 @@ import sys
 import argparse
 from typing import List, Dict, Any
 
-# 添加项目根目录到Python路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+def _ensure_project_root_on_path() -> None:
+    """确保项目根目录在 sys.path，便于直接运行脚本。"""
+    current_dir = os.path.abspath(os.path.dirname(__file__))
+    for _ in range(10):
+        if os.path.isdir(os.path.join(current_dir, "utils")):
+            if current_dir not in sys.path:
+                sys.path.insert(0, current_dir)
+            return
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
+            break
+        current_dir = parent_dir
+    raise RuntimeError("无法定位项目根目录（未找到 utils/），请在仓库根目录执行脚本")
+
+
+_ensure_project_root_on_path()
 from utils.logger.logger import get_logger
 
 # 创建 logger 实例
