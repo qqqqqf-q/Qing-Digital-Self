@@ -55,6 +55,15 @@ class DistillOptions:
     max_messages: int = 80
 
 
+@dataclass(frozen=True)
+class OpenAIExportSource:
+    """一次 ChatGPT 导出源（以 conversations.json 为入口）。"""
+
+    conversations_path: Path
+    export_root: Path
+    chat_html_path: Optional[Path] = None
+
+
 @dataclass
 class DistillStats:
     total_conversations: int = 0
@@ -69,6 +78,45 @@ class DistillStats:
     def drop(self, reason: str) -> None:
         self.dropped_conversations += 1
         self.dropped_by_reason[reason] = self.dropped_by_reason.get(reason, 0) + 1
+
+
+def discover_openai_export_sources(input_path: Path) -> List[OpenAIExportSource]:
+    """发现 OpenAI 导出源。
+
+    - input_path 为文件：按单文件处理
+    - input_path 为目录：递归查找所有 conversations.json
+    """
+
+    def to_source(path: Path) -> OpenAIExportSource:
+        export_root = path.parent
+        chat_html = export_root / "chat.html"
+        return OpenAIExportSource(
+            conversations_path=path,
+            export_root=export_root,
+            chat_html_path=chat_html if chat_html.exists() else None,
+        )
+
+    if input_path.is_file():
+        return [to_source(input_path)]
+
+    if not input_path.is_dir():
+        return []
+
+    candidates = [p for p in input_path.rglob("conversations.json") if p.is_file()]
+    candidates.sort(key=lambda p: p.as_posix().lower())
+
+    sources: List[OpenAIExportSource] = []
+    seen: Set[str] = set()
+    for p in candidates:
+        try:
+            key = p.resolve().as_posix()
+        except Exception:
+            key = p.absolute().as_posix()
+        if key in seen:
+            continue
+        seen.add(key)
+        sources.append(to_source(p))
+    return sources
 
 
 def sha256sum(path: Path, chunk_size: int = 1024 * 1024) -> str:
@@ -364,6 +412,10 @@ def distill_openai_export(
     logger = get_logger("OpenAIExportDistill")
     output_root.mkdir(parents=True, exist_ok=True)
 
+    sources = discover_openai_export_sources(input_path)
+    if not sources:
+        raise ValueError(f"未发现可用的 conversations.json: {input_path}")
+
     normalized_dir = output_root / "normalized"
     sft_dir = output_root / "sft"
     stats_dir = output_root / "stats"
@@ -376,41 +428,50 @@ def distill_openai_export(
     stats_path = stats_dir / "summary.json"
     manifest_path = output_root / "manifest.json"
 
-    input_hash = sha256sum(input_path)
+    source_hashes = [sha256sum(s.conversations_path) for s in sources]
+    input_hash = (
+        source_hashes[0]
+        if len(source_hashes) == 1
+        else hashlib.sha256("\n".join(sorted(source_hashes)).encode("utf-8")).hexdigest()
+    )
     started_at = datetime.now().isoformat(timespec="seconds")
 
     stats = DistillStats()
     allow_models = {m.strip() for m in options.allow_models if str(m).strip()}
 
+    if len(sources) > 1:
+        logger.info(f"检测到 {len(sources)} 份导出，将合并蒸馏到同一份输出")
+
     with open(normalized_path, "w", encoding="utf-8") as f_norm, open(sft_path, "w", encoding="utf-8") as f_sft:
-        for raw in iter_json_array_items(input_path):
-            if not isinstance(raw, dict):
-                continue
+        for source in sources:
+            for raw in iter_json_array_items(source.conversations_path):
+                if not isinstance(raw, dict):
+                    continue
 
-            stats.total_conversations += 1
-            try:
-                conv = normalize_conversation(raw)
-            except Exception:
-                stats.drop("normalize_error")
-                continue
+                stats.total_conversations += 1
+                try:
+                    conv = normalize_conversation(raw)
+                except Exception:
+                    stats.drop("normalize_error")
+                    continue
 
-            if allow_models and conv.model and conv.model not in allow_models:
-                stats.drop("model_filtered")
-                continue
+                if allow_models and conv.model and conv.model not in allow_models:
+                    stats.drop("model_filtered")
+                    continue
 
-            if options.cutoff_ts is not None and conv.create_time is not None and conv.create_time < options.cutoff_ts:
-                stats.drop("cutoff_ts")
-                continue
+                if options.cutoff_ts is not None and conv.create_time is not None and conv.create_time < options.cutoff_ts:
+                    stats.drop("cutoff_ts")
+                    continue
 
-            stats.normalized_messages += len(conv.messages)
-            f_norm.write(json.dumps(asdict(conv), ensure_ascii=False) + "\n")
+                stats.normalized_messages += len(conv.messages)
+                f_norm.write(json.dumps(asdict(conv), ensure_ascii=False) + "\n")
 
-            sample = build_sft_sample(conv, options, stats)
-            if not sample:
-                continue
+                sample = build_sft_sample(conv, options, stats)
+                if not sample:
+                    continue
 
-            f_sft.write(json.dumps(sample, ensure_ascii=False) + "\n")
-            stats.kept_conversations += 1
+                f_sft.write(json.dumps(sample, ensure_ascii=False) + "\n")
+                stats.kept_conversations += 1
 
     payload = {
         "pipeline": "openai-distill",
@@ -418,6 +479,15 @@ def distill_openai_export(
         "created_at": started_at,
         "input_path": str(input_path.as_posix()),
         "input_hash": input_hash,
+        "inputs": [
+            {
+                "conversations_path": str(s.conversations_path.as_posix()),
+                "sha256": source_hashes[idx],
+                "export_root": str(s.export_root.as_posix()),
+                "chat_html_path": str(s.chat_html_path.as_posix()) if s.chat_html_path else None,
+            }
+            for idx, s in enumerate(sources)
+        ],
         "filters": {
             "allow_models": sorted(list(allow_models)),
             "cutoff_ts": options.cutoff_ts,
@@ -445,4 +515,3 @@ def distill_openai_export(
     logger.info(f"完成 OpenAI 导出蒸馏: {output_root}")
     logger.info(f"SFT 输出: {sft_path}")
     return stats
-

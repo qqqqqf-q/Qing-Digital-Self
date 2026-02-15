@@ -1,6 +1,6 @@
 ## 2. OpenAI Distill (Generate SFT)
 
-Goal: convert `data/openai-export/conversations.json` into trainable SFT (text-first).
+Goal: convert ChatGPT exports under `data/openai-export/` (single or multiple) into trainable SFT (text-first).
 
 ---
 
@@ -28,6 +28,8 @@ Outputs:
 ## Common flags
 
 ```bash
+python cli.py data openai-distill --input ./data/openai-export/user_a/conversations.json
+python cli.py data openai-distill --input ./data/openai-export/
 python cli.py data openai-distill --allow-models gpt-4o,gpt-4-1
 python cli.py data openai-distill --pii-policy mask
 python cli.py data openai-distill --keep-code --keep-tool
@@ -40,4 +42,3 @@ python cli.py data openai-distill --keep-code --keep-tool
 ```bash
 python cli.py data preview --input runs/openai-distill/<run_id>/sft/text.jsonl --count 3
 ```
-

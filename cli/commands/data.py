@@ -575,6 +575,12 @@ class DataCommand(BaseCommand):
         if candidate.exists():
             return candidate
 
+        candidate_dir = data_root / "openai-export"
+        if candidate_dir.exists() and candidate_dir.is_dir():
+            for p in candidate_dir.rglob("conversations.json"):
+                if p.is_file():
+                    return candidate_dir
+
         legacy = Path("openai_data") / "conversations.json"
         if legacy.exists():
             self._print_migration_tip(
@@ -582,12 +588,21 @@ class DataCommand(BaseCommand):
             )
             return legacy
 
-        return candidate
+        return candidate_dir if candidate_dir.exists() else candidate
 
     def _validate_openai_distill_args(self, args: argparse.Namespace) -> None:
         data_root = Path(getattr(args, "data_root", None) or self._data_root())
         input_path = self._resolve_openai_export_input(args, data_root=data_root)
         validate_path(str(input_path), must_exist=True)
+
+        try:
+            from process_data.openai_export_distill import discover_openai_export_sources
+        except Exception as e:
+            raise ValidationError(f"无法加载 OpenAI 导出解析模块: {e}")
+
+        sources = discover_openai_export_sources(input_path)
+        if not sources:
+            raise ValidationError(f"未在目录中找到 conversations.json: {input_path}")
 
         max_chars = int(getattr(args, "max_chars", 20000) or 20000)
         max_messages = int(getattr(args, "max_messages", 80) or 80)

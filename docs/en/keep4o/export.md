@@ -22,5 +22,15 @@ You should typically see:
 ./data/openai-export/conversations.json
 ```
 
-If you still have the legacy folder `openai_data/`, `openai-distill` can read it and will print a migration tip.
+If you have multiple exports (e.g., two different accounts), it’s recommended to keep each export in its own subfolder (just unzip into different subfolders):
 
+```bash
+./data/openai-export/user_a/conversations.json
+./data/openai-export/user_a/chat.html
+./data/openai-export/user_b/conversations.json
+./data/openai-export/user_b/chat.html
+```
+
+`openai-distill` will recursively scan `data/openai-export/` and merge all discovered `conversations.json`.
+
+If you still have the legacy folder `openai_data/`, `openai-distill` can read it and will print a migration tip.

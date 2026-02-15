@@ -34,7 +34,6 @@ DEFAULT_BASE_PROMPT = (
 
 
 DEFAULT_CLEAN_SYSTEM_PROMPT = """你是一个训练数据清洗与编辑器。
-/no_think
 
 任务：你只做“筛选”，不要做任何改写、删除、重排或脱敏。
 

@@ -249,7 +249,7 @@ def create_parser() -> argparse.ArgumentParser:
         'openai-distill',
         help='从 ChatGPT 导出(OpenAI-Export)生成训练集（normalized + sft/text.jsonl）'
     )
-    data_openai_distill.add_argument('--input', help='conversations.json 路径（默认: data/openai-export/conversations.json，兼容 openai_data/conversations.json）')
+    data_openai_distill.add_argument('--input', help='conversations.json 文件或包含多个导出的目录（默认: data/openai-export/，递归发现 conversations.json；兼容 openai_data/conversations.json）')
     data_openai_distill.add_argument('--run-id', help='指定本次运行ID（默认自动生成 YYYYMMDD_HHMMSS，可配合 --run-tag）')
     data_openai_distill.add_argument('--run-tag', default='openai4o', help='自动run_id的后缀标签（默认: openai4o）')
     data_openai_distill.add_argument('--allow-models', default='gpt-4o,gpt-4-1', help='允许的 default_model_slug，逗号分隔（默认: gpt-4o,gpt-4-1）')
