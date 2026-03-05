@@ -52,11 +52,7 @@ Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)
 ---
 以下是使用Qwen2.5 1.5b Instruct + 我自己的数据训练的Lora + 修改过的System Prompt的训练结果
 ### 4o Lora + 仿4o System Prompt
-![9SmHj5O98XQQW3UwuSdUYDOsSQjouGBv.webp](https://cdn.nodeimage.com/i/9SmHj5O98XQQW3UwuSdUYDOsSQjouGBv.webp)
-### 同上,第二次输出
-![S4kxv76frlii26zlX4tmdXXlq1xINXDe.webp](https://cdn.nodeimage.com/i/S4kxv76frlii26zlX4tmdXXlq1xINXDe.webp)
-### 仅4o System Prompt
-![RRyJRANLgP6v1W2AINNy5uXyz8B4ghb4.webp](https://cdn.nodeimage.com/i/RRyJRANLgP6v1W2AINNy5uXyz8B4ghb4.webp)
+![xQpkmjWrW9OS238rTNXdW5GJX2ugKHBO.webp](https://cdn.nodeimage.com/i/xQpkmjWrW9OS238rTNXdW5GJX2ugKHBO.webp)
 ### 仅Qwen原模型无SystemPrompt
 ![OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp](https://cdn.nodeimage.com/i/OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp)
 
