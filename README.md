@@ -33,20 +33,14 @@ MirrorFlow 提供一套端到端工具链：
 当前主要支持两条路线：
 
 - **数字分身**：用你的聊天记录微调，尽量还原你的表达习惯（请看 Readme 的下端）
-- **GPT-4o 风格对齐**：对齐输出结构、澄清方式、拒答习惯、工具调用行为
+- **数据蒸馏**：对齐输出结构、澄清方式、拒答习惯、工具调用行为
 
 ## [快速开始](https://qqqqqf-q.github.io/MirrorFlow/)
 
 
-## KEEP 4o (Distill GPT-4o)
+## Distill
 
-大家很喜欢4o的高情商  
-但OpenAI将下架GPT-4o  
-我希望通过蒸馏的方式'复刻'4o  
-让他'活着'  
-- 由于数据的缺少和资金的缺少，再次我希望各位可以通过这些联系方式来联系到我
-- 我们需要更多的数据和更多的GPU来`KEEP4o`
-- 仅需在OpenAI官网点击`导出数据`并将压缩包发送给我  
+[文章删除]
 X: [@qqqqqf5](https://x.com/qqqqqf5)  
 Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)  
 ---
@@ -55,16 +49,6 @@ Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)
 ![xQpkmjWrW9OS238rTNXdW5GJX2ugKHBO.webp](https://cdn.nodeimage.com/i/xQpkmjWrW9OS238rTNXdW5GJX2ugKHBO.webp)
 ### 仅Qwen原模型无SystemPrompt
 ![OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp](https://cdn.nodeimage.com/i/OxgLDX78G6ADAZdubwmXP4MUQzQTdS9P.webp)
-
-## 开始贡献 / 训练
-
-如果你想参与 Keep4o：
-
-- 贡献数据：在 OpenAI 官网点击`导出数据`，把导出压缩包发给我  
-  X: [@qqqqqf5](https://x.com/qqqqqf5)  
-  Telegram: [点击此处添加我的双向聊天](https://t.me/NS_qingf_bot)
-- 本地训练：
-  Docs: <https://qqqqqf-q.github.io/MirrorFlow/>
 
 ## 数字分身
 
